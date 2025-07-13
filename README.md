@@ -34,13 +34,13 @@ Hardware tasks:
 - [ ] dose the navigation start coordinates is based on separate module (GPS6mv2) or user phone data?
 - [ ] why both WiFi and Bluetooth? 
 - [ ] need a display?
-- [ ]doe the MPU6500(gyroscope) need Falcon filter for calibration.
+- [ ] doe the MPU6500(gyroscope) need Falcon filter for calibration.
 
 ## log
 
 ### 1404/04/22
-time: 10 P.M => working on an MPU6500 library and studying it(you can fined it in setup modules)
-time: 1  P.M => setting up I2C and UART for MPU6500
+- time: 10 P.M => working on an MPU6500 library and studying it(you can fined it in setup modules)
+- time: 1  P.M => setting up I2C and UART for MPU6500
 
 ## 📜 License
 
