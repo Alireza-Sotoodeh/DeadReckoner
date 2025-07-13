@@ -19,21 +19,28 @@ more will be added ...
 Hardware tasks:
 - [ ] verify all below hardware before getting started
 - [ ] setup Bluetooth
---- HC-05 Bluetooth module_ distance: 10m _ UART protocol
+	HC-05 Bluetooth module_ distance: 10m _ UART protocol
 - [ ] setup WiFi
---- ESP-01S WIFI module_ main chip: ESP8266
+	ESP-01S WIFI module_ main chip: ESP8266
 - [ ] setup SD card
---- micro-SD card adapter module _ SPI protocol
+	micro-SD card adapter module _ SPI protocol
 - [ ] setup Gyroscope
-----GY_521 module/(3-axis Acceleration & Gyroscope)/main chip:MPU-6050/I2C protocol
-----GY_25 module/(3-axis Acceleration & Gyroscope)/main chip: MPU-6050/I2C & UART protocol
-----HW123 module/(3-axis Acceleration & Gyroscope)/main chip: MPU-6050/
-----MPU6500 module_ (6-axis Acceleration & Gyroscope)_main chip: MPU-6500_I2C & UART protocol
+	GY_521 module/(3-axis Acceleration & Gyroscope)/main chip:MPU-6050/I2C protocol
+	GY_25 module/(3-axis Acceleration & Gyroscope)/main chip: MPU-6050/I2C & UART protocol
+	HW123 module/(3-axis Acceleration & Gyroscope)/main chip: MPU-6050/
+	MPU6500 module_ (6-axis Acceleration & Gyroscope)_main chip: MPU-6500_I2C & UART protocol
 
 ## Questioned
 - [ ] dose the navigation start coordinates is based on separate module (GPS6mv2) or user phone data?
 - [ ] why both WiFi and Bluetooth? 
 - [ ] need a display?
+- [ ]doe the MPU6500(gyroscope) need Falcon filter for calibration.
+
+## log
+
+### 1404/04/22
+time: 10 P.M => working on an MPU6500 library and studying it(you can fined it in setup modules)
+time: 1  P.M => setting up I2C and UART for MPU6500
 
 ## 📜 License
 
