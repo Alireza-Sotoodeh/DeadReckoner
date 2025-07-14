@@ -1,6 +1,8 @@
 "./Core/Src/driver_mpu6500.o"
 "./Core/Src/driver_mpu6500_basic.o"
+"./Core/Src/driver_mpu6500_dmp.o"
 "./Core/Src/driver_mpu6500_interface.o"
+"./Core/Src/main.o"
 "./Core/Src/stm32f4xx_hal_msp.o"
 "./Core/Src/stm32f4xx_it.o"
 "./Core/Src/syscalls.o"

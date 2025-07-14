@@ -406,3 +406,22 @@ Caused by: java.net.SocketException: Connection reset
 
 !ENTRY org.eclipse.equinox.p2.metadata.repository 4 1000 2025-07-13 19:03:01.004
 !MESSAGE No repository found at https://download.eclipse.org/releases/2024-09.
+!SESSION 2025-07-14 10:48:07.042 -----------------------------------------------
+eclipse.buildId=Version 1.18.0
+java.version=21.0.3
+java.vendor=Eclipse Adoptium
+BootLoader constants: OS=win32, ARCH=x86_64, WS=win32, NL=en_US
+Framework arguments:  D:\university\studies\Navigation-STM32\Navigation-STM32\Navigationa_PJ\.project
+Command-line arguments:  -os win32 -ws win32 -arch x86_64 D:\university\studies\Navigation-STM32\Navigation-STM32\Navigationa_PJ\.project
+
+!ENTRY com.st.stm32cube.ide.mcu.informationcenter 4 4 2025-07-14 10:48:13.682
+!MESSAGE CubeMX plugin appears to be active, Log4j initialization might be too late.
+
+!ENTRY com.st.stm32cube.ide.mcu.informationcenter 1 1 2025-07-14 10:48:13.682
+!MESSAGE Log4j2 initialized with config file D:\university\studies\Navigation-STM32\Navigation-STM32\.metadata\.log4j2.xml
+
+!ENTRY com.st.stm32cube.ide.mcu.ide 1 1 2025-07-14 10:48:25.803
+!MESSAGE Started RMI Server, listening on port 41337
+
+!ENTRY org.eclipse.cdt.core 1 0 2025-07-14 10:48:29.117
+!MESSAGE Indexed 'Navigationa_PJ' (24 sources, 130 headers) in 3.14 sec: 14,715 declarations; 58,854 references; 1 unresolved inclusions; 92 syntax errors; 240 unresolved names (0.33%)
