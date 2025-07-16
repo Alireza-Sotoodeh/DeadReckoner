@@ -181,3 +181,19 @@ void mpu6500_interface_dmp_orient_callback(uint8_t orientation);
 #endif
 
 #endif
+
+// added manually
+
+/**
+ * @brief     Interface SPI bus initialization
+ * @note      none
+ * @retval    0 on success, 1 on failure
+ */
+uint8_t mpu6500_interface_spi_init(void);
+
+/**
+ * @brief     Interface SPI bus deinitialization
+ * @note      none
+ * @retval    0 on success, 1 on failure
+ */
+uint8_t mpu6500_interface_spi_deinit(void);

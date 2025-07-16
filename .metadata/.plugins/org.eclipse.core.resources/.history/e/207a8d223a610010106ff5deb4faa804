@@ -22,7 +22,6 @@
 #include "driver_mpu6500_dmp.h"
 #include <stdio.h>
 #include <string.h>
-#include <math.h>  // Added for sin() and M_PI
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
@@ -39,7 +38,6 @@
 #define SAMPLE_RATE_HZ 100  // 100Hz update rate
 #define ACCEL_RANGE MPU6500_ACCELEROMETER_RANGE_4G
 #define GYRO_RANGE MPU6500_GYROSCOPE_RANGE_500DPS
-#define PI 3.14159265358979323846f  // Define PI if not available in math.h
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -51,14 +49,11 @@
 SPI_HandleTypeDef hspi1;
 UART_HandleTypeDef huart1;
 
-// Add this global handle declaration
-static mpu6500_handle_t gs_handle;
-
 /* USER CODE BEGIN PV */
 // Variables for sensor data
 float accel_g[3] = {0};      // Acceleration in g
 float gyro_dps[3] = {0};     // Gyro in degrees per second
-int32_t quat[4] = {0};       // Changed to int32_t to match DMP function signature
+float quat[4] = {0};         // Quaternion for orientation
 float pitch = 0, roll = 0, yaw = 0;  // Euler angles
 uint32_t step_count = 0;     // Pedometer step count
 
@@ -138,8 +133,8 @@ void update_navigation_estimates(void)
         {
             // Subtract gravity component (using pitch/roll)
             float gravity_component = 0;
-            if (i == 0) gravity_component = sinf(roll * PI / 180.0f);  // Changed to sinf and PI
-            if (i == 1) gravity_component = -sinf(pitch * PI / 180.0f); // Changed to sinf and PI
+            if (i == 0) gravity_component = sin(roll * M_PI / 180.0f);
+            if (i == 1) gravity_component = -sin(pitch * M_PI / 180.0f);
             if (i == 2) gravity_component = -1.0f; // Assuming Z is up
 
             float linear_accel = accel_g[i] - gravity_component;
@@ -162,7 +157,7 @@ void send_data_via_uart(void)
     if (current_time - last_send_time >= 100)
     {
         char buffer[256];
-        snprintf(buffer, sizeof(buffer), // @suppress("Float formatting support")
+        snprintf(buffer, sizeof(buffer),
                 "Pitch: %.2f, Roll: %.2f, Yaw: %.2f | "
                 "Accel: %.2f, %.2f, %.2f g | "
                 "Gyro: %.2f, %.2f, %.2f dps | "

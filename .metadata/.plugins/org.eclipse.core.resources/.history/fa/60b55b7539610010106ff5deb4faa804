@@ -18,11 +18,6 @@
 /* USER CODE END Header */
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
-#include "driver_mpu6500.h"
-#include "driver_mpu6500_dmp.h"
-#include <stdio.h>
-#include <string.h>
-#include <math.h>  // Added for sin() and M_PI
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
@@ -36,10 +31,7 @@
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
-#define SAMPLE_RATE_HZ 100  // 100Hz update rate
-#define ACCEL_RANGE MPU6500_ACCELEROMETER_RANGE_4G
-#define GYRO_RANGE MPU6500_GYROSCOPE_RANGE_500DPS
-#define PI 3.14159265358979323846f  // Define PI if not available in math.h
+
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -49,22 +41,11 @@
 
 /* Private variables ---------------------------------------------------------*/
 SPI_HandleTypeDef hspi1;
+
 UART_HandleTypeDef huart1;
 
-// Add this global handle declaration
-static mpu6500_handle_t gs_handle;
-
 /* USER CODE BEGIN PV */
-// Variables for sensor data
-float accel_g[3] = {0};      // Acceleration in g
-float gyro_dps[3] = {0};     // Gyro in degrees per second
-int32_t quat[4] = {0};       // Changed to int32_t to match DMP function signature
-float pitch = 0, roll = 0, yaw = 0;  // Euler angles
-uint32_t step_count = 0;     // Pedometer step count
 
-// Navigation variables
-float position[3] = {0};     // Estimated position (x,y,z)
-float velocity[3] = {0};     // Estimated velocity
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -73,109 +54,12 @@ static void MX_GPIO_Init(void);
 static void MX_SPI1_Init(void);
 static void MX_USART1_UART_Init(void);
 /* USER CODE BEGIN PFP */
-void mpu6500_receive_callback(uint8_t type);
-void mpu6500_tap_callback(uint8_t count, uint8_t direction);
-void mpu6500_orient_callback(uint8_t orientation);
-void update_navigation_estimates(void);
-void send_data_via_uart(void);
+
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
-// Callback for MPU6500 data ready interrupt
-void mpu6500_receive_callback(uint8_t type)
-{
-    if (type == MPU6500_INTERRUPT_DATA_READY)
-    {
-        uint16_t len = 1;
-        int16_t accel_raw[3];
-        int16_t gyro_raw[3];
 
-        // Read DMP data (includes orientation)
-        if (mpu6500_dmp_read_all(&accel_raw, &accel_g,
-                                &gyro_raw, &gyro_dps,
-                                &quat,
-                                &pitch, &roll, &yaw,
-                                &len) == 0)
-        {
-            // Update navigation estimates
-            update_navigation_estimates();
-
-            // Optionally send data via UART
-            send_data_via_uart();
-        }
-    }
-}
-
-// Tap detection callback (not used for navigation but included for completeness)
-void mpu6500_tap_callback(uint8_t count, uint8_t direction)
-{
-    char buffer[50];
-    snprintf(buffer, sizeof(buffer), "Tap detected: count=%d, dir=%d\r\n", count, direction);
-    HAL_UART_Transmit(&huart1, (uint8_t *)buffer, strlen(buffer), HAL_MAX_DELAY);
-}
-
-// Orientation callback (for detecting device orientation changes)
-void mpu6500_orient_callback(uint8_t orientation)
-{
-    char buffer[50];
-    snprintf(buffer, sizeof(buffer), "Orientation changed: %d\r\n", orientation);
-    HAL_UART_Transmit(&huart1, (uint8_t *)buffer, strlen(buffer), HAL_MAX_DELAY);
-}
-
-// Simple navigation update (dead reckoning)
-void update_navigation_estimates(void)
-{
-    static uint32_t last_time = 0;
-    uint32_t current_time = HAL_GetTick();
-    float dt = (current_time - last_time) / 1000.0f; // Convert to seconds
-
-    if (last_time != 0 && dt > 0)
-    {
-        // Simple integration of acceleration to get velocity
-        // Note: This is very basic and will drift quickly - you'll need more sophisticated filtering
-        for (int i = 0; i < 3; i++)
-        {
-            // Subtract gravity component (using pitch/roll)
-            float gravity_component = 0;
-            if (i == 0) gravity_component = sinf(roll * PI / 180.0f);  // Changed to sinf and PI
-            if (i == 1) gravity_component = -sinf(pitch * PI / 180.0f); // Changed to sinf and PI
-            if (i == 2) gravity_component = -1.0f; // Assuming Z is up
-
-            float linear_accel = accel_g[i] - gravity_component;
-
-            velocity[i] += linear_accel * 9.81f * dt; // Convert g to m/s²
-            position[i] += velocity[i] * dt;
-        }
-    }
-
-    last_time = current_time;
-}
-
-// Send data via UART for debugging
-void send_data_via_uart(void)
-{
-    static uint32_t last_send_time = 0;
-    uint32_t current_time = HAL_GetTick();
-
-    // Only send every 100ms to avoid flooding the UART
-    if (current_time - last_send_time >= 100)
-    {
-        char buffer[256];
-        snprintf(buffer, sizeof(buffer), // @suppress("Float formatting support")
-                "Pitch: %.2f, Roll: %.2f, Yaw: %.2f | "
-                "Accel: %.2f, %.2f, %.2f g | "
-                "Gyro: %.2f, %.2f, %.2f dps | "
-                "Pos: %.2f, %.2f, %.2f m\r\n",
-                pitch, roll, yaw,
-                accel_g[0], accel_g[1], accel_g[2],
-                gyro_dps[0], gyro_dps[1], gyro_dps[2],
-                position[0], position[1], position[2]);
-
-        HAL_UART_Transmit(&huart1, (uint8_t *)buffer, strlen(buffer), HAL_MAX_DELAY);
-        last_send_time = current_time;
-    }
-}
 /* USER CODE END 0 */
 
 /**
@@ -184,8 +68,9 @@ void send_data_via_uart(void)
   */
 int main(void)
 {
+
   /* USER CODE BEGIN 1 */
-  uint8_t res;
+
   /* USER CODE END 1 */
 
   /* MCU Configuration--------------------------------------------------------*/
@@ -208,51 +93,21 @@ int main(void)
   MX_GPIO_Init();
   MX_SPI1_Init();
   MX_USART1_UART_Init();
-
   /* USER CODE BEGIN 2 */
-  // Initialize MPU6500 in DMP mode
-  res = mpu6500_dmp_init(MPU6500_INTERFACE_SPI, MPU6500_ADDRESS_AD0_LOW,
-                         mpu6500_receive_callback,
-                         mpu6500_tap_callback,
-                         mpu6500_orient_callback);
 
-  if (res != 0)
-  {
-      char error_msg[] = "MPU6500 initialization failed!\r\n";
-      HAL_UART_Transmit(&huart1, (uint8_t *)error_msg, strlen(error_msg), HAL_MAX_DELAY);
-      Error_Handler();
-  }
-
-  // Configure sample rate and ranges
-  mpu6500_set_sample_rate_divider(&gs_handle, (1000 / SAMPLE_RATE_HZ) - 1);
-  mpu6500_set_accelerometer_range(&gs_handle, ACCEL_RANGE);
-  mpu6500_set_gyroscope_range(&gs_handle, GYRO_RANGE);
-
-  char init_msg[] = "MPU6500 initialized successfully!\r\n";
-  HAL_UART_Transmit(&huart1, (uint8_t *)init_msg, strlen(init_msg), HAL_MAX_DELAY);
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-      // Main loop doesn't need to do much - everything is interrupt driven
-      HAL_Delay(100);
-
-      // Periodically get pedometer count
-      if (mpu6500_dmp_get_pedometer_counter(&step_count) == 0)
-      {
-          char step_msg[50];
-          snprintf(step_msg, sizeof(step_msg), "Steps: %lu\r\n", step_count);
-          HAL_UART_Transmit(&huart1, (uint8_t *)step_msg, strlen(step_msg), HAL_MAX_DELAY);
-      }
-
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
   }
   /* USER CODE END 3 */
 }
+
 /**
   * @brief System Clock Configuration
   * @retval None

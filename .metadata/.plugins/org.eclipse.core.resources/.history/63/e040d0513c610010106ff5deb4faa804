@@ -242,27 +242,3 @@ void mpu6500_interface_receive_callback(uint8_t type)
         }
     }
 }
-
-// adding for resolving the error (undefined MP6500_interface_spi)
-
-/**
- * @brief     Interface SPI bus initialization
- * @note      Initializes SPI peripheral (already done by CubeMX)
- * @retval    0 on success, 1 on failure
- */
-uint8_t mpu6500_interface_spi_init(void)
-{
-    // SPI is already initialized by CubeMX, so just return success
-    return 0;
-}
-
-/**
- * @brief     Interface SPI bus deinitialization
- * @note      Deinitializes SPI peripheral (optional)
- * @retval    0 on success, 1 on failure
- */
-uint8_t mpu6500_interface_spi_deinit(void)
-{
-    // Optional deinit - not typically needed as CubeMX handles it
-    return 0;
-}

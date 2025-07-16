@@ -9,3 +9,5 @@
 ../Core/Src/driver_mpu6500_interface.c:184:6:mpu6500_interface_delay_ms	1
 ../Core/Src/driver_mpu6500_interface.c:194:6:mpu6500_interface_debug_print	1
 ../Core/Src/driver_mpu6500_interface.c:209:6:mpu6500_interface_receive_callback	6
+../Core/Src/driver_mpu6500_interface.c:253:9:mpu6500_interface_spi_init	1
+../Core/Src/driver_mpu6500_interface.c:264:9:mpu6500_interface_spi_deinit	1

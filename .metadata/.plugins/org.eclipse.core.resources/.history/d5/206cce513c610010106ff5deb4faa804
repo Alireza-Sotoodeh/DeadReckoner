@@ -162,7 +162,7 @@ void send_data_via_uart(void)
     if (current_time - last_send_time >= 100)
     {
         char buffer[256];
-        snprintf(buffer, sizeof(buffer), // @suppress("Float formatting support")
+        snprintf(buffer, sizeof(buffer),
                 "Pitch: %.2f, Roll: %.2f, Yaw: %.2f | "
                 "Accel: %.2f, %.2f, %.2f g | "
                 "Gyro: %.2f, %.2f, %.2f dps | "
