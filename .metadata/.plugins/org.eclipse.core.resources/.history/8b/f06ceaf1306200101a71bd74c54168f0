@@ -39,7 +39,7 @@
 #define SAMPLE_RATE_HZ 100  // 100Hz update rate
 #define ACCEL_RANGE MPU6500_ACCELEROMETER_RANGE_4G
 #define GYRO_RANGE MPU6500_GYROSCOPE_RANGE_500DPS
-#define PI 3.141592653589793238462643383279502884197f  // Define PI if not available in math.h
+#define PI 3.14159265358979323846f  // Define PI if not available in math.h
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
