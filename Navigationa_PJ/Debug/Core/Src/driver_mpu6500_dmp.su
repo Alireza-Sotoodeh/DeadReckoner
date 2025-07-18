@@ -1,5 +1,5 @@
-../Core/Src/driver_mpu6500_dmp.c:49:9:mpu6500_dmp_irq_handler	8	static
-../Core/Src/driver_mpu6500_dmp.c:72:9:mpu6500_dmp_init	96	static
-../Core/Src/driver_mpu6500_dmp.c:859:9:mpu6500_dmp_get_pedometer_counter	16	static
-../Core/Src/driver_mpu6500_dmp.c:887:9:mpu6500_dmp_read_all	48	static
-../Core/Src/driver_mpu6500_dmp.c:914:9:mpu6500_dmp_deinit	8	static
+../Core/Src/driver_mpu6500_dmp.c:49:9:mpu6500_dmp_irq_handler	16	static
+../Core/Src/driver_mpu6500_dmp.c:83:9:mpu6500_dmp_init	96	static
+../Core/Src/driver_mpu6500_dmp.c:870:9:mpu6500_dmp_get_pedometer_counter	16	static
+../Core/Src/driver_mpu6500_dmp.c:898:9:mpu6500_dmp_read_all	48	static
+../Core/Src/driver_mpu6500_dmp.c:925:9:mpu6500_dmp_deinit	8	static

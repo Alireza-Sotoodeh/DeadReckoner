@@ -60,13 +60,14 @@ Hardware tasks:
 MPU6500 Low-Pass Filter (LPF) Settings
 The MPU6500 has a configurable digital low-pass filter (DLPF) that affects both accelerometer and gyroscope data. The DLPF reduces noise but introduces a delay, so you need to balance noise reduction with responsiveness. The available DLPF settings are:
 
-MPU6500_LOW_PASS_FILTER_0: 260 Hz (accel), 256 Hz (gyro), minimal filtering, high noise.
+MPU6500_LOW_PASS_FILTER_0: 260 Hz (accel), 256 Hz (gyro). -minimal filtering, high noise.
 MPU6500_LOW_PASS_FILTER_1: 184 Hz (accel), 188 Hz (gyro).
 MPU6500_LOW_PASS_FILTER_2: 94 Hz (accel), 98 Hz (gyro).
-MPU6500_LOW_PASS_FILTER_3: 44 Hz (accel), 42 Hz (gyro) (default in code).
+MPU6500_LOW_PASS_FILTER_3: 44 Hz (accel), 42 Hz (gyro) -original setting, good for slow motions.
 MPU6500_LOW_PASS_FILTER_4: 21 Hz (accel), 20 Hz (gyro).
 MPU6500_LOW_PASS_FILTER_5: 10 Hz (accel), 10 Hz (gyro).
-MPU6500_LOW_PASS_FILTER_6: 5 Hz (accel), 5 Hz (gyro).
+MPU6500_LOW_PASS_FILTER_6: 5 Hz (accel), 5 Hz (gyro). –maximum filtering, high latency.
+the setting is located in driver_MPU6500_dmp.c
 
 ### to do:
 - [X] setup DMP

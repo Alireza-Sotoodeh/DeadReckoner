@@ -1,5 +1,4 @@
 "./Core/Src/driver_mpu6500.o"
-"./Core/Src/driver_mpu6500_basic.o"
 "./Core/Src/driver_mpu6500_dmp.o"
 "./Core/Src/driver_mpu6500_interface.o"
 "./Core/Src/main.o"

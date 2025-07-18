@@ -36,7 +36,7 @@
  */
 
 #include "driver_mpu6500_dmp.h"
-
+#define SAMPLE_RATE_HZ 200     /**< Sample rate set to 200 Hz */
 static mpu6500_handle_t gs_handle;        /**< mpu6500 handle */
 
 /**
@@ -48,12 +48,23 @@ static mpu6500_handle_t gs_handle;        /**< mpu6500 handle */
  */
 uint8_t mpu6500_dmp_irq_handler(void)
 {
+    uint16_t fifo_count;
     if (mpu6500_irq_handler(&gs_handle) != 0)
     {
         mpu6500_interface_debug_print("mpu6500: irq handler failed.\n");
         return 1;
     }
-    
+    if (mpu6500_get_fifo_count(&gs_handle, &fifo_count) != 0)
+    {
+        mpu6500_interface_debug_print("mpu6500: get fifo count failed.\n");
+        return 1;
+    }
+    if (fifo_count >= 1024)
+    {
+        mpu6500_interface_debug_print("mpu6500: FIFO overflow detected (count=%d).\n", fifo_count);
+        (void)mpu6500_force_fifo_reset(&gs_handle);
+        return 1;
+    }
     return 0;
 }
 
@@ -202,7 +213,7 @@ uint8_t mpu6500_dmp_init(mpu6500_interface_t interface, mpu6500_address_t addr_p
     }
     
     /* set the default rate */
-    res = mpu6500_set_sample_rate_divider(&gs_handle, (1000 / MPU6500_DMP_DEFAULT_RATE) - 1);
+    res = mpu6500_set_sample_rate_divider(&gs_handle, (1000 / SAMPLE_RATE_HZ) - 1);
     if (res != 0)
     {
         mpu6500_interface_debug_print("mpu6500: set sample rate divider failed (res=%d).\n", res);
@@ -438,7 +449,7 @@ uint8_t mpu6500_dmp_init(mpu6500_interface_t interface, mpu6500_address_t addr_p
     if (tap_callback != NULL)
     {
         /* set the default motion threshold */
-        res = mpu6500_motion_threshold_convert_to_register(&gs_handle, MPU6500_DMP_DEFAULT_MOTION_THRESHOLD, &reg);
+    	res = mpu6500_motion_threshold_convert_to_register(&gs_handle, MPU6500_DMP_DEFAULT_MOTION_THRESHOLD, &reg);
         if (res != 0)
         {
             mpu6500_interface_debug_print("mpu6500: motion threshold convert to register failed (res=%d).\n", res);
@@ -673,7 +684,7 @@ uint8_t mpu6500_dmp_init(mpu6500_interface_t interface, mpu6500_address_t addr_p
     }
     
     /* set the default fifo rate */
-    res = mpu6500_dmp_set_fifo_rate(&gs_handle, MPU6500_DMP_DEFAULT_RATE);
+    res = mpu6500_dmp_set_fifo_rate(&gs_handle, SAMPLE_RATE_HZ);
     if (res != 0)
     {
         mpu6500_interface_debug_print("mpu6500: dmp set fifo rate failed (res=%d).\n", res);
@@ -729,7 +740,7 @@ uint8_t mpu6500_dmp_init(mpu6500_interface_t interface, mpu6500_address_t addr_p
     }
     
     /* set the default pedometer walk time */
-    res = mpu6500_dmp_set_pedometer_walk_time(&gs_handle, MPU6500_DMP_DEFAULT_PEOMETER_WALK_TIME);
+    res = mpu6500_dmp_set_pedometer_walk_time(&gs_handle, MPU6500_DMP_DEFAULT_PEDOMETER_WALK_TIME);
     if (res != 0)
     {
         mpu6500_interface_debug_print("mpu6500: dmp set pedometer walk time failed (res=%d).\n", res);
@@ -738,7 +749,7 @@ uint8_t mpu6500_dmp_init(mpu6500_interface_t interface, mpu6500_address_t addr_p
     }
     
     /* set the default pedometer step count */
-    res = mpu6500_dmp_set_pedometer_step_count(&gs_handle, MPU6500_DMP_DEFAULT_PEOMETER_STEP_COUNT);
+    res = mpu6500_dmp_set_pedometer_step_count(&gs_handle, MPU6500_DMP_DEFAULT_PEDOMETER_STEP_COUNT);
     if (res != 0)
     {
         mpu6500_interface_debug_print("mpu6500: dmp set pedometer step count failed (res=%d).\n", res);

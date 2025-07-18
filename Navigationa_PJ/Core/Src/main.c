@@ -25,9 +25,9 @@
 #include <stdarg.h>
 
 /* Private define ------------------------------------------------------------*/
-#define SAMPLE_RATE_HZ 100  // 100Hz update rate
-#define ACCEL_RANGE MPU6500_ACCELEROMETER_RANGE_4G
-#define GYRO_RANGE MPU6500_GYROSCOPE_RANGE_500DPS
+#define SAMPLE_RATE_HZ 200  // increased update rate
+#define ACCEL_RANGE MPU6500_ACCELEROMETER_RANGE_8G
+#define GYRO_RANGE MPU6500_GYROSCOPE_RANGE_1000DPS
 #define PI 3.141592653589793238462643383279502884197f
 #define MAX_INIT_RETRIES 3
 #define INIT_RETRY_DELAY_MS 500

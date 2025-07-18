@@ -36,6 +36,8 @@
 
 #ifndef DRIVER_MPU6500_H
 #define DRIVER_MPU6500_H
+#define MPU6500_DMP_DEFAULT_PEDOMETER_WALK_TIME 200
+#define MPU6500_DMP_DEFAULT_PEDOMETER_STEP_COUNT 0
 
 #include <stdio.h>
 #include <stdint.h>
