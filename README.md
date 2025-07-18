@@ -7,7 +7,6 @@ more will be added ...
 - [Description](#-Description)
 - [To Do list](#-To-Do-list)
 - [Questioned](#-Questioned)
-- [log](#-log)
 - [MPU6500](#-MPU6500)
 - [License](#-license)
 
@@ -37,31 +36,53 @@ Hardware tasks:
 - [ ] why both WiFi and Bluetooth? 
 - [ ] need a display?
 - [ ] doe the MPU6500(gyroscope) need Falcon filter for calibration.
-
-## log
-
-### 1404/04/22
-- time: 10 A.M => working on an MPU6500 library and studying it(you can fined it in setup modules)
-- time: 1  P.M => setting up I2C and UART for MPU6500
-- time: 8  P.M => the libraries setup has been done! now its time to work to know the functions better
-
-### 1404/04/23
-- time: 10 working on MPU6500 modes (which mode I should do)
+- [ ] what task should SD card do?
 
 
 ## MPU6500
 
-To achieve high accuracy and fast performance:
+### To achieve high accuracy and fast performance:
 - High Sample Rate: Configure the MPU6500 for a high sample rate (e.g., 1 kHz for the accelerometer and gyroscope) to capture rapid changes in motion.
 -  Low Noise Settings: Use low-pass filters (DLPF) to reduce noise while maintaining responsiveness.
 - Full-Scale Range: Select appropriate full-scale ranges for the accelerometer (±2g or ±4g) and gyroscope (±500°/s or ±1000°/s) to balance sensitivity and range.
 - DMP Usage: Utilize the DMP for processed orientation data (quaternions) to reduce computational load on the STM32 and improve accuracy for navigation.
 - Interrupt-Driven Operation: Use the MPU6500’s data-ready interrupt to ensure timely data acquisition without polling.
 - Calibration: Implement offset calibration to minimize bias errors in accelerometer and gyroscope readings.
+- The MPU6500’s Digital Motion Processor (DMP) handles some sensor fusion internally, can further optimize accuracy by tuning the low-pass filter (LPF) and implementing an external filter like a Kalman or Madgwick filter.
+### modes of MPU6500:
 - MPU6500 has 3 mode: 1_basic , 2_DMP(data memory processing), 3-FIFO
-_ MPU6500 in basic mode: The basic mode is simpler but requires you to implement sensor fusion (e.g., using a Kalman or Madgwick filter) on the microcontroller, which can be computationally intensive and less accurate if not optimized.
-_ MPU6500 in DMP mode: DMP mode is the best choice because it=> 1-Provides processed orientation data (quaternions, Euler angles) directly. 2-Includes features like gyro calibration and tap detection. 3-Reduces the microcontroller’s processing load, allowing faster and more reliable data handling.
-MPU6500 in FIFO mode: The FIFO mode stores raw sensor data for batch processing, which is useful for high-speed data collection but doesn’t inherently improve accuracy without additional processing.
+=> MPU6500 in basic mode: The basic mode is simpler but requires you to implement sensor fusion (e.g., using a Kalman or Madgwick filter) on the microcontroller, which can be computationally intensive and less accurate if not optimized.
+
+=> MPU6500 in DMP mode: DMP mode is the best choice because it=> 1-Provides processed orientation data (quaternions, Euler angles) directly. 2-Includes features like gyro calibration and tap detection. 3-Reduces the microcontroller’s processing load, allowing faster and more reliable data handling.
+
+=> MPU6500 in FIFO mode: The FIFO mode stores raw sensor data for batch processing, which is useful for high-speed data collection but doesn’t inherently improve accuracy without additional processing.
+### MPU6500 filters:
+MPU6500 Low-Pass Filter (LPF) Settings
+The MPU6500 has a configurable digital low-pass filter (DLPF) that affects both accelerometer and gyroscope data. The DLPF reduces noise but introduces a delay, so you need to balance noise reduction with responsiveness. The available DLPF settings are:
+
+MPU6500_LOW_PASS_FILTER_0: 260 Hz (accel), 256 Hz (gyro), minimal filtering, high noise.
+MPU6500_LOW_PASS_FILTER_1: 184 Hz (accel), 188 Hz (gyro).
+MPU6500_LOW_PASS_FILTER_2: 94 Hz (accel), 98 Hz (gyro).
+MPU6500_LOW_PASS_FILTER_3: 44 Hz (accel), 42 Hz (gyro) (default in code).
+MPU6500_LOW_PASS_FILTER_4: 21 Hz (accel), 20 Hz (gyro).
+MPU6500_LOW_PASS_FILTER_5: 10 Hz (accel), 10 Hz (gyro).
+MPU6500_LOW_PASS_FILTER_6: 5 Hz (accel), 5 Hz (gyro).
+
+### to do:
+- [X] setup DMP
+- [ ] setup filter
+
+## current problems:
+
+#### Navigation Algorithm:
+current dead reckoning implementation is very basic and will accumulate error quickly
+Consider implementing a sensor fusion algorithm (like a complementary filter or Kalman filter)
+
+#### DMP Configuration:
+ might want to adjust the DMP features enabled based on specific needs
+ 
+#### Error Handling:
+Add more detailed error checking for DMP operations
 
 ## 📜 License
 

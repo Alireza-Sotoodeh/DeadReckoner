@@ -23,15 +23,14 @@
  *
  * @file      driver_mpu6500_dmp.c
  * @brief     driver mpu6500 dmp source file
- * @version   1.0.1
+ * @version   1.0.0
  * @author    Shifeng Li
- * @date      2025-07-18
+ * @date      2024-07-30
  *
  * <h3>history</h3>
  * <table>
  * <tr><th>Date        <th>Version  <th>Author      <th>Description
  * <tr><td>2024/07/30  <td>1.0      <td>Shifeng Li  <td>first upload
- * <tr><td>2025/07/18  <td>1.0.1    <td>Shifeng Li  <td>improved error handling, set LPF to FILTER_2
  * </table>
  */
 
@@ -50,7 +49,6 @@ uint8_t mpu6500_dmp_irq_handler(void)
 {
     if (mpu6500_irq_handler(&gs_handle) != 0)
     {
-        mpu6500_interface_debug_print("mpu6500: irq handler failed.\n");
         return 1;
     }
     
@@ -103,7 +101,8 @@ uint8_t mpu6500_dmp_init(mpu6500_interface_t interface, mpu6500_address_t addr_p
     res = mpu6500_set_interface(&gs_handle, interface);
     if (res != 0)
     {
-        mpu6500_interface_debug_print("mpu6500: set interface failed (res=%d).\n", res);
+        mpu6500_interface_debug_print("mpu6500: set interface failed.\n");
+       
         return 1;
     }
     
@@ -111,7 +110,8 @@ uint8_t mpu6500_dmp_init(mpu6500_interface_t interface, mpu6500_address_t addr_p
     res = mpu6500_set_addr_pin(&gs_handle, addr_pin);
     if (res != 0)
     {
-        mpu6500_interface_debug_print("mpu6500: set addr pin failed (res=%d).\n", res);
+        mpu6500_interface_debug_print("mpu6500: set addr pin failed.\n");
+       
         return 1;
     }
     
@@ -119,7 +119,8 @@ uint8_t mpu6500_dmp_init(mpu6500_interface_t interface, mpu6500_address_t addr_p
     res = mpu6500_init(&gs_handle);
     if (res != 0)
     {
-        mpu6500_interface_debug_print("mpu6500: init failed (res=%d).\n", res);
+        mpu6500_interface_debug_print("mpu6500: init failed.\n");
+       
         return 1;
     }
     
@@ -130,8 +131,9 @@ uint8_t mpu6500_dmp_init(mpu6500_interface_t interface, mpu6500_address_t addr_p
     res = mpu6500_set_sleep(&gs_handle, MPU6500_BOOL_FALSE);
     if (res != 0)
     {
-        mpu6500_interface_debug_print("mpu6500: set sleep failed (res=%d).\n", res);
+        mpu6500_interface_debug_print("mpu6500: set sleep failed.\n");
         (void)mpu6500_deinit(&gs_handle);
+       
         return 1;
     }
     
@@ -139,8 +141,9 @@ uint8_t mpu6500_dmp_init(mpu6500_interface_t interface, mpu6500_address_t addr_p
     res = mpu6500_set_fifo_1024kb(&gs_handle);
     if (res != 0)
     {
-        mpu6500_interface_debug_print("mpu6500: set fifo 1024kb failed (res=%d).\n", res);
+        mpu6500_interface_debug_print("mpu6500: set fifo 1024kb failed.\n");
         (void)mpu6500_deinit(&gs_handle);
+       
         return 1;
     }
     
@@ -148,56 +151,44 @@ uint8_t mpu6500_dmp_init(mpu6500_interface_t interface, mpu6500_address_t addr_p
     res = mpu6500_self_test(&gs_handle, gyro_offset_raw, accel_offset_raw);
     if (res != 0)
     {
-        mpu6500_interface_debug_print("mpu6500: self test failed (res=%d).\n", res);
+        mpu6500_interface_debug_print("mpu6500: self test failed.\n");
         (void)mpu6500_deinit(&gs_handle);
-        return 1;
-    }
-
-    /* convert and save offsets */
-    res = mpu6500_dmp_gyro_accel_raw_offset_convert(&gs_handle, gyro_offset_raw, accel_offset_raw,
-                                                    gyro_offset, accel_offset);
-    if (res != 0)
-    {
-        mpu6500_interface_debug_print("mpu6500: offset convert failed (res=%d).\n", res);
-        (void)mpu6500_deinit(&gs_handle);
-        return 1;
-    }
-
-    /* apply offsets */
-    res = mpu6500_dmp_set_accel_bias(&gs_handle, accel_offset);
-    if (res != 0)
-    {
-        mpu6500_interface_debug_print("mpu6500: set accel bias failed (res=%d).\n", res);
-        (void)mpu6500_deinit(&gs_handle);
+       
         return 1;
     }
     
-    res = mpu6500_dmp_set_gyro_bias(&gs_handle, gyro_offset);
-    if (res != 0)
-    {
-        mpu6500_interface_debug_print("mpu6500: set gyro bias failed (res=%d).\n", res);
-        (void)mpu6500_deinit(&gs_handle);
-        return 1;
-    }
     
     /* if spi interface, disable iic interface */
     if (interface == MPU6500_INTERFACE_SPI)
     {
+        /* disable iic */
         res = mpu6500_set_disable_iic_slave(&gs_handle, MPU6500_BOOL_TRUE);
         if (res != 0)
         {
-            mpu6500_interface_debug_print("mpu6500: set disable iic slave failed (res=%d).\n", res);
+            mpu6500_interface_debug_print("mpu6500: set disable iic slave failed.\n");
             (void)mpu6500_deinit(&gs_handle);
+           
             return 1;
         }
+    }
+    
+    /* set fifo 1024kb */
+    res = mpu6500_set_fifo_1024kb(&gs_handle);
+    if (res != 0)
+    {
+        mpu6500_interface_debug_print("mpu6500: set fifo 1024kb failed.\n");
+        (void)mpu6500_deinit(&gs_handle);
+       
+        return 1;
     }
     
     /* set the default clock source */
     res = mpu6500_set_clock_source(&gs_handle, MPU6500_DMP_DEFAULT_CLOCK_SOURCE);
     if (res != 0)
     {
-        mpu6500_interface_debug_print("mpu6500: set clock source failed (res=%d).\n", res);
+        mpu6500_interface_debug_print("mpu6500: set clock source failed.\n");
         (void)mpu6500_deinit(&gs_handle);
+       
         return 1;
     }
     
@@ -205,8 +196,9 @@ uint8_t mpu6500_dmp_init(mpu6500_interface_t interface, mpu6500_address_t addr_p
     res = mpu6500_set_sample_rate_divider(&gs_handle, (1000 / MPU6500_DMP_DEFAULT_RATE) - 1);
     if (res != 0)
     {
-        mpu6500_interface_debug_print("mpu6500: set sample rate divider failed (res=%d).\n", res);
+        mpu6500_interface_debug_print("mpu6500: set sample rate divider failed.\n");
         (void)mpu6500_deinit(&gs_handle);
+       
         return 1;
     }
     
@@ -214,26 +206,29 @@ uint8_t mpu6500_dmp_init(mpu6500_interface_t interface, mpu6500_address_t addr_p
     res = mpu6500_set_accelerometer_range(&gs_handle, MPU6500_DMP_DEFAULT_ACCELEROMETER_RANGE);
     if (res != 0)
     {
-        mpu6500_interface_debug_print("mpu6500: set accelerometer range failed (res=%d).\n", res);
+        mpu6500_interface_debug_print("mpu6500: set accelerometer range failed.\n");
         (void)mpu6500_deinit(&gs_handle);
+       
         return 1;
     }
     
-    /* set the default gyroscope range */
+    /* set the default gyroscope_range */
     res = mpu6500_set_gyroscope_range(&gs_handle, MPU6500_DMP_DEFAULT_GYROSCOPE_RANGE);
     if (res != 0)
     {
-        mpu6500_interface_debug_print("mpu6500: set gyroscope range failed (res=%d).\n", res);
+        mpu6500_interface_debug_print("mpu6500: set gyroscope range failed.\n");
         (void)mpu6500_deinit(&gs_handle);
+       
         return 1;
     }
     
-    /* set the low pass filter to FILTER_2 for better dynamic response */
-    res = mpu6500_set_low_pass_filter(&gs_handle, MPU6500_LOW_PASS_FILTER_2);
+    /* set the default low pass filter */
+    res = mpu6500_set_low_pass_filter(&gs_handle, MPU6500_DMP_DEFAULT_LOW_PASS_FILTER);
     if (res != 0)
     {
-        mpu6500_interface_debug_print("mpu6500: set low pass filter failed (res=%d).\n", res);
+        mpu6500_interface_debug_print("mpu6500: set low pass filter failed.\n");
         (void)mpu6500_deinit(&gs_handle);
+       
         return 1;
     }
     
@@ -241,8 +236,9 @@ uint8_t mpu6500_dmp_init(mpu6500_interface_t interface, mpu6500_address_t addr_p
     res = mpu6500_set_ptat(&gs_handle, MPU6500_BOOL_TRUE);
     if (res != 0)
     {
-        mpu6500_interface_debug_print("mpu6500: set ptat failed (res=%d).\n", res);
+        mpu6500_interface_debug_print("mpu6500: set ptat failed.\n");
         (void)mpu6500_deinit(&gs_handle);
+       
         return 1;
     }
     
@@ -250,8 +246,9 @@ uint8_t mpu6500_dmp_init(mpu6500_interface_t interface, mpu6500_address_t addr_p
     res = mpu6500_set_cycle_wake_up(&gs_handle, MPU6500_DMP_DEFAULT_CYCLE_WAKE_UP);
     if (res != 0)
     {
-        mpu6500_interface_debug_print("mpu6500: set cycle wake up failed (res=%d).\n", res);
+        mpu6500_interface_debug_print("mpu6500: set cycle wake up failed.\n");
         (void)mpu6500_deinit(&gs_handle);
+       
         return 1;
     }
     
@@ -259,8 +256,9 @@ uint8_t mpu6500_dmp_init(mpu6500_interface_t interface, mpu6500_address_t addr_p
     res = mpu6500_set_standby_mode(&gs_handle, MPU6500_SOURCE_ACC_X, MPU6500_BOOL_FALSE);
     if (res != 0)
     {
-        mpu6500_interface_debug_print("mpu6500: set standby mode acc x failed (res=%d).\n", res);
+        mpu6500_interface_debug_print("mpu6500: set standby mode failed.\n");
         (void)mpu6500_deinit(&gs_handle);
+       
         return 1;
     }
     
@@ -268,8 +266,9 @@ uint8_t mpu6500_dmp_init(mpu6500_interface_t interface, mpu6500_address_t addr_p
     res = mpu6500_set_standby_mode(&gs_handle, MPU6500_SOURCE_ACC_Y, MPU6500_BOOL_FALSE);
     if (res != 0)
     {
-        mpu6500_interface_debug_print("mpu6500: set standby mode acc y failed (res=%d).\n", res);
+        mpu6500_interface_debug_print("mpu6500: set standby mode failed.\n");
         (void)mpu6500_deinit(&gs_handle);
+       
         return 1;
     }
     
@@ -277,8 +276,9 @@ uint8_t mpu6500_dmp_init(mpu6500_interface_t interface, mpu6500_address_t addr_p
     res = mpu6500_set_standby_mode(&gs_handle, MPU6500_SOURCE_ACC_Z, MPU6500_BOOL_FALSE);
     if (res != 0)
     {
-        mpu6500_interface_debug_print("mpu6500: set standby mode acc z failed (res=%d).\n", res);
+        mpu6500_interface_debug_print("mpu6500: set standby mode failed.\n");
         (void)mpu6500_deinit(&gs_handle);
+       
         return 1;
     }
     
@@ -286,8 +286,9 @@ uint8_t mpu6500_dmp_init(mpu6500_interface_t interface, mpu6500_address_t addr_p
     res = mpu6500_set_standby_mode(&gs_handle, MPU6500_SOURCE_GYRO_X, MPU6500_BOOL_FALSE);
     if (res != 0)
     {
-        mpu6500_interface_debug_print("mpu6500: set standby mode gyro x failed (res=%d).\n", res);
+        mpu6500_interface_debug_print("mpu6500: set standby mode failed.\n");
         (void)mpu6500_deinit(&gs_handle);
+       
         return 1;
     }
     
@@ -295,8 +296,9 @@ uint8_t mpu6500_dmp_init(mpu6500_interface_t interface, mpu6500_address_t addr_p
     res = mpu6500_set_standby_mode(&gs_handle, MPU6500_SOURCE_GYRO_Y, MPU6500_BOOL_FALSE);
     if (res != 0)
     {
-        mpu6500_interface_debug_print("mpu6500: set standby mode gyro y failed (res=%d).\n", res);
+        mpu6500_interface_debug_print("mpu6500: set standby mode failed.\n");
         (void)mpu6500_deinit(&gs_handle);
+       
         return 1;
     }
     
@@ -304,8 +306,9 @@ uint8_t mpu6500_dmp_init(mpu6500_interface_t interface, mpu6500_address_t addr_p
     res = mpu6500_set_standby_mode(&gs_handle, MPU6500_SOURCE_GYRO_Z, MPU6500_BOOL_FALSE);
     if (res != 0)
     {
-        mpu6500_interface_debug_print("mpu6500: set standby mode gyro z failed (res=%d).\n", res);
+        mpu6500_interface_debug_print("mpu6500: set standby mode failed.\n");
         (void)mpu6500_deinit(&gs_handle);
+       
         return 1;
     }
     
@@ -313,8 +316,9 @@ uint8_t mpu6500_dmp_init(mpu6500_interface_t interface, mpu6500_address_t addr_p
     res = mpu6500_set_gyroscope_test(&gs_handle, MPU6500_AXIS_X, MPU6500_BOOL_FALSE);
     if (res != 0)
     {
-        mpu6500_interface_debug_print("mpu6500: set gyroscope test x failed (res=%d).\n", res);
+        mpu6500_interface_debug_print("mpu6500: set gyroscope test failed.\n");
         (void)mpu6500_deinit(&gs_handle);
+       
         return 1;
     }
     
@@ -322,8 +326,9 @@ uint8_t mpu6500_dmp_init(mpu6500_interface_t interface, mpu6500_address_t addr_p
     res = mpu6500_set_gyroscope_test(&gs_handle, MPU6500_AXIS_Y, MPU6500_BOOL_FALSE);
     if (res != 0)
     {
-        mpu6500_interface_debug_print("mpu6500: set gyroscope test y failed (res=%d).\n", res);
+        mpu6500_interface_debug_print("mpu6500: set gyroscope test failed.\n");
         (void)mpu6500_deinit(&gs_handle);
+       
         return 1;
     }
     
@@ -331,8 +336,9 @@ uint8_t mpu6500_dmp_init(mpu6500_interface_t interface, mpu6500_address_t addr_p
     res = mpu6500_set_gyroscope_test(&gs_handle, MPU6500_AXIS_Z, MPU6500_BOOL_FALSE);
     if (res != 0)
     {
-        mpu6500_interface_debug_print("mpu6500: set gyroscope test z failed (res=%d).\n", res);
+        mpu6500_interface_debug_print("mpu6500: set gyroscope test failed.\n");
         (void)mpu6500_deinit(&gs_handle);
+       
         return 1;
     }
     
@@ -340,8 +346,9 @@ uint8_t mpu6500_dmp_init(mpu6500_interface_t interface, mpu6500_address_t addr_p
     res = mpu6500_set_accelerometer_test(&gs_handle, MPU6500_AXIS_X, MPU6500_BOOL_FALSE);
     if (res != 0)
     {
-        mpu6500_interface_debug_print("mpu6500: set accelerometer test x failed (res=%d).\n", res);
+        mpu6500_interface_debug_print("mpu6500: set accelerometer test failed.\n");
         (void)mpu6500_deinit(&gs_handle);
+       
         return 1;
     }
     
@@ -349,8 +356,9 @@ uint8_t mpu6500_dmp_init(mpu6500_interface_t interface, mpu6500_address_t addr_p
     res = mpu6500_set_accelerometer_test(&gs_handle, MPU6500_AXIS_Y, MPU6500_BOOL_FALSE);
     if (res != 0)
     {
-        mpu6500_interface_debug_print("mpu6500: set accelerometer test y failed (res=%d).\n", res);
+        mpu6500_interface_debug_print("mpu6500: set accelerometer test failed.\n");
         (void)mpu6500_deinit(&gs_handle);
+       
         return 1;
     }
     
@@ -358,8 +366,9 @@ uint8_t mpu6500_dmp_init(mpu6500_interface_t interface, mpu6500_address_t addr_p
     res = mpu6500_set_accelerometer_test(&gs_handle, MPU6500_AXIS_Z, MPU6500_BOOL_FALSE);
     if (res != 0)
     {
-        mpu6500_interface_debug_print("mpu6500: set accelerometer test z failed (res=%d).\n", res);
+        mpu6500_interface_debug_print("mpu6500: set accelerometer test failed.\n");
         (void)mpu6500_deinit(&gs_handle);
+       
         return 1;
     }
     
@@ -367,8 +376,9 @@ uint8_t mpu6500_dmp_init(mpu6500_interface_t interface, mpu6500_address_t addr_p
     res = mpu6500_set_fifo_enable(&gs_handle, MPU6500_FIFO_TEMP, MPU6500_BOOL_FALSE);
     if (res != 0)
     {
-        mpu6500_interface_debug_print("mpu6500: set fifo enable temp failed (res=%d).\n", res);
+        mpu6500_interface_debug_print("mpu6500: set fifo enable failed.\n");
         (void)mpu6500_deinit(&gs_handle);
+       
         return 1;
     }
     
@@ -376,8 +386,9 @@ uint8_t mpu6500_dmp_init(mpu6500_interface_t interface, mpu6500_address_t addr_p
     res = mpu6500_set_fifo_enable(&gs_handle, MPU6500_FIFO_XG, MPU6500_BOOL_FALSE);
     if (res != 0)
     {
-        mpu6500_interface_debug_print("mpu6500: set fifo enable xg failed (res=%d).\n", res);
+        mpu6500_interface_debug_print("mpu6500: set fifo enable failed.\n");
         (void)mpu6500_deinit(&gs_handle);
+       
         return 1;
     }
     
@@ -385,8 +396,9 @@ uint8_t mpu6500_dmp_init(mpu6500_interface_t interface, mpu6500_address_t addr_p
     res = mpu6500_set_fifo_enable(&gs_handle, MPU6500_FIFO_YG, MPU6500_BOOL_FALSE);
     if (res != 0)
     {
-        mpu6500_interface_debug_print("mpu6500: set fifo enable yg failed (res=%d).\n", res);
+        mpu6500_interface_debug_print("mpu6500: set fifo enable failed.\n");
         (void)mpu6500_deinit(&gs_handle);
+       
         return 1;
     }
     
@@ -394,8 +406,9 @@ uint8_t mpu6500_dmp_init(mpu6500_interface_t interface, mpu6500_address_t addr_p
     res = mpu6500_set_fifo_enable(&gs_handle, MPU6500_FIFO_ZG, MPU6500_BOOL_FALSE);
     if (res != 0)
     {
-        mpu6500_interface_debug_print("mpu6500: set fifo enable zg failed (res=%d).\n", res);
+        mpu6500_interface_debug_print("mpu6500: set fifo enable failed.\n");
         (void)mpu6500_deinit(&gs_handle);
+       
         return 1;
     }
     
@@ -403,8 +416,9 @@ uint8_t mpu6500_dmp_init(mpu6500_interface_t interface, mpu6500_address_t addr_p
     res = mpu6500_set_fifo_enable(&gs_handle, MPU6500_FIFO_ACCEL, MPU6500_BOOL_FALSE);
     if (res != 0)
     {
-        mpu6500_interface_debug_print("mpu6500: set fifo enable accel failed (res=%d).\n", res);
+        mpu6500_interface_debug_print("mpu6500: set fifo enable failed.\n");
         (void)mpu6500_deinit(&gs_handle);
+       
         return 1;
     }
     
@@ -412,8 +426,9 @@ uint8_t mpu6500_dmp_init(mpu6500_interface_t interface, mpu6500_address_t addr_p
     res = mpu6500_set_fifo(&gs_handle, MPU6500_BOOL_TRUE);
     if (res != 0)
     {
-        mpu6500_interface_debug_print("mpu6500: set fifo failed (res=%d).\n", res);
+        mpu6500_interface_debug_print("mpu6500: set fifo failed.\n");
         (void)mpu6500_deinit(&gs_handle);
+       
         return 1;
     }
     
@@ -421,8 +436,9 @@ uint8_t mpu6500_dmp_init(mpu6500_interface_t interface, mpu6500_address_t addr_p
     res = mpu6500_set_interrupt_level(&gs_handle, MPU6500_DMP_DEFAULT_INTERRUPT_PIN_LEVEL);
     if (res != 0)
     {
-        mpu6500_interface_debug_print("mpu6500: set interrupt level failed (res=%d).\n", res);
+        mpu6500_interface_debug_print("mpu6500: set interrupt level failed.\n");
         (void)mpu6500_deinit(&gs_handle);
+       
         return 1;
     }
     
@@ -430,8 +446,9 @@ uint8_t mpu6500_dmp_init(mpu6500_interface_t interface, mpu6500_address_t addr_p
     res = mpu6500_set_interrupt_pin_type(&gs_handle, MPU6500_DMP_DEFAULT_INTERRUPT_PIN_TYPE);
     if (res != 0)
     {
-        mpu6500_interface_debug_print("mpu6500: set interrupt pin type failed (res=%d).\n", res);
+        mpu6500_interface_debug_print("mpu6500: set interrupt pin type failed.\n");
         (void)mpu6500_deinit(&gs_handle);
+       
         return 1;
     }
     
@@ -441,8 +458,9 @@ uint8_t mpu6500_dmp_init(mpu6500_interface_t interface, mpu6500_address_t addr_p
         res = mpu6500_motion_threshold_convert_to_register(&gs_handle, MPU6500_DMP_DEFAULT_MOTION_THRESHOLD, &reg);
         if (res != 0)
         {
-            mpu6500_interface_debug_print("mpu6500: motion threshold convert to register failed (res=%d).\n", res);
+            mpu6500_interface_debug_print("mpu6500: motion threshold convert to register failed.\n");
             (void)mpu6500_deinit(&gs_handle);
+           
             return 1;
         }
         
@@ -450,8 +468,9 @@ uint8_t mpu6500_dmp_init(mpu6500_interface_t interface, mpu6500_address_t addr_p
         res = mpu6500_set_motion_threshold(&gs_handle, reg);
         if (res != 0)
         {
-            mpu6500_interface_debug_print("mpu6500: set motion threshold failed (res=%d).\n", res);
+            mpu6500_interface_debug_print("mpu6500: set motion threshold failed.\n");
             (void)mpu6500_deinit(&gs_handle);
+           
             return 1;
         }
         
@@ -459,8 +478,9 @@ uint8_t mpu6500_dmp_init(mpu6500_interface_t interface, mpu6500_address_t addr_p
         res = mpu6500_set_wake_on_motion(&gs_handle, MPU6500_BOOL_TRUE);
         if (res != 0)
         {
-            mpu6500_interface_debug_print("mpu6500: set wake on motion failed (res=%d).\n", res);
+            mpu6500_interface_debug_print("mpu6500: set wake on motion failed.\n");
             (void)mpu6500_deinit(&gs_handle);
+           
             return 1;
         }
     }
@@ -469,8 +489,9 @@ uint8_t mpu6500_dmp_init(mpu6500_interface_t interface, mpu6500_address_t addr_p
     res = mpu6500_set_interrupt(&gs_handle, MPU6500_INTERRUPT_MOTION, MPU6500_DMP_DEFAULT_INTERRUPT_MOTION);
     if (res != 0)
     {
-        mpu6500_interface_debug_print("mpu6500: set interrupt motion failed (res=%d).\n", res);
+        mpu6500_interface_debug_print("mpu6500: set interrupt failed.\n");
         (void)mpu6500_deinit(&gs_handle);
+       
         return 1;
     }
     
@@ -478,8 +499,9 @@ uint8_t mpu6500_dmp_init(mpu6500_interface_t interface, mpu6500_address_t addr_p
     res = mpu6500_set_interrupt(&gs_handle, MPU6500_INTERRUPT_FIFO_OVERFLOW, MPU6500_DMP_DEFAULT_INTERRUPT_FIFO_OVERFLOW);
     if (res != 0)
     {
-        mpu6500_interface_debug_print("mpu6500: set interrupt fifo overflow failed (res=%d).\n", res);
+        mpu6500_interface_debug_print("mpu6500: set interrupt failed.\n");
         (void)mpu6500_deinit(&gs_handle);
+       
         return 1;
     }
     
@@ -487,8 +509,9 @@ uint8_t mpu6500_dmp_init(mpu6500_interface_t interface, mpu6500_address_t addr_p
     res = mpu6500_set_interrupt(&gs_handle, MPU6500_INTERRUPT_DMP, MPU6500_DMP_DEFAULT_INTERRUPT_DMP);
     if (res != 0)
     {
-        mpu6500_interface_debug_print("mpu6500: set interrupt dmp failed (res=%d).\n", res);
+        mpu6500_interface_debug_print("mpu6500: set interrupt failed.\n");
         (void)mpu6500_deinit(&gs_handle);
+       
         return 1;
     }
     
@@ -496,8 +519,9 @@ uint8_t mpu6500_dmp_init(mpu6500_interface_t interface, mpu6500_address_t addr_p
     res = mpu6500_set_interrupt(&gs_handle, MPU6500_INTERRUPT_FSYNC_INT, MPU6500_DMP_DEFAULT_INTERRUPT_FSYNC_INT);
     if (res != 0)
     {
-        mpu6500_interface_debug_print("mpu6500: set interrupt fsync int failed (res=%d).\n", res);
+        mpu6500_interface_debug_print("mpu6500: set interrupt failed.\n");
         (void)mpu6500_deinit(&gs_handle);
+       
         return 1;
     }
     
@@ -505,8 +529,9 @@ uint8_t mpu6500_dmp_init(mpu6500_interface_t interface, mpu6500_address_t addr_p
     res = mpu6500_set_interrupt(&gs_handle, MPU6500_INTERRUPT_DATA_READY, MPU6500_DMP_DEFAULT_INTERRUPT_DATA_READY);
     if (res != 0)
     {
-        mpu6500_interface_debug_print("mpu6500: set interrupt data ready failed (res=%d).\n", res);
+        mpu6500_interface_debug_print("mpu6500: set interrupt failed.\n");
         (void)mpu6500_deinit(&gs_handle);
+       
         return 1;
     }
     
@@ -514,8 +539,9 @@ uint8_t mpu6500_dmp_init(mpu6500_interface_t interface, mpu6500_address_t addr_p
     res = mpu6500_set_interrupt_latch(&gs_handle, MPU6500_DMP_DEFAULT_INTERRUPT_LATCH);
     if (res != 0)
     {
-        mpu6500_interface_debug_print("mpu6500: set interrupt latch failed (res=%d).\n", res);
+        mpu6500_interface_debug_print("mpu6500: set interrupt latch failed.\n");
         (void)mpu6500_deinit(&gs_handle);
+       
         return 1;
     }
     
@@ -523,8 +549,9 @@ uint8_t mpu6500_dmp_init(mpu6500_interface_t interface, mpu6500_address_t addr_p
     res = mpu6500_set_interrupt_read_clear(&gs_handle, MPU6500_DMP_DEFAULT_INTERRUPT_READ_CLEAR);
     if (res != 0)
     {
-        mpu6500_interface_debug_print("mpu6500: set interrupt read clear failed (res=%d).\n", res);
+        mpu6500_interface_debug_print("mpu6500: set interrupt read clear failed.\n");
         (void)mpu6500_deinit(&gs_handle);
+       
         return 1;
     }
     
@@ -532,8 +559,9 @@ uint8_t mpu6500_dmp_init(mpu6500_interface_t interface, mpu6500_address_t addr_p
     res = mpu6500_set_extern_sync(&gs_handle, MPU6500_DMP_DEFAULT_EXTERN_SYNC);
     if (res != 0)
     {
-        mpu6500_interface_debug_print("mpu6500: set extern sync failed (res=%d).\n", res);
+        mpu6500_interface_debug_print("mpu6500: set extern sync failed.\n");
         (void)mpu6500_deinit(&gs_handle);
+       
         return 1;
     }
     
@@ -541,8 +569,9 @@ uint8_t mpu6500_dmp_init(mpu6500_interface_t interface, mpu6500_address_t addr_p
     res = mpu6500_set_fsync_interrupt(&gs_handle, MPU6500_DMP_DEFAULT_FSYNC_INTERRUPT);
     if (res != 0)
     {
-        mpu6500_interface_debug_print("mpu6500: set fsync interrupt failed (res=%d).\n", res);
+        mpu6500_interface_debug_print("mpu6500: set fsync interrupt failed.\n");
         (void)mpu6500_deinit(&gs_handle);
+       
         return 1;
     }
     
@@ -550,8 +579,9 @@ uint8_t mpu6500_dmp_init(mpu6500_interface_t interface, mpu6500_address_t addr_p
     res = mpu6500_set_fsync_interrupt_level(&gs_handle, MPU6500_DMP_DEFAULT_FSYNC_INTERRUPT_LEVEL);
     if (res != 0)
     {
-        mpu6500_interface_debug_print("mpu6500: set fsync interrupt level failed (res=%d).\n", res);
+        mpu6500_interface_debug_print("mpu6500: set fsync interrupt level failed.\n");
         (void)mpu6500_deinit(&gs_handle);
+       
         return 1;
     }
     
@@ -559,8 +589,9 @@ uint8_t mpu6500_dmp_init(mpu6500_interface_t interface, mpu6500_address_t addr_p
     res = mpu6500_set_iic_master(&gs_handle, MPU6500_DMP_DEFAULT_IIC_MASTER);
     if (res != 0)
     {
-        mpu6500_interface_debug_print("mpu6500: set iic master failed (res=%d).\n", res);
+        mpu6500_interface_debug_print("mpu6500: set iic master failed.\n");
         (void)mpu6500_deinit(&gs_handle);
+       
         return 1;
     }
     
@@ -568,8 +599,9 @@ uint8_t mpu6500_dmp_init(mpu6500_interface_t interface, mpu6500_address_t addr_p
     res = mpu6500_set_iic_bypass(&gs_handle, MPU6500_DMP_DEFAULT_IIC_BYPASS);
     if (res != 0)
     {
-        mpu6500_interface_debug_print("mpu6500: set iic bypass failed (res=%d).\n", res);
+        mpu6500_interface_debug_print("mpu6500: set iic bypass failed.\n");
         (void)mpu6500_deinit(&gs_handle);
+       
         return 1;
     }
     
@@ -577,8 +609,9 @@ uint8_t mpu6500_dmp_init(mpu6500_interface_t interface, mpu6500_address_t addr_p
     res = mpu6500_set_gyro_standby(&gs_handle, MPU6500_DMP_DEFAULT_GYROSCOPE_STANDBY);
     if (res != 0)
     {
-        mpu6500_interface_debug_print("mpu6500: set gyro standby failed (res=%d).\n", res);
+        mpu6500_interface_debug_print("mpu6500: set gyro standby failed.\n");
         (void)mpu6500_deinit(&gs_handle);
+       
         return 1;
     }
     
@@ -586,8 +619,9 @@ uint8_t mpu6500_dmp_init(mpu6500_interface_t interface, mpu6500_address_t addr_p
     res = mpu6500_set_fifo_mode(&gs_handle, MPU6500_DMP_DEFAULT_FIFO_MODE);
     if (res != 0)
     {
-        mpu6500_interface_debug_print("mpu6500: set fifo mode failed (res=%d).\n", res);
+        mpu6500_interface_debug_print("mpu6500: set fifo mode failed.\n");
         (void)mpu6500_deinit(&gs_handle);
+       
         return 1;
     }
     
@@ -595,8 +629,19 @@ uint8_t mpu6500_dmp_init(mpu6500_interface_t interface, mpu6500_address_t addr_p
     res = mpu6500_set_gyroscope_choice(&gs_handle, MPU6500_DMP_DEFAULT_GYROSCOPE_CHOICE);
     if (res != 0)
     {
-        mpu6500_interface_debug_print("mpu6500: set gyroscope choice failed (res=%d).\n", res);
+        mpu6500_interface_debug_print("mpu6500: set gyroscope choice failed.\n");
         (void)mpu6500_deinit(&gs_handle);
+       
+        return 1;
+    }
+    
+    /* set the default low pass filter */
+    res = mpu6500_set_low_pass_filter(&gs_handle, MPU6500_DMP_DEFAULT_LOW_PASS_FILTER);
+    if (res != 0)
+    {
+        mpu6500_interface_debug_print("mpu6500: set low pass filter failed.\n");
+        (void)mpu6500_deinit(&gs_handle);
+       
         return 1;
     }
     
@@ -604,8 +649,9 @@ uint8_t mpu6500_dmp_init(mpu6500_interface_t interface, mpu6500_address_t addr_p
     res = mpu6500_set_accelerometer_choice(&gs_handle, MPU6500_DMP_DEFAULT_ACCELEROMETER_CHOICE);
     if (res != 0)
     {
-        mpu6500_interface_debug_print("mpu6500: set accelerometer choice failed (res=%d).\n", res);
+        mpu6500_interface_debug_print("mpu6500: set accelerometer choice failed.\n");
         (void)mpu6500_deinit(&gs_handle);
+       
         return 1;
     }
     
@@ -613,8 +659,9 @@ uint8_t mpu6500_dmp_init(mpu6500_interface_t interface, mpu6500_address_t addr_p
     res = mpu6500_set_accelerometer_low_pass_filter(&gs_handle, MPU6500_DMP_DEFAULT_ACCELEROMETER_LOW_PASS_FILTER);
     if (res != 0)
     {
-        mpu6500_interface_debug_print("mpu6500: set accelerometer low pass filter failed (res=%d).\n", res);
+        mpu6500_interface_debug_print("mpu6500: set accelerometer low pass filter failed.\n");
         (void)mpu6500_deinit(&gs_handle);
+       
         return 1;
     }
     
@@ -622,8 +669,9 @@ uint8_t mpu6500_dmp_init(mpu6500_interface_t interface, mpu6500_address_t addr_p
     res = mpu6500_set_low_power_accel_output_rate(&gs_handle, MPU6500_DMP_DEFAULT_LOW_POWER_ACCEL_OUTPUT_RATE);
     if (res != 0)
     {
-        mpu6500_interface_debug_print("mpu6500: set low power accel output rate failed (res=%d).\n", res);
+        mpu6500_interface_debug_print("mpu6500: set low power accel output rate failed.\n");
         (void)mpu6500_deinit(&gs_handle);
+       
         return 1;
     }
     
@@ -631,8 +679,9 @@ uint8_t mpu6500_dmp_init(mpu6500_interface_t interface, mpu6500_address_t addr_p
     res = mpu6500_set_accel_compare_with_previous_sample(&gs_handle, MPU6500_DMP_DEFAULT_ACCELEROMETER_COMPARE);
     if (res != 0)
     {
-        mpu6500_interface_debug_print("mpu6500: set accel compare with previous sample failed (res=%d).\n", res);
+        mpu6500_interface_debug_print("mpu6500: set accel compare with previous sample failed.\n");
         (void)mpu6500_deinit(&gs_handle);
+       
         return 1;
     }
     
@@ -640,8 +689,9 @@ uint8_t mpu6500_dmp_init(mpu6500_interface_t interface, mpu6500_address_t addr_p
     res = mpu6500_dmp_load_firmware(&gs_handle);
     if (res != 0)
     {
-        mpu6500_interface_debug_print("mpu6500: dmp load firmware failed (res=%d).\n", res);
+        mpu6500_interface_debug_print("mpu6500: dmp load firmware failed.\n");
         (void)mpu6500_deinit(&gs_handle);
+       
         return 1;
     }
     
@@ -649,8 +699,9 @@ uint8_t mpu6500_dmp_init(mpu6500_interface_t interface, mpu6500_address_t addr_p
     res = mpu6500_dmp_set_tap_axes(&gs_handle, MPU6500_AXIS_X, MPU6500_BOOL_TRUE);
     if (res != 0)
     {
-        mpu6500_interface_debug_print("mpu6500: dmp set tap axes x failed (res=%d).\n", res);
+        mpu6500_interface_debug_print("mpu6500: dmp set tap axes failed.\n");
         (void)mpu6500_deinit(&gs_handle);
+       
         return 1;
     }
     
@@ -658,8 +709,9 @@ uint8_t mpu6500_dmp_init(mpu6500_interface_t interface, mpu6500_address_t addr_p
     res = mpu6500_dmp_set_tap_axes(&gs_handle, MPU6500_AXIS_Y, MPU6500_BOOL_TRUE);
     if (res != 0)
     {
-        mpu6500_interface_debug_print("mpu6500: dmp set tap axes y failed (res=%d).\n", res);
+        mpu6500_interface_debug_print("mpu6500: dmp set tap axes failed.\n");
         (void)mpu6500_deinit(&gs_handle);
+       
         return 1;
     }
     
@@ -667,8 +719,9 @@ uint8_t mpu6500_dmp_init(mpu6500_interface_t interface, mpu6500_address_t addr_p
     res = mpu6500_dmp_set_tap_axes(&gs_handle, MPU6500_AXIS_Z, MPU6500_BOOL_TRUE);
     if (res != 0)
     {
-        mpu6500_interface_debug_print("mpu6500: dmp set tap axes z failed (res=%d).\n", res);
+        mpu6500_interface_debug_print("mpu6500: dmp set tap axes failed.\n");
         (void)mpu6500_deinit(&gs_handle);
+       
         return 1;
     }
     
@@ -676,8 +729,9 @@ uint8_t mpu6500_dmp_init(mpu6500_interface_t interface, mpu6500_address_t addr_p
     res = mpu6500_dmp_set_fifo_rate(&gs_handle, MPU6500_DMP_DEFAULT_RATE);
     if (res != 0)
     {
-        mpu6500_interface_debug_print("mpu6500: dmp set fifo rate failed (res=%d).\n", res);
+        mpu6500_interface_debug_print("mpu6500: dmp set fifo rate failed.\n");
         (void)mpu6500_deinit(&gs_handle);
+       
         return 1;
     }
     
@@ -685,8 +739,9 @@ uint8_t mpu6500_dmp_init(mpu6500_interface_t interface, mpu6500_address_t addr_p
     res = mpu6500_dmp_set_interrupt_mode(&gs_handle, MPU6500_DMP_DEFAULT_INTERRUPT_MODE);
     if (res != 0)
     {
-        mpu6500_interface_debug_print("mpu6500: dmp set interrupt mode failed (res=%d).\n", res);
+        mpu6500_interface_debug_print("mpu6500: dmp set interrupt mode failed.\n");
         (void)mpu6500_deinit(&gs_handle);
+       
         return 1;
     }
     
@@ -694,8 +749,9 @@ uint8_t mpu6500_dmp_init(mpu6500_interface_t interface, mpu6500_address_t addr_p
     res = mpu6500_dmp_set_orientation(&gs_handle, gyro_orientation);
     if (res != 0)
     {
-        mpu6500_interface_debug_print("mpu6500: dmp set orientation failed (res=%d).\n", res);
+        mpu6500_interface_debug_print("mpu6500: dmp set orientation failed.\n");
         (void)mpu6500_deinit(&gs_handle);
+       
         return 1;
     }
     
@@ -705,8 +761,9 @@ uint8_t mpu6500_dmp_init(mpu6500_interface_t interface, mpu6500_address_t addr_p
                                               MPU6500_DMP_FEATURE_SEND_CAL_GYRO | MPU6500_DMP_FEATURE_GYRO_CAL);
     if (res != 0)
     {
-        mpu6500_interface_debug_print("mpu6500: dmp set feature failed (res=%d).\n", res);
+        mpu6500_interface_debug_print("mpu6500: dmp set feature failed.\n");
         (void)mpu6500_deinit(&gs_handle);
+       
         return 1;
     }
     
@@ -714,8 +771,9 @@ uint8_t mpu6500_dmp_init(mpu6500_interface_t interface, mpu6500_address_t addr_p
     res = mpu6500_dmp_set_tap_callback(&gs_handle, tap_callback);
     if (res != 0)
     {
-        mpu6500_interface_debug_print("mpu6500: dmp set tap callback failed (res=%d).\n", res);
+        mpu6500_interface_debug_print("mpu6500: dmp set tap callback failed.\n");
         (void)mpu6500_deinit(&gs_handle);
+       
         return 1;
     }
     
@@ -723,8 +781,9 @@ uint8_t mpu6500_dmp_init(mpu6500_interface_t interface, mpu6500_address_t addr_p
     res = mpu6500_dmp_set_orient_callback(&gs_handle, orient_callback);
     if (res != 0)
     {
-        mpu6500_interface_debug_print("mpu6500: dmp set orient callback failed (res=%d).\n", res);
+        mpu6500_interface_debug_print("mpu6500: dmp set orient callback failed.\n");
         (void)mpu6500_deinit(&gs_handle);
+       
         return 1;
     }
     
@@ -732,8 +791,9 @@ uint8_t mpu6500_dmp_init(mpu6500_interface_t interface, mpu6500_address_t addr_p
     res = mpu6500_dmp_set_pedometer_walk_time(&gs_handle, MPU6500_DMP_DEFAULT_PEOMETER_WALK_TIME);
     if (res != 0)
     {
-        mpu6500_interface_debug_print("mpu6500: dmp set pedometer walk time failed (res=%d).\n", res);
+        mpu6500_interface_debug_print("mpu6500: dmp set pedometer walk time failed.\n");
         (void)mpu6500_deinit(&gs_handle);
+       
         return 1;
     }
     
@@ -741,8 +801,9 @@ uint8_t mpu6500_dmp_init(mpu6500_interface_t interface, mpu6500_address_t addr_p
     res = mpu6500_dmp_set_pedometer_step_count(&gs_handle, MPU6500_DMP_DEFAULT_PEOMETER_STEP_COUNT);
     if (res != 0)
     {
-        mpu6500_interface_debug_print("mpu6500: dmp set pedometer step count failed (res=%d).\n", res);
+        mpu6500_interface_debug_print("mpu6500: dmp set pedometer step count failed.\n");
         (void)mpu6500_deinit(&gs_handle);
+       
         return 1;
     }
     
@@ -750,8 +811,9 @@ uint8_t mpu6500_dmp_init(mpu6500_interface_t interface, mpu6500_address_t addr_p
     res = mpu6500_dmp_set_shake_reject_timeout(&gs_handle, MPU6500_DMP_DEFAULT_SHAKE_REJECT_TIMEOUT);
     if (res != 0)
     {
-        mpu6500_interface_debug_print("mpu6500: dmp set shake reject timeout failed (res=%d).\n", res);
+        mpu6500_interface_debug_print("mpu6500: dmp set shake reject timeout failed.\n");
         (void)mpu6500_deinit(&gs_handle);
+       
         return 1;
     }
     
@@ -759,8 +821,9 @@ uint8_t mpu6500_dmp_init(mpu6500_interface_t interface, mpu6500_address_t addr_p
     res = mpu6500_dmp_set_shake_reject_time(&gs_handle, MPU6500_DMP_DEFAULT_SHAKE_REJECT_TIME);
     if (res != 0)
     {
-        mpu6500_interface_debug_print("mpu6500: dmp set shake reject time failed (res=%d).\n", res);
+        mpu6500_interface_debug_print("mpu6500: dmp set shake reject time failed.\n");
         (void)mpu6500_deinit(&gs_handle);
+       
         return 1;
     }
     
@@ -768,8 +831,9 @@ uint8_t mpu6500_dmp_init(mpu6500_interface_t interface, mpu6500_address_t addr_p
     res = mpu6500_dmp_set_shake_reject_thresh(&gs_handle, MPU6500_DMP_DEFAULT_SHAKE_REJECT_THRESH);
     if (res != 0)
     {
-        mpu6500_interface_debug_print("mpu6500: dmp set shake reject thresh failed (res=%d).\n", res);
+        mpu6500_interface_debug_print("mpu6500: dmp set shake reject thresh failed.\n");
         (void)mpu6500_deinit(&gs_handle);
+       
         return 1;
     }
     
@@ -777,8 +841,9 @@ uint8_t mpu6500_dmp_init(mpu6500_interface_t interface, mpu6500_address_t addr_p
     res = mpu6500_dmp_set_tap_time_multi(&gs_handle, MPU6500_DMP_DEFAULT_TAP_TIME_MULTI);
     if (res != 0)
     {
-        mpu6500_interface_debug_print("mpu6500: dmp set tap time multi failed (res=%d).\n", res);
+        mpu6500_interface_debug_print("mpu6500: dmp set tap time multi failed.\n");
         (void)mpu6500_deinit(&gs_handle);
+       
         return 1;
     }
     
@@ -786,8 +851,9 @@ uint8_t mpu6500_dmp_init(mpu6500_interface_t interface, mpu6500_address_t addr_p
     res = mpu6500_dmp_set_tap_time(&gs_handle, MPU6500_DMP_DEFAULT_TAP_TIME);
     if (res != 0)
     {
-        mpu6500_interface_debug_print("mpu6500: dmp set tap time failed (res=%d).\n", res);
+        mpu6500_interface_debug_print("mpu6500: dmp set tap time failed.\n");
         (void)mpu6500_deinit(&gs_handle);
+       
         return 1;
     }
     
@@ -795,8 +861,9 @@ uint8_t mpu6500_dmp_init(mpu6500_interface_t interface, mpu6500_address_t addr_p
     res = mpu6500_dmp_set_min_tap_count(&gs_handle, MPU6500_DMP_DEFAULT_MIN_TAP_COUNT);
     if (res != 0)
     {
-        mpu6500_interface_debug_print("mpu6500: dmp set min tap count failed (res=%d).\n", res);
+        mpu6500_interface_debug_print("mpu6500: dmp set min tap count failed.\n");
         (void)mpu6500_deinit(&gs_handle);
+       
         return 1;
     }
     
@@ -804,17 +871,19 @@ uint8_t mpu6500_dmp_init(mpu6500_interface_t interface, mpu6500_address_t addr_p
     res = mpu6500_dmp_set_tap_thresh(&gs_handle, MPU6500_AXIS_X, MPU6500_DMP_DEFAULT_TAP_X_THRESH);
     if (res != 0)
     {
-        mpu6500_interface_debug_print("mpu6500: dmp set tap thresh x failed (res=%d).\n", res);
+        mpu6500_interface_debug_print("mpu6500: dmp set tap thresh failed.\n");
         (void)mpu6500_deinit(&gs_handle);
+       
         return 1;
     }
 
     /* set the default tap thresh y */
-    res = mpu6500_dmp_set_tap_thresh(&gs_handle, MPU6500_AXIS_Y, MPU6500_DMP_DEFAULT_TAP_Y_THRESH);
+    res = mpu6500_dmp_set_tap_thresh(&gs_handle, MPU6500_AXIS_Y,MPU6500_DMP_DEFAULT_TAP_Y_THRESH);
     if (res != 0)
     {
-        mpu6500_interface_debug_print("mpu6500: dmp set tap thresh y failed (res=%d).\n", res);
+        mpu6500_interface_debug_print("mpu6500: dmp set tap thresh failed.\n");
         (void)mpu6500_deinit(&gs_handle);
+       
         return 1;
     }
     
@@ -822,8 +891,40 @@ uint8_t mpu6500_dmp_init(mpu6500_interface_t interface, mpu6500_address_t addr_p
     res = mpu6500_dmp_set_tap_thresh(&gs_handle, MPU6500_AXIS_Z, MPU6500_DMP_DEFAULT_TAP_Z_THRESH);
     if (res != 0)
     {
-        mpu6500_interface_debug_print("mpu6500: dmp set tap thresh z failed (res=%d).\n", res);
+        mpu6500_interface_debug_print("mpu6500: dmp set tap thresh failed.\n");
         (void)mpu6500_deinit(&gs_handle);
+       
+        return 1;
+    }
+    
+    /* dmp gyro accel raw offset convert */
+    res = mpu6500_dmp_gyro_accel_raw_offset_convert(&gs_handle, gyro_offset_raw, accel_offset_raw, 
+                                                    gyro_offset, accel_offset);
+    if (res != 0)
+    {
+        mpu6500_interface_debug_print("mpu6500: dmp gyro accel raw offset convert failed.\n");
+        (void)mpu6500_deinit(&gs_handle);
+       
+        return 1;
+    }
+    
+    /* dmp set accel bias */
+    res = mpu6500_dmp_set_accel_bias(&gs_handle, accel_offset);
+    if (res != 0)
+    {
+        mpu6500_interface_debug_print("mpu6500: dmp set accel bias failed.\n");
+        (void)mpu6500_deinit(&gs_handle);
+       
+        return 1;
+    }
+    
+    /* dmp set gyro bias */
+    res = mpu6500_dmp_set_gyro_bias(&gs_handle, gyro_offset);
+    if (res != 0)
+    {
+        mpu6500_interface_debug_print("mpu6500: dmp set gyro bias failed.\n");
+        (void)mpu6500_deinit(&gs_handle);
+       
         return 1;
     }
     
@@ -831,8 +932,9 @@ uint8_t mpu6500_dmp_init(mpu6500_interface_t interface, mpu6500_address_t addr_p
     res = mpu6500_dmp_set_enable(&gs_handle, MPU6500_BOOL_TRUE);
     if (res != 0)
     {
-        mpu6500_interface_debug_print("mpu6500: dmp set enable failed (res=%d).\n", res);
+        mpu6500_interface_debug_print("mpu6500: dmp set enable failed.\n");
         (void)mpu6500_deinit(&gs_handle);
+       
         return 1;
     }
     
@@ -840,8 +942,9 @@ uint8_t mpu6500_dmp_init(mpu6500_interface_t interface, mpu6500_address_t addr_p
     res = mpu6500_force_fifo_reset(&gs_handle);
     if (res != 0)
     {
-        mpu6500_interface_debug_print("mpu6500: force fifo reset failed (res=%d).\n", res);
+        mpu6500_interface_debug_print("mpu6500: force fifo reset failed.\n");
         (void)mpu6500_deinit(&gs_handle);
+       
         return 1;
     }
     
@@ -861,7 +964,6 @@ uint8_t mpu6500_dmp_get_pedometer_counter(uint32_t *cnt)
     /* get the pedometer counter */
     if (mpu6500_dmp_get_pedometer_step_count(&gs_handle, cnt) != 0)
     {
-        mpu6500_interface_debug_print("mpu6500: get pedometer step count failed.\n");
         return 1;
     }
     
@@ -897,7 +999,6 @@ uint8_t mpu6500_dmp_read_all(int16_t (*accel_raw)[3], float (*accel_g)[3],
                          pitch, roll, yaw, l) != 0
                         )
     {
-        mpu6500_interface_debug_print("mpu6500: dmp read failed.\n");
         return 1;
     }
     
@@ -916,7 +1017,6 @@ uint8_t mpu6500_dmp_deinit(void)
     /* deinit */
     if (mpu6500_deinit(&gs_handle) != 0)
     {
-        mpu6500_interface_debug_print("mpu6500: deinit failed.\n");
         return 1;
     }
     

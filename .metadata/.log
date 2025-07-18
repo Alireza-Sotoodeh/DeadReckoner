@@ -881,3 +881,34 @@ Caused by: java.nio.channels.UnresolvedAddressException
 	at java.base/java.security.AccessController.doPrivileged(AccessController.java:571)
 	at java.net.http/jdk.internal.net.http.PlainHttpConnection.connectAsync(PlainHttpConnection.java:212)
 	... 21 more
+!SESSION 2025-07-18 08:52:59.354 -----------------------------------------------
+eclipse.buildId=Version 1.18.0
+java.version=21.0.3
+java.vendor=Eclipse Adoptium
+BootLoader constants: OS=win32, ARCH=x86_64, WS=win32, NL=en_US
+Framework arguments:  D:\university\studies\Navigation-STM32\Navigation-STM32\Navigationa_PJ\.project
+Command-line arguments:  -os win32 -ws win32 -arch x86_64 D:\university\studies\Navigation-STM32\Navigation-STM32\Navigationa_PJ\.project
+
+!ENTRY com.st.stm32cube.ide.mcu.informationcenter 4 4 2025-07-18 08:53:09.503
+!MESSAGE CubeMX plugin appears to be active, Log4j initialization might be too late.
+
+!ENTRY com.st.stm32cube.ide.mcu.informationcenter 1 1 2025-07-18 08:53:09.505
+!MESSAGE Log4j2 initialized with config file D:\university\studies\Navigation-STM32\Navigation-STM32\.metadata\.log4j2.xml
+
+!ENTRY com.st.stm32cube.ide.mcu.ide 1 1 2025-07-18 08:53:19.450
+!MESSAGE Started RMI Server, listening on port 41337
+
+!ENTRY org.eclipse.cdt.core 1 0 2025-07-18 08:53:25.925
+!MESSAGE Indexed 'Navigationa_PJ' (25 sources, 131 headers) in 6.25 sec: 14,833 declarations; 59,862 references; 1 unresolved inclusions; 92 syntax errors; 240 unresolved names (0.32%)
+
+!ENTRY org.eclipse.equinox.p2.metadata.repository 4 1000 2025-07-18 08:53:50.609
+!MESSAGE No repository found at https://sw-center.st.com/stm32cubeide/openstlinux/updatesite1.
+
+!ENTRY org.eclipse.equinox.p2.metadata.repository 4 1000 2025-07-18 08:53:51.256
+!MESSAGE No repository found at https://sw-center.st.com/stm32cubeide/updatesite1.
+
+!ENTRY org.eclipse.equinox.p2.metadata.repository 4 1000 2025-07-18 08:53:54.954
+!MESSAGE No repository found at https://download.eclipse.org/tools/cdt/releases/latest.
+
+!ENTRY org.eclipse.equinox.p2.metadata.repository 4 1000 2025-07-18 08:53:57.914
+!MESSAGE No repository found at https://download.eclipse.org/releases/2024-09.
