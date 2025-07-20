@@ -54,7 +54,7 @@ This project aims to implement GPS-less navigation by tracking orientation and m
 - [ ] Save persistent offsets to SD card
 - [ ] Monitor FIFO overflow with `gs_handle.fifo_count`
 - [ ] Optimize UART logging frequency
-- [ ] Add magnetometer (e.g., AK8963)
+- [ ] Add magnetometer (e.g., AK8963) + modify the filter
 - [ ] Log sensor data to SD for offline analysis
 
 ---
