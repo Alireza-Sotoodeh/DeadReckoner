@@ -912,3 +912,22 @@ Command-line arguments:  -os win32 -ws win32 -arch x86_64 D:\university\studies\
 
 !ENTRY org.eclipse.equinox.p2.metadata.repository 4 1000 2025-07-18 08:53:57.914
 !MESSAGE No repository found at https://download.eclipse.org/releases/2024-09.
+!SESSION 2025-07-23 11:28:26.399 -----------------------------------------------
+eclipse.buildId=Version 1.18.0
+java.version=21.0.3
+java.vendor=Eclipse Adoptium
+BootLoader constants: OS=win32, ARCH=x86_64, WS=win32, NL=en_US
+Framework arguments:  D:\university\studies\Navigation-STM32\Navigation-STM32\Navigationa_PJ\.cproject
+Command-line arguments:  -os win32 -ws win32 -arch x86_64 D:\university\studies\Navigation-STM32\Navigation-STM32\Navigationa_PJ\.cproject
+
+!ENTRY com.st.stm32cube.ide.mcu.informationcenter 4 4 2025-07-23 11:28:32.147
+!MESSAGE CubeMX plugin appears to be active, Log4j initialization might be too late.
+
+!ENTRY com.st.stm32cube.ide.mcu.informationcenter 1 1 2025-07-23 11:28:32.148
+!MESSAGE Log4j2 initialized with config file D:\university\studies\Navigation-STM32\Navigation-STM32\.metadata\.log4j2.xml
+
+!ENTRY com.st.stm32cube.ide.mcu.ide 1 1 2025-07-23 11:28:43.715
+!MESSAGE Started RMI Server, listening on port 41337
+
+!ENTRY org.eclipse.cdt.core 1 0 2025-07-23 11:28:45.997
+!MESSAGE Indexed 'Navigationa_PJ' (21 sources, 119 headers) in 2.19 sec: 11,656 declarations; 48,273 references; 1 unresolved inclusions; 92 syntax errors; 240 unresolved names (0.4%)
