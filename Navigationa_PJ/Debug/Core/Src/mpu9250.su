@@ -1,0 +1,17 @@
+../Core/Src/mpu9250.c:45:13:CS_LOW	8	static
+../Core/Src/mpu9250.c:49:13:CS_HIGH	8	static
+../Core/Src/mpu9250.c:53:24:write_reg	24	static
+../Core/Src/mpu9250.c:61:24:read_regs	24	static
+../Core/Src/mpu9250.c:70:24:write_ak8963	16	static
+../Core/Src/mpu9250.c:78:24:read_ak8963	16	static
+../Core/Src/mpu9250.c:86:24:set_mem_bank	16	static
+../Core/Src/mpu9250.c:90:24:set_mem_start	16	static
+../Core/Src/mpu9250.c:94:24:write_mem_chunk	24	static
+../Core/Src/mpu9250.c:103:24:flush_fifo	8	static
+../Core/Src/mpu9250.c:108:17:MPU9250_Init	24	static
+../Core/Src/mpu9250.c:165:17:MPU9250_CalibrateMag	88	static
+../Core/Src/mpu9250.c:208:17:MPU9250_CalibrateGyro	64	static
+../Core/Src/mpu9250.c:230:17:MPU9250_CalibrateAccel	64	static
+../Core/Src/mpu9250.c:254:17:MPU9250_LoadDMP	72	dynamic
+../Core/Src/mpu9250.c:287:17:MPU9250_GetData	144	static
+../Core/Src/mpu9250.c:375:17:MPU9250_FuseBMP280	16	static
