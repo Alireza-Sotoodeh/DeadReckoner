@@ -1,4 +1,4 @@
-17:26:58 **** Incremental Build of configuration Debug for project Navigationa_PJ ****
+15:39:33 **** Incremental Build of configuration Debug for project Navigationa_PJ ****
 make -j8 all 
 arm-none-eabi-size  Navigationa_PJ.elf 
    text	   data	    bss	    dec	    hex	filename
@@ -6,5 +6,5 @@ arm-none-eabi-size  Navigationa_PJ.elf
 Finished building: default.size.stdout
  
 
-17:26:59 Build Finished. 0 errors, 0 warnings. (took 289ms)
+15:39:33 Build Finished. 0 errors, 0 warnings. (took 205ms)
 

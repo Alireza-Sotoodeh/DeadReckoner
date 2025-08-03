@@ -1,8 +1,0 @@
-../Core/Src/driver_mpu9250_interface_stm32.c:9:9:mpu9250_interface_spi_init	1
-../Core/Src/driver_mpu9250_interface_stm32.c:15:9:mpu9250_interface_spi_deinit	1
-../Core/Src/driver_mpu9250_interface_stm32.c:21:9:mpu9250_interface_spi_read	3
-../Core/Src/driver_mpu9250_interface_stm32.c:31:9:mpu9250_interface_spi_write	3
-../Core/Src/driver_mpu9250_interface_stm32.c:41:6:mpu9250_interface_delay_ms	1
-../Core/Src/driver_mpu9250_interface_stm32.c:46:6:mpu9250_interface_debug_print	1
-../Core/Src/driver_mpu9250_interface_stm32.c:52:6:mpu9250_interface_receive_callback	1
-../Core/Src/driver_mpu9250_interface_stm32.c:57:9:mpu9250_interface_iic_init	1

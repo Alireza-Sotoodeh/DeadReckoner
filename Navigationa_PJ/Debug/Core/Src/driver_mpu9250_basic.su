@@ -1,4 +1,0 @@
-../Core/Src/driver_mpu9250_basic.c:50:9:mpu9250_basic_init	24	static
-../Core/Src/driver_mpu9250_basic.c:649:9:mpu9250_basic_read_temperature	24	static
-../Core/Src/driver_mpu9250_basic.c:672:9:mpu9250_basic_read	104	static
-../Core/Src/driver_mpu9250_basic.c:717:9:mpu9250_basic_deinit	16	static
