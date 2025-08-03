@@ -59,8 +59,6 @@ void Error_Handler(void);
 /* Private defines -----------------------------------------------------------*/
 #define MPU6500_CS_Pin GPIO_PIN_4
 #define MPU6500_CS_GPIO_Port GPIOA
-#define EXT_Pin GPIO_PIN_0
-#define EXT_GPIO_Port GPIOB
 
 /* USER CODE BEGIN Private defines */
 

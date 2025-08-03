@@ -1,0 +1,4 @@
+../Core/Src/driver_mpu9250_fifo.c:48:9:mpu9250_fifo_irq_handler	2
+../Core/Src/driver_mpu9250_fifo.c:69:9:mpu9250_fifo_init	69
+../Core/Src/driver_mpu9250_fifo.c:777:9:mpu9250_fifo_read	2
+../Core/Src/driver_mpu9250_fifo.c:800:9:mpu9250_fifo_deinit	6

@@ -1,0 +1,498 @@
+/* USER CODE BEGIN Header */
+/**
+  ******************************************************************************
+  * @file           : main.c
+  * @brief          : Main program body
+  ******************************************************************************
+  * @attention
+  *
+  * Copyright (c) 2025 STMicroelectronics.
+  * All rights reserved.
+  *
+  * This software is licensed under terms that can be found in the LICENSE file
+  * in the root directory of this software component.
+  * If no LICENSE file comes with this software, it is provided AS-IS.
+  *
+  ******************************************************************************
+  */
+/* USER CODE END Header */
+/* Includes ------------------------------------------------------------------*/
+#include "main.h"
+
+/* Private includes ----------------------------------------------------------*/
+/* USER CODE BEGIN Includes */
+#include "driver_mpu9250_dmp.h" // DMP header (includes base driver)
+/* USER CODE END Includes */
+
+/* Private typedef -----------------------------------------------------------*/
+/* USER CODE BEGIN PTD */
+
+/* USER CODE END PTD */
+
+/* Private define ------------------------------------------------------------*/
+/* USER CODE BEGIN PD */
+
+/* USER CODE END PD */
+
+/* Private macro -------------------------------------------------------------*/
+/* USER CODE BEGIN PM */
+
+/* USER CODE END PM */
+
+/* Private variables ---------------------------------------------------------*/
+extern SPI_HandleTypeDef hspi1; // SPI handle from CubeMX
+
+/* USER CODE BEGIN PV */
+
+/* Volatile variables for Live Expressions debugging (no prints) */
+volatile uint8_t g_irq_type = 0;           /* IRQ type (e.g., MPU9250_INTERRUPT_DMP) */
+volatile uint8_t g_tap_count = 0;          /* Tap count */
+volatile uint8_t g_tap_direction = 0;      /* Tap direction (e.g., MPU9250_DMP_TAP_X_UP) */
+volatile uint8_t g_orient_orientation = 0; /* Orientation (e.g., MPU9250_DMP_ORIENT_PORTRAIT) */
+volatile uint32_t g_pedometer_cnt = 0;     /* Pedometer step count */
+volatile uint16_t g_fifo_len = 0;          /* FIFO length from last read */
+volatile float g_last_pitch = 0.0f;        /* Last pitch (for quick view) */
+volatile float g_last_roll = 0.0f;         /* Last roll */
+volatile float g_last_yaw = 0.0f;          /* Last yaw */
+volatile uint8_t g_dmp_init_status = 0;    /* 0: failed, 1: ok */
+
+/* DMP data buffers (as in your snippet) */
+static int16_t gs_accel_raw[128][3];
+static float gs_accel_g[128][3];
+static int16_t gs_gyro_raw[128][3];
+static float gs_gyro_dps[128][3];
+static int32_t gs_quat[128][4];
+static float gs_pitch[128];
+static float gs_roll[128];
+static float gs_yaw[128];
+
+/* GPIO IRQ handler pointer (for INT pin) */
+uint8_t (*g_gpio_irq)(void) = NULL;
+
+/* Callback for general interrupts (updates volatile instead of print) */
+static void a_receive_callback(uint8_t type)
+{
+    g_irq_type = type;  // View in CubeIDE Expressions
+    // No print; per history
+}
+
+/* Callback for DMP tap (updates volatiles) */
+static void a_dmp_tap_callback(uint8_t count, uint8_t direction)
+{
+    g_tap_count = count;
+    g_tap_direction = direction;
+    // No print
+}
+
+/* Callback for DMP orientation (updates volatile) */
+static void a_dmp_orient_callback(uint8_t orientation)
+{
+    g_orient_orientation = orientation;
+    // No print
+}
+
+/* GPIO interrupt init for MPU9250 INT pin (adjust PA0 to your INT pin) */
+static uint8_t gpio_interrupt_init(void)
+{
+    // MX_GPIO_Init already configures PA0 as EXTI rising, priority 0.
+    // If your INT pin is different, modify MX_GPIO_Init or create a separate init.
+    // This function primarily ensures the pointer is set and IRQ is enabled.
+
+    /* Ensure INT pin (PA0) is configured as EXTI Rising */
+    // If MX_GPIO_Init uses a different mode/pull, this might need to be adapted.
+    // For this example, we assume MX_GPIO_Init correctly sets up PA0 for EXTI rising.
+
+    /* Enable EXTI IRQ if not already done by MX_GPIO_Init */
+    // HAL_NVIC_SetPriority(EXTI0_IRQn, 0, 0); // Priority already set by MX_GPIO_Init
+    // HAL_NVIC_EnableIRQ(EXTI0_IRQn); // IRQ already enabled by MX_GPIO_Init
+
+    // Check if the pin configuration is suitable (e.g., EXTI Rising or Falling)
+    // The provided MX_GPIO_Init uses EXTI_RISING on PA0, which is generally fine for MPU9250 INT.
+
+    return 0;  // Success (assuming MX_GPIO_Init setup is correct)
+}
+
+/* GPIO interrupt deinit */
+static uint8_t gpio_interrupt_deinit(void)
+{
+    /* Disable EXTI IRQ for the INT pin */
+    HAL_NVIC_DisableIRQ(EXTI0_IRQn); // Assuming PA0 is EXTI0
+
+    /* Deinit the INT pin */
+    HAL_GPIO_DeInit(GPIOA, GPIO_PIN_0); // Assuming PA0 is the INT pin
+
+    return 0;
+}
+
+/* USER CODE END PV */
+
+/* Private function prototypes -----------------------------------------------*/
+void SystemClock_Config(void);
+static void MX_GPIO_Init(void);
+static void MX_SPI1_Init(void);
+/* USER CODE BEGIN PFP */
+// Add placeholder for EXTI0_IRQHandler if not in stm32f4xx_it.c
+// void EXTI0_IRQHandler(void); // Declared in stm32f4xx_it.h typically
+/* USER CODE END PFP */
+
+/**
+  * @brief  The application entry point.
+  * @retval int
+  */
+int main(void)
+{
+  /* USER CODE BEGIN 1 */
+  uint32_t i;
+  uint32_t times = 3;        // Number of samples to read
+  uint32_t pedo_count;       // Pedometer count
+  uint16_t fifo_len;         // Length of data read from FIFO
+  uint8_t res;               // Function return status
+  mpu9250_address_t dev_addr = MPU9250_ADDRESS_AD0_LOW; // Use AD0_LOW or AD0_HIGH
+
+  /* USER CODE END 1 */
+
+  /* MCU Configuration--------------------------------------------------------*/
+
+  /* Reset of all peripherals, Initializes the Flash interface and the Systick. */
+  HAL_Init();
+
+  /* USER CODE BEGIN Init */
+
+  /* USER CODE END Init */
+
+  /* Configure the system clock */
+  SystemClock_Config();
+
+  /* USER CODE BEGIN SysInit */
+
+  /* USER CODE END SysInit */
+
+  /* Initialize all configured peripherals */
+  MX_GPIO_Init();
+  MX_SPI1_Init();
+  /* USER CODE BEGIN 2 */
+
+  /* Initialize GPIO interrupt for MPU9250 INT pin */
+  if (gpio_interrupt_init() != 0)
+  {
+    // Handle initialization error
+    Error_Handler();
+  }
+  /* Set the global IRQ handler pointer */
+  g_gpio_irq = mpu9250_dmp_irq_handler;
+
+  /* Initialize MPU9250 DMP with SPI interface */
+  res = mpu9250_dmp_init(MPU9250_INTERFACE_SPI, dev_addr, a_receive_callback,
+                         a_dmp_tap_callback, a_dmp_orient_callback);
+  if (res != 0)
+  {
+    // Handle initialization error
+    g_dmp_init_status = 0;
+    (void)gpio_interrupt_deinit(); // Clean up GPIO
+    g_gpio_irq = NULL;
+    Error_Handler();
+  }
+  else
+  {
+    g_dmp_init_status = 1;
+  }
+
+  /* Allow some time for the sensor to stabilize */
+  mpu9250_interface_delay_ms(500);
+
+  /* USER CODE END 2 */
+
+  /* Infinite loop */
+  /* USER CODE BEGIN WHILE */
+  while (1)
+  {
+    /* USER CODE END WHILE */
+
+    /* USER CODE BEGIN 3 */
+    if (g_dmp_init_status == 1) // Proceed only if initialization was successful
+    {
+        /* Read DMP data multiple times */
+        for (i = 0; i < times; i++)
+        {
+            fifo_len = 128; // Max FIFO length to read
+
+            /* Read all available DMP data (accel, gyro, quaternion, pitch, roll, yaw) */
+            res = mpu9250_dmp_read_all(gs_accel_raw, gs_accel_g,
+                                       gs_gyro_raw, gs_gyro_dps,
+                                       gs_quat,
+                                       gs_pitch, gs_roll, gs_yaw,
+                                       &fifo_len);
+
+            if (res != 0)
+            {
+                // Handle read error
+                (void)mpu9250_dmp_deinit();
+                (void)gpio_interrupt_deinit();
+                g_gpio_irq = NULL;
+                g_dmp_init_status = 0;
+                Error_Handler();
+                break; // Exit the inner loop on error
+            }
+
+            /* Update volatile variables with the latest data for debugging */
+            g_fifo_len = fifo_len;
+            if (fifo_len > 0) // If data was read
+            {
+                g_last_pitch = gs_pitch[0]; // Store first sample's pitch
+                g_last_roll = gs_roll[0];   // Store first sample's roll
+                g_last_yaw = gs_yaw[0];     // Store first sample's yaw
+                // You can add more volatiles here to monitor other data points
+            }
+
+            /* Get the pedometer step count */
+            res = mpu9250_dmp_get_pedometer_counter(&pedo_count);
+            if (res != 0)
+            {
+                // Handle pedometer read error
+                (void)mpu9250_dmp_deinit();
+                (void)gpio_interrupt_deinit();
+                g_gpio_irq = NULL;
+                g_dmp_init_status = 0;
+                Error_Handler();
+                break; // Exit the inner loop on error
+            }
+            g_pedometer_cnt = pedo_count; // Update pedometer count volatile
+
+            /* Delay before the next read cycle */
+            mpu9250_interface_delay_ms(500);
+        }
+    }
+
+    // If you want continuous operation, you might move the 'for' loop outside 'while(1)'
+    // or manage it differently. For now, it runs `times` and then stays in while(1).
+
+    /* If you need to continuously read DMP data, you would structure this differently,
+       likely relying more on the interrupt callbacks for triggering reads.
+       For demonstration purposes, we run the read loop a fixed number of times.
+    */
+
+    // Example: If you want to break after the loop or do something else.
+    // If you put the 'while(1)' loop outside the for loop, it will just idle here.
+    // You might add a flag to exit the loop if needed.
+    if (g_dmp_init_status == 0) // If an error occurred, stop further processing
+    {
+        // Turn on an LED or enter a low-power state if desired.
+        while(1); // Halt execution after error
+    }
+
+    /* For continuous monitoring: uncomment and adapt this block */
+    /*
+    if (g_irq_type == MPU9250_INTERRUPT_DMP || g_irq_type == MPU9250_INTERRUPT_DATA_READY)
+    {
+        // Trigger read based on interrupt flags
+        fifo_len = 128;
+        res = mpu9250_dmp_read_all(gs_accel_raw, gs_accel_g,
+                                   gs_gyro_raw, gs_gyro_dps,
+                                   gs_quat,
+                                   gs_pitch, gs_roll, gs_yaw,
+                                   &fifo_len);
+        if (res == 0) {
+            g_fifo_len = fifo_len;
+            if (fifo_len > 0) {
+                g_last_pitch = gs_pitch[0];
+                g_last_roll = gs_roll[0];
+                g_last_yaw = gs_yaw[0];
+            }
+        }
+        // Reset IRQ flag if needed, or handle it in the callback
+        g_irq_type = 0; // Reset for next interrupt
+    }
+    mpu9250_interface_delay_ms(10); // Small delay to avoid busy-waiting if not interrupt-driven
+    */
+
+  }
+  /* USER CODE END 3 */
+}
+
+/* USER CODE BEGIN 4 */
+
+/**
+  * @brief EXTI line detection callback.
+  * @param GPIO_Pin: Specifies the pins connected to the EXTI line.
+  * @retval None
+  */
+void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
+{
+  /* USER CODE BEGIN callback */
+  if (GPIO_Pin == GPIO_PIN_0) // Check if the interrupt is from MPU9250 INT pin (PA0)
+  {
+    if (g_gpio_irq != NULL)
+    {
+      // Call the MPU9250 DMP IRQ handler provided by the driver
+      g_gpio_irq(); // This will trigger the registered callbacks (a_receive_callback, etc.)
+    }
+  }
+  /* USER CODE END callback */
+}
+
+/* USER CODE END 4 */
+
+/**
+  * @brief System Clock Configuration
+  * @retval None
+  */
+void SystemClock_Config(void)
+{
+  RCC_OscInitTypeDef RCC_OscInitStruct = {0};
+  RCC_ClkInitTypeDef RCC_ClkInitStruct = {0};
+
+  /** Configure the main internal regulator output voltage
+  */
+  __HAL_RCC_PWR_CLK_ENABLE();
+  __HAL_PWR_VOLTAGESCALING_CONFIG(PWR_REGULATOR_VOLTAGE_SCALE2);
+
+  /** Initializes the RCC Oscillators according to the specified parameters
+  * in the RCC_OscInitTypeDef structure.
+  */
+  RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSI;
+  RCC_OscInitStruct.HSIState = RCC_HSI_ON;
+  RCC_OscInitStruct.HSICalibrationValue = RCC_HSICALIBRATION_DEFAULT;
+  RCC_OscInitStruct.PLL.PLLState = RCC_PLL_ON;
+  RCC_OscInitStruct.PLL.PLLSource = RCC_PLLSOURCE_HSI;
+  RCC_OscInitStruct.PLL.PLLM = 8;
+  RCC_OscInitStruct.PLL.PLLN = 80;
+  RCC_OscInitStruct.PLL.PLLP = RCC_PLLP_DIV2;
+  RCC_OscInitStruct.PLL.PLLQ = 4;
+  if (HAL_RCC_OscConfig(&RCC_OscInitStruct) != HAL_OK)
+  {
+    Error_Handler();
+  }
+
+  /** Initializes the CPU, AHB and APB buses clocks
+  */
+  RCC_ClkInitStruct.ClockType = RCC_CLOCKTYPE_HCLK|RCC_CLOCKTYPE_SYSCLK
+                              |RCC_CLOCKTYPE_PCLK1|RCC_CLOCKTYPE_PCLK2;
+  RCC_ClkInitStruct.SYSCLKSource = RCC_SYSCLKSOURCE_PLLCLK;
+  RCC_ClkInitStruct.AHBCLKDivider = RCC_SYSCLK_DIV2; // HCLK = 40MHz
+  RCC_ClkInitStruct.APB1CLKDivider = RCC_HCLK_DIV1;  // APB1 = 40MHz
+  RCC_ClkInitStruct.APB2CLKDivider = RCC_HCLK_DIV1;  // APB2 = 40MHz
+
+  if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_1) != HAL_OK)
+  {
+    Error_Handler();
+  }
+}
+
+/**
+  * @brief SPI1 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_SPI1_Init(void)
+{
+
+  /* USER CODE BEGIN SPI1_Init 0 */
+
+  /* USER CODE END SPI1_Init 0 */
+
+  /* USER CODE BEGIN SPI1_Init 1 */
+
+  /* USER CODE END SPI1_Init 1 */
+  /* SPI1 parameter configuration*/
+  hspi1.Instance = SPI1;
+  hspi1.Init.Mode = SPI_MODE_MASTER;
+  hspi1.Init.Direction = SPI_DIRECTION_2LINES;
+  hspi1.Init.DataSize = SPI_DATASIZE_8BIT;
+  hspi1.Init.CLKPolarity = SPI_POLARITY_LOW;
+  hspi1.Init.CLKPhase = SPI_PHASE_1EDGE;
+  hspi1.Init.NSS = SPI_NSS_SOFT; // Software NSS, managed by driver
+  hspi1.Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_4; // 40MHz / 4 = 10MHz
+  hspi1.Init.FirstBit = SPI_FIRSTBIT_MSB;
+  hspi1.Init.TIMode = SPI_TIMODE_DISABLE;
+  hspi1.Init.CRCCalculation = SPI_CRCCALCULATION_DISABLE;
+  hspi1.Init.CRCPolynomial = 10; // Value not relevant as CRC is disabled
+  if (HAL_SPI_Init(&hspi1) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN SPI1_Init 2 */
+
+  /* USER CODE END SPI1_Init 2 */
+
+}
+
+/**
+  * @brief GPIO Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_GPIO_Init(void)
+{
+  GPIO_InitTypeDef GPIO_InitStruct = {0};
+  /* USER CODE BEGIN MX_GPIO_Init_1 */
+
+  /* USER CODE END MX_GPIO_Init_1 */
+
+  /* GPIO Ports Clock Enable */
+  __HAL_RCC_GPIOH_CLK_ENABLE(); // Usually for system functions like JTAG/SWD
+  __HAL_RCC_GPIOA_CLK_ENABLE(); // Clock for GPIOA
+
+  /*Configure GPIO pin Output Level for CS */
+  // Assuming MPU6500_CS_Pin maps to a GPIO port (e.g., GPIOA)
+  HAL_GPIO_WritePin(MPU6500_CS_GPIO_Port, MPU6500_CS_Pin, GPIO_PIN_SET);
+
+  /*Configure GPIO pin : PA0 for MPU9250 INT */
+  GPIO_InitStruct.Pin = GPIO_PIN_0; // Assuming INT is on PA0
+  GPIO_InitStruct.Mode = GPIO_MODE_IT_RISING; // MPU9250 INT is active high by default, or can be configured. Rising edge trigger.
+  GPIO_InitStruct.Pull = GPIO_NOPULL; // No pull-up/down needed if external pull-up is used or if pin has internal pull.
+  HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
+
+  /*Configure GPIO pin : MPU6500_CS_Pin for SPI CS */
+  GPIO_InitStruct.Pin = MPU6500_CS_Pin; // The CS pin
+  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP; // Push-pull output
+  GPIO_InitStruct.Pull = GPIO_NOPULL; // No pull-up/down
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW; // Low speed frequency for CS
+  HAL_GPIO_Init(MPU6500_CS_GPIO_Port, &GPIO_InitStruct);
+
+  /* EXTI interrupt init for PA0 */
+  // Priority is set to 0, which is usually the highest priority.
+  // Ensure no other critical interrupt uses this priority level or adjust as needed.
+  HAL_NVIC_SetPriority(EXTI0_IRQn, 0, 0); // Configure EXTI0 IRQ priority
+  HAL_NVIC_EnableIRQ(EXTI0_IRQn); // Enable EXTI0 IRQ
+
+  /* USER CODE BEGIN MX_GPIO_Init_2 */
+
+  /* USER CODE END MX_GPIO_Init_2 */
+}
+
+/* USER CODE BEGIN 4 */
+
+/* USER CODE END 4 */
+
+/**
+  * @brief  This function is executed in case of error occurrence.
+  * @retval None
+  */
+void Error_Handler(void)
+{
+  /* USER CODE BEGIN Error_Handler_Debug */
+  /* User can add his own implementation to report the HAL error return state */
+  // Blink an LED or enter a debugging halt.
+  while (1)
+  {
+      // Infinite loop on error
+  }
+  /* USER CODE END Error_Handler_Debug */
+}
+
+#ifdef  USE_FULL_ASSERT
+/**
+  * @brief  Reports the name of the source file and the source line number
+  *         where the assert_param error has occurred.
+  * @param  file: pointer to the source file name
+  * @param  line: assert_param error line source number
+  * @retval None
+  */
+void assert_failed(uint8_t *file, uint32_t line)
+{
+  /* USER CODE BEGIN 6 */
+  /* User can add his own implementation to report the file name and line number,
+     ex: printf("Wrong parameters value: file %s on line %d\r\n", file, line) */
+  /* USER CODE END 6 */
+}
+#endif /* USE_FULL_ASSERT */

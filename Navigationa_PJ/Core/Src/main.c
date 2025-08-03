@@ -21,7 +21,7 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-
+#include "driver_mpu9250_dmp.h" // DMP header (includes base driver)
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -43,7 +43,27 @@
 SPI_HandleTypeDef hspi1;
 
 /* USER CODE BEGIN PV */
+/* Volatile variables for Live Expressions debugging (no prints) */
+volatile uint8_t g_irq_type = 0;           /* IRQ type (e.g., MPU9250_INTERRUPT_DMP) */
+volatile uint8_t g_tap_count = 0;          /* Tap count */
+volatile uint8_t g_tap_direction = 0;      /* Tap direction (e.g., MPU9250_DMP_TAP_X_UP) */
+volatile uint8_t g_orient_orientation = 0; /* Orientation (e.g., MPU9250_DMP_ORIENT_PORTRAIT) */
+volatile uint32_t g_pedometer_cnt = 0;     /* Pedometer step count */
+volatile uint16_t g_fifo_len = 0;          /* FIFO length from last read */
+volatile float g_last_pitch = 0.0f;        /* Last pitch (for quick view) */
+volatile float g_last_roll = 0.0f;         /* Last roll */
+volatile float g_last_yaw = 0.0f;          /* Last yaw */
+volatile uint8_t g_dmp_init_status = 0;    /* 0: failed, 1: ok */
 
+/* DMP data buffers (as in your snippet) */
+static int16_t gs_accel_raw[128][3];
+static float gs_accel_g[128][3];
+static int16_t gs_gyro_raw[128][3];
+static float gs_gyro_dps[128][3];
+static int32_t gs_quat[128][4];
+static float gs_pitch[128];
+static float gs_roll[128];
+static float gs_yaw[128];
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -51,7 +71,44 @@ void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
 static void MX_SPI1_Init(void);
 /* USER CODE BEGIN PFP */
+uint8_t (*g_gpio_irq)(void) = NULL; // GPIO IRQ handler pointer (for INT pin)
 
+static void a_receive_callback(uint8_t type) // Callback for general interrupts (updates volatile instead of print)
+{
+    g_irq_type = type;  // View in CubeIDE Expressions
+    // No print; per history
+}
+
+static void a_dmp_tap_callback(uint8_t count, uint8_t direction) // Callback for DMP tap (updates volatiles)
+{
+    g_tap_count = count;
+    g_tap_direction = direction;
+    // No print
+}
+
+
+static void a_dmp_orient_callback(uint8_t orientation) // Callback for DMP orientation (updates volatile)
+{
+    g_orient_orientation = orientation;
+    // No print
+}
+
+static uint8_t gpio_interrupt_init(void) //GPIO interrupt init for MPU9250 INT pin (adjust PA0 to your INT pin)
+{
+    return 0;  // Success (assuming MX_GPIO_Init setup is correct)
+}
+
+
+static uint8_t gpio_interrupt_deinit(void) //GPIO interrupt deinit
+{
+    /* Disable EXTI IRQ for the INT pin */
+    HAL_NVIC_DisableIRQ(EXTI0_IRQn); // Assuming PA0 is EXTI0
+
+    /* Deinit the INT pin */
+    HAL_GPIO_DeInit(GPIOA, GPIO_PIN_0); // Assuming PA0 is the INT pin
+
+    return 0;
+}
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -67,7 +124,12 @@ int main(void)
 {
 
   /* USER CODE BEGIN 1 */
-
+	  uint32_t i;
+	  uint32_t times = 3;        // Number of samples to read
+	  uint32_t pedo_count;       // Pedometer count
+	  uint16_t fifo_len;         // Length of data read from FIFO
+	  uint8_t res;               // Function return status
+	  mpu9250_address_t dev_addr = MPU9250_ADDRESS_AD0_LOW; // Use AD0_LOW or AD0_HIGH
   /* USER CODE END 1 */
 
   /* MCU Configuration--------------------------------------------------------*/
@@ -91,6 +153,33 @@ int main(void)
   MX_SPI1_Init();
   /* USER CODE BEGIN 2 */
 
+
+  if (gpio_interrupt_init() != 0) // Initialize GPIO interrupt for MPU9250 INT pin
+  {
+    // Handle initialization error
+    Error_Handler();
+  }
+
+  g_gpio_irq = mpu9250_dmp_irq_handler; // Set the global IRQ handler pointer
+
+  /* Initialize MPU9250 DMP with SPI interface */
+  res = mpu9250_dmp_init(MPU9250_INTERFACE_SPI, dev_addr, a_receive_callback,
+                         a_dmp_tap_callback, a_dmp_orient_callback);
+  if (res != 0)
+  {
+    // Handle initialization error
+    g_dmp_init_status = 0;
+    (void)gpio_interrupt_deinit(); // Clean up GPIO
+    g_gpio_irq = NULL;
+    Error_Handler();
+  }
+  else
+  {
+    g_dmp_init_status = 1;
+  }
+
+  mpu9250_interface_delay_ms(500); // Allow some time for the sensor to stabilize
+
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -100,6 +189,64 @@ int main(void)
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
+	  if (g_dmp_init_status == 1) // Proceed only if initialization was successful
+	     {
+	         /* Read DMP data multiple times */
+	         for (i = 0; i < times; i++)
+	         {
+	             fifo_len = 128; // Max FIFO length to read
+
+	             /* Read all available DMP data (accel, gyro, quaternion, pitch, roll, yaw) */
+	             res = mpu9250_dmp_read_all(gs_accel_raw, gs_accel_g,
+	                                        gs_gyro_raw, gs_gyro_dps,
+	                                        gs_quat,
+	                                        gs_pitch, gs_roll, gs_yaw,
+	                                        &fifo_len);
+
+	             if (res != 0)
+	             {
+	                 // Handle read error
+	                 (void)mpu9250_dmp_deinit();
+	                 (void)gpio_interrupt_deinit();
+	                 g_gpio_irq = NULL;
+	                 g_dmp_init_status = 0;
+	                 Error_Handler();
+	                 break; // Exit the inner loop on error
+	             }
+
+	             /* Update volatile variables with the latest data for debugging */
+	             g_fifo_len = fifo_len;
+	             if (fifo_len > 0) // If data was read
+	             {
+	                 g_last_pitch = gs_pitch[0]; // Store first sample's pitch
+	                 g_last_roll = gs_roll[0];   // Store first sample's roll
+	                 g_last_yaw = gs_yaw[0];     // Store first sample's yaw
+	                 // You can add more volatiles here to monitor other data points
+	             }
+
+	             /* Get the pedometer step count */
+	             res = mpu9250_dmp_get_pedometer_counter(&pedo_count);
+	             if (res != 0)
+	             {
+	                 // Handle pedometer read error
+	                 (void)mpu9250_dmp_deinit();
+	                 (void)gpio_interrupt_deinit();
+	                 g_gpio_irq = NULL;
+	                 g_dmp_init_status = 0;
+	                 Error_Handler();
+	                 break; // Exit the inner loop on error
+	             }
+	             g_pedometer_cnt = pedo_count; // Update pedometer count volatile
+
+	             /* Delay before the next read cycle */
+	             mpu9250_interface_delay_ms(500);
+	         }
+	     }
+	    if (g_dmp_init_status == 0) // If an error occurred, stop further processing
+	    {
+	        // Turn on an LED or enter a low-power state if desired.
+	        while(1); // Halt execution after error
+	    }
   }
   /* USER CODE END 3 */
 }
@@ -203,10 +350,15 @@ static void MX_GPIO_Init(void)
   /* GPIO Ports Clock Enable */
   __HAL_RCC_GPIOH_CLK_ENABLE();
   __HAL_RCC_GPIOA_CLK_ENABLE();
-  __HAL_RCC_GPIOB_CLK_ENABLE();
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(MPU6500_CS_GPIO_Port, MPU6500_CS_Pin, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(MPU6500_CS_GPIO_Port, MPU6500_CS_Pin, GPIO_PIN_SET);
+
+  /*Configure GPIO pin : PA0 */
+  GPIO_InitStruct.Pin = GPIO_PIN_0;
+  GPIO_InitStruct.Mode = GPIO_MODE_IT_RISING;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
 
   /*Configure GPIO pin : MPU6500_CS_Pin */
   GPIO_InitStruct.Pin = MPU6500_CS_Pin;
@@ -215,11 +367,9 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(MPU6500_CS_GPIO_Port, &GPIO_InitStruct);
 
-  /*Configure GPIO pin : EXT_Pin */
-  GPIO_InitStruct.Pin = EXT_Pin;
-  GPIO_InitStruct.Mode = GPIO_MODE_IT_RISING;
-  GPIO_InitStruct.Pull = GPIO_NOPULL;
-  HAL_GPIO_Init(EXT_GPIO_Port, &GPIO_InitStruct);
+  /* EXTI interrupt init*/
+  HAL_NVIC_SetPriority(EXTI0_IRQn, 0, 0);
+  HAL_NVIC_EnableIRQ(EXTI0_IRQn);
 
   /* USER CODE BEGIN MX_GPIO_Init_2 */
 
@@ -227,7 +377,19 @@ static void MX_GPIO_Init(void)
 }
 
 /* USER CODE BEGIN 4 */
-
+void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
+{
+  /* USER CODE BEGIN callback */
+  if (GPIO_Pin == GPIO_PIN_0) // Check if the interrupt is from MPU9250 INT pin (PA0)
+  {
+    if (g_gpio_irq != NULL)
+    {
+      // Call the MPU9250 DMP IRQ handler provided by the driver
+      g_gpio_irq(); // This will trigger the registered callbacks (a_receive_callback, etc.)
+    }
+  }
+  /* USER CODE END callback */
+}
 /* USER CODE END 4 */
 
 /**
