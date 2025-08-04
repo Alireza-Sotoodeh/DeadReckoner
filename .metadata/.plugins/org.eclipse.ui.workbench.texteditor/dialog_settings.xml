@@ -3,6 +3,10 @@
 	<item key="hasShownOverlayPopupBefore" value="true"/>
 	<item key="replaceBarOpen" value="false"/>
 	<list key="searchhistory">
+		<item value="dmp not support spi interface."/>
+		<item value="MPU9250_INTERFACE_SPI"/>
+		<item value="HAL_GPIO_EXTI_Callback"/>
+		<item value="void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)"/>
 		<item value="mpu6500_motion_threshold_convert_to_register"/>
 		<item value="mpu6500_dmp_irq_handler"/>
 		<item value="mpu6500_dmp_set_pedometer_step_count"/>
