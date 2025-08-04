@@ -1,5 +1,0 @@
-../Core/Src/driver_mpu9250_dmp.c:48:9:mpu9250_dmp_irq_handler	2
-../Core/Src/driver_mpu9250_dmp.c:72:9:mpu9250_dmp_init	87
-../Core/Src/driver_mpu9250_dmp.c:964:9:mpu9250_dmp_get_pedometer_counter	2
-../Core/Src/driver_mpu9250_dmp.c:991:9:mpu9250_dmp_read_all	2
-../Core/Src/driver_mpu9250_dmp.c:1017:9:mpu9250_dmp_deinit	2
