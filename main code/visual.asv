@@ -3,14 +3,12 @@
 % ---------------------------
 clc;
 close all;
-clear all;  % Clear workspace to remove any lingering serialport objects
 port = "COM11";       % Change to match your Arduino port
 baud = 9600;          % Must match Serial.begin() in Arduino
 s = serialport(port, baud);
 configureTerminator(s, "LF");
 flush(s);  % Clear any buffered serial data
-% Create cleanup object to close serial port on script termination
-cleanupObj = onCleanup(@() cleanupSerial(s));
+
 % ---------------------------
 % Wait for Valid Quaternion Data
 % ---------------------------
@@ -41,16 +39,16 @@ end
 fig = figure;
 ax = axes('Parent', fig);
 axis equal;
-xlim(ax, [-2 2]);
-ylim(ax, [-2 2]);
-zlim(ax, [-2 2]);
+xlim(ax, [-1.2 1.2]);
+ylim(ax, [-1.2 1.2]);
+zlim(ax, [-1.2 1.2]);
 xlabel(ax, 'X'); ylabel(ax, 'Y'); zlabel(ax, 'Z');
 title(ax, 'MPU9250 Orientation - 3D Axes');
 grid(ax, 'on');
 hold(ax, 'on');
 view(ax, [45 30]);  % Set fixed viewpoint (azimuth=45, elevation=30)
 set(ax, 'CameraViewAngleMode', 'manual');  % Prevent zooming effect
-set(ax, 'PlotBoxAspectRatio', [2 2 2]);   % Ensure consistent aspect ratio
+set(ax, 'PlotBoxAspectRatio', [1 1 1]);   % Ensure consistent aspect ratio
 
 % ---------------------------
 % Loop and Read Data
@@ -84,7 +82,7 @@ while true
         quiver3(ax, 0, 0, 0, z_axis(1), z_axis(2), z_axis(3), 1, 'b', 'LineWidth', 2);
 
         % Maintain fixed plot settings
-        xlim(ax, [-2 2]); ylim(ax, [-2 2]); zlim(ax, [-2 2]);
+        xlim(ax, [-2 2]); ylim(ax, [-1.2 1.2]); zlim(ax, [-1.2 1.2]);
         xlabel(ax, 'X'); ylabel(ax, 'Y'); zlabel(ax, 'Z');
         title(ax, 'MPU9250 Orientation - 3D Axes');
         grid(ax, 'on');
