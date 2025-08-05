@@ -1,0 +1,6 @@
+-Arduino	->	MPU9250
+-3.3v		->	VCC
+-GND		->	GND
+-AD0		->	GND
+-SCL		->	A5
+-SDA		->	A4

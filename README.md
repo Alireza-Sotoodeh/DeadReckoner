@@ -1,6 +1,6 @@
 # 🧭 Navigation with STM32 (Without GPS)
 
-A real-time embedded navigation system using the **STM32** and **MPU6500** to estimate orientation and position in the absence of GPS. Future modules include **WiFi**, **Bluetooth**, and **microSD logging**.
+A real-time embedded navigation system using the **STM32** and **MPU-based IMUs** to estimate orientation and position in the absence of GPS. Future modules include **WiFi**, **Bluetooth**, and **microSD logging**.
 
 ---
 
@@ -10,8 +10,9 @@ A real-time embedded navigation system using the **STM32** and **MPU6500** to es
 - [✅ To-Do List](#-to-do-list)
 - [💡 Questions to Consider](#-questions-to-consider)
 - [📦 MPU6500 Overview](#-mpu6500-overview)
-- [🛠️ MPU6500 Configuration & Filtering](#-mpu6500-configuration--filtering)
-- [📏 Parameters to Monitor](#-parameters-to-monitor)
+- [📦 MPU9250 Overview](#-mpu9250-overview)
+- [⚖️ IMU Module Comparison](#️-imu-module-comparison)
+- [🛠️ MPU Configuration & Filtering](#-mpu-configuration--filtering)
 - [🔍 Choosing the Right Filter](#-choosing-the-right-filter)
 - [🐞 Current Issues](#-current-issues)
 - [📚 Libraries Used](#-libraries-used)
@@ -21,147 +22,164 @@ A real-time embedded navigation system using the **STM32** and **MPU6500** to es
 
 ## 📌 Description
 
-This project aims to implement GPS-less navigation by tracking orientation and movement using an **MPU6500 IMU**. The STM32 serves as the main controller, collecting and processing motion data, with output planned over **UART**, and future logging and transmission via **SD card**, **Bluetooth**, and **WiFi**.
+This project aims to implement GPS-less navigation by tracking orientation and movement using an **MPU IMU**. The STM32 serves as the main controller, collecting and processing motion data, with output planned over **UART**, and future logging and transmission via **SD card**, **Bluetooth**, and **WiFi**.
 
 ---
 
 ## 🧩 Hardware Modules
 
-| Module | Function | Notes |
-|--------|----------|-------|
-| MPU6500 | 6-axis Accelerometer & Gyroscope | SPI & I2C support |
-| HC-05 | Bluetooth Module | UART interface, ~10m range |
-| ESP-01S | WiFi Module (ESP8266) | UART interface |
-| microSD Adapter | Data Logging | SPI interface |
+| Module       | Function                          | Notes                  |
+|--------------|-----------------------------------|------------------------|
+| MPU6500      | 6-axis Accel & Gyro               | SPI & I2C              |
+| MPU9250      | 9-axis (Accel, Gyro, Magneto)     | SPI & I2C              |
+| HC-05        | Bluetooth                         | UART, ~10m range       |
+| ESP-01S      | WiFi (ESP8266)                    | UART                   |
+| microSD      | Data Logging                      | SPI                    |
+| GY-GPS6MV2   | GPS Module                        | UART, ~2.5m accuracy   |
+
 
 ---
 
 ## ✅ To-Do List
 
 ### Hardware Setup
-- [ ] Verify all hardware modules
-- [ ] Initialize HC-05 Bluetooth module
-- [ ] Setup ESP-01S WiFi module
-- [ ] Connect and test microSD card via SPI
-- [x] Integrate MPU6500 (SPI)
 
-### Software Features (MPU6500)
-- [x] Enable MPU6500 DMP for quaternion output
-- [ ] Integrate **Madgwick Filter** (external fusion)
-- [ ] Add Zero Velocity Update (ZUPT) for drift compensation
-- [X] Increase sample rate to 200 Hz
-- [x] Optimize full-scale accelerometer/gyro ranges (set to ±8g and ±1000dps for dynamic environments)
-- [ ] Save persistent offsets to SD card
-- [ ] Monitor FIFO overflow with `gs_handle.fifo_count`
-- [ ] Optimize UART logging frequency
-- [ ] Add magnetometer (e.g., AK8963) + modify the filter
-- [ ] Log sensor data to SD for offline analysis
+- [ ] Setup MPU6500
+- [ ] Setup MPU9250
+- [ ] Add 3D animation to show orientation
+- [ ] Compare 3-axis modules
+- [ ] SD card logging
+- [ ] ESP-01S WiFi
+- [ ] HC-05 Bluetooth
+
+### to do for MPU6500
+
+- [x] Enable DMP on MPU6500
+- [ ] Add Madgwick filter
+- [ ] Add Zero Velocity Update (ZUPT)
+- [x] Set 200 Hz sample rate
+- [x] Adjust sensor ranges: ±8g / ±1000°/s
+- [ ] Persistent offset save (to SD)
+- [ ] Monitor FIFO overflow
+- [ ] Optimize UART output
+- [ ] ~~Add magnetometer (e.g., AK8963) + modify the filter~~
+- [ ] Log data to SD
+- [ ] view on 3D module 
 
 ---
 
 ## 💡 Questions to Consider
+
 - [ ] Should the initial coordinate come from GPS or mobile app?
 - [ ] Why are both WiFi and Bluetooth needed?
 - [ ] Is a display necessary for debugging/output?
-- [ ] Should Falcon filter be used for MPU6500 calibration?
+- [ ] Should Falcon filter be used for MPU calibration?
 - [ ] What should be the specific role of the SD card?
+- [ ] Is MPU9250 better than MPU6500?
+- [x] Which filter is better: Kalman or Madgwick? → ✅ **Madgwick**
 
 ---
 
 ## 📦 MPU6500 Overview
 
 ### Recommended Configuration
-- **Sample Rate**: ≥200 Hz for better responsiveness
-- **Accelerometer Range**: ±2g or ±4g for walking motion
-- **Gyroscope Range**: ±500°/s for smooth tracking
-- **Digital Low Pass Filter (DLPF)**: Balance between noise and delay
-- **DMP Mode**: Use for low-load quaternion calculation
-- **Interrupt-Driven Readout**: For low-latency updates
 
-### MPU6500 Modes
+- **Sample Rate**: ≥200 Hz
+- **Accel Range**: ±2g to ±8g
+- **Gyro Range**: ±500–1000°/s
+- **DLPF**: 20–98 Hz
+- **DMP Mode**: Use for quaternion output
+- **Interrupts**: For responsive readouts
+
 | Mode | Description |
 |------|-------------|
-| Basic | Raw sensor data, external fusion (e.g., Kalman/Madgwick required) |
-| **DMP** | Internal motion processing, outputs quaternions/Euler |
-| FIFO | Buffered data collection, good for batch readouts |
+| Basic | Raw accel/gyro only |
+| DMP | Quaternion, low CPU load |
+| FIFO | For burst data collection |
 
 ---
 
-## 🛠️ MPU6500 Configuration & Filtering
+## 📦 MPU9250 Overview
 
-### Digital Low-Pass Filter (DLPF) Options
+The MPU9250 is an upgraded version of the MPU6500, integrating a **3-axis magnetometer (AK8963)** for absolute heading.
 
-| Setting | Accel (Hz) | Gyro (Hz) | Notes |
-|---------|------------|-----------|-------|
-| DLPF_0  | 260        | 256       | Fast, noisy |
-| DLPF_2  | 94         | 98        | Recommended default |
-| DLPF_4  | 21         | 20        | Good for walking |
-| DLPF_6  | 5          | 5         | Maximum filtering, higher latency |
+### Benefits
 
-*(Set in `driver_mpu6500_dmp.c`)*
+- 9 DoF: Accel + Gyro + Mag
+- Suitable for full orientation tracking (yaw without drift)
+- Still supports DMP mode (though limited for mag data)
+- SPI/I2C interface
+
+### Configuration
+
+- **Magnetometer** sampling via AUX I2C pass-through or bypass
+- Compatible with Madgwick filter (requires `beta` tuning)
 
 ---
 
-## 📏 Parameters to Monitor (Live Expressions)
+## ⚖️ IMU Module Comparison
 
-### Sensor Readings
-- `accel_g[0..2]`: Linear acceleration (g)
-- `gyro_dps[0..2]`: Angular velocity (°/s)
-- `quat[0..3]`: Quaternion (DMP)
-- `pitch`, `roll`, `yaw`: Orientation (Euler angles)
+| Module   | Accel/Gyro | Magnetometer | Interface | Notes |
+|----------|------------|--------------|-----------|-------|
+| **MPU9250** | ✅ Yes     | ✅ Yes       | I2C/SPI   | Best overall, 9-axis, ideal for dead-reckoning |
+| MPU6500  | ✅ Yes     | ❌ No        | I2C/SPI   | Lightweight, no heading info |
+| GY521    | ✅ Yes     | ❌ No        | I2C       | Uses MPU6050, basic, lacks DMP/mag |
+| GY25     | ❌ No      | ✅ Yes       | UART      | Magnetometer-only, not sufficient alone |
+| HW-123   | ✅ Yes     | ❌ No        | I2C       | Generic MPU6050 board |
 
-### Navigation State
-- `velocity[0..2]`: Estimated velocity (m/s)
-- `position[0..2]`: Estimated position (m)
+### ✅ **Best Choice: MPU9250**
 
-### System Health
-- `gs_handle.fifo_count`: FIFO size — check for overflows
-- `step_count`: DMP pedometer counter
+The **MPU9250** offers full 9-axis sensing with good SPI support and works well with Madgwick filtering, making it ideal for GPS-less inertial navigation.
 
-### After Madgwick Filter Integration
-- `filter.q0..q3`: Fused quaternion
-- `filter.beta`: Madgwick gain tuning parameter
+---
+
+## 🛠️ MPU Configuration & Filtering
+
+| DLPF Setting | Accel (Hz) | Gyro (Hz) | Notes         |
+|--------------|------------|-----------|---------------|
+| DLPF_0       | 260        | 256       | Fast, noisy   |
+| DLPF_2       | 94         | 98        | Balanced      |
+| DLPF_4       | 21         | 20        | Clean motion  |
+| DLPF_6       | 5          | 5         | Very stable   |
 
 ---
 
 ## 🔍 Choosing the Right Filter
 
-### ✅ **Madgwick Filter** – Recommended
-- Efficient and accurate for STM32-class MCUs
-- Complements DMP output to reduce gyro drift
-- Easy to tune (`beta ≈ 0.1`)
-- Scales well with magnetometer (future upgrade)
+### ✅ Madgwick Filter
+- Low CPU load
+- Effective for orientation
+- Works with or without magnetometer
+- Tunable gain (`beta`)
 
-### ❌ **Kalman Filter** – Not Yet
-- Too complex for your current MCU + peripherals
-- Requires absolute references (GPS, mag)
-- High CPU usage and tuning complexity
+### ❌ Kalman Filter
+- Needs absolute reference (GPS, magnetometer)
+- Complex math and tuning
+- High CPU load on STM32
 
 ---
 
 ## 🐞 Current Issues
 
-- **Dead Reckoning Drift**: Current position estimation accumulates error
-- **Basic Navigation Algorithm**: Needs sensor fusion (e.g., Madgwick + ZUPT)
-- **DMP Feature Tuning**: Explore which outputs are enabled
-- **Error Reporting**: Add detailed error codes for each DMP function
+- Dead reckoning drift over time
+- Need better sensor fusion + drift compensation
+- DMP mode not fully explored for MPU9250
+- Error codes and fault reporting need refining
 
 ---
 
 ## 📚 Libraries Used
 
-- 🧠 [MPU6500 Driver (libdriver)](https://github.com/libdriver/mpu6500)
-- 🎯 [Madgwick Filter (Fusion)](https://github.com/xioTechnologies/Fusion)
+- [MPU6500 Driver (libdriver)](https://github.com/libdriver/mpu6500)
+- [Madgwick Filter](https://github.com/xioTechnologies/Fusion)
 
 ---
 
 ## 🪪 License
 
--All rights reserved.
+**All rights reserved.**
 
-This source code is the intellectual property of Alireza Sotoodeh. 
+This source code is the intellectual property of **Alireza Sotoodeh**.  
 No part of this code may be copied, modified, distributed, or used without express written permission.
 
-© 2025 Alireza-Sotoodeh
-
-
+© 2025 Alireza Sotoodeh

@@ -1,0 +1,167 @@
+#include "mpu9250.h"
+#include "main.h"  // For HAL_Delay, etc.
+
+static void MPU_CS_Low(void) {
+  HAL_GPIO_WritePin(MPU_CS_GPIO_PORT, MPU_CS_GPIO_PIN, GPIO_PIN_RESET);
+}
+
+static void MPU_CS_High(void) {
+  HAL_GPIO_WritePin(MPU_CS_GPIO_PORT, MPU_CS_GPIO_PIN, GPIO_PIN_SET);
+}
+
+HAL_StatusTypeDef MPU9250_Read_Reg(uint8_t reg, uint8_t *data, uint16_t len) {
+  MPU_CS_Low();
+  uint8_t tx = reg | 0x80;  // MSB=1 for read
+  HAL_StatusTypeDef status = HAL_SPI_Transmit(&hspi1, &tx, 1, MPU_TIMEOUT);
+  if (status == HAL_OK) {
+    status = HAL_SPI_Receive(&hspi1, data, len, MPU_TIMEOUT);
+  }
+  MPU_CS_High();
+  return status;
+}
+
+HAL_StatusTypeDef MPU9250_Write_Reg(uint8_t reg, uint8_t *data, uint16_t len) {
+  MPU_CS_Low();
+  uint8_t tx = reg & 0x7F;  // MSB=0 for write
+  HAL_StatusTypeDef status = HAL_SPI_Transmit(&hspi1, &tx, 1, MPU_TIMEOUT);
+  if (status == HAL_OK) {
+    status = HAL_SPI_Transmit(&hspi1, data, len, MPU_TIMEOUT);
+  }
+  MPU_CS_High();
+  return status;
+}
+
+HAL_StatusTypeDef MPU9250_Init(void) {
+  uint8_t val;
+
+  // Temporarily set SPI to 1MHz for init (change prescaler)
+  hspi1.Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_64;  // ~1.3MHz at 84MHz APB2
+  HAL_SPI_Init(&hspi1);
+
+  // Reset device
+  val = 0x80;
+  if (MPU9250_Write_Reg(PWR_MGMT_1, &val, 1) != HAL_OK) return HAL_ERROR;
+  HAL_Delay(100);
+
+  // Wake up, set clock to gyro X
+  val = 0x01;
+  if (MPU9250_Write_Reg(PWR_MGMT_1, &val, 1) != HAL_OK) return HAL_ERROR;
+
+  // Set sample rate divider (for 1kHz internal, set to 0 for max)
+  val = 0x00;
+  MPU9250_Write_Reg(0x19, &val, 1);
+
+  // Set DLPF to 184Hz bandwidth
+  val = 0x01;
+  MPU9250_Write_Reg(CONFIG, &val, 1);
+
+  // Set gyro full scale to ±2000 dps
+  val = 0x18;
+  MPU9250_Write_Reg(GYRO_CONFIG, &val, 1);
+
+  // Set accel full scale to ±16g
+  val = 0x18;
+  MPU9250_Write_Reg(ACCEL_CONFIG, &val, 1);
+
+  // Enable bypass for mag (to access AK8963 directly if needed, but for DMP, we'll set fusion mode)
+  val = 0x02;
+  MPU9250_Write_Reg(0x37, &val, 1);  // INT_PIN_CFG
+
+  // Check who am I
+  MPU9250_Read_Reg(WHO_AM_I, &val, 1);
+  if (val != WHO_AM_I_VAL) return HAL_ERROR;
+
+  // Restore SPI speed to 10MHz
+  hspi1.Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_8;
+  HAL_SPI_Init(&hspi1);
+
+  return HAL_OK;
+}
+
+ // DMP Firmware (copied from SparkFun MPU-9250-DMP library; download full from https://github.com/sparkfun/SparkFun_MPU-9250-DMP_Arduino_Library/raw/master/src/util/dmpFirmware.h if this is truncated - it's ~2.5KB)
+const unsigned char dmpFirmware[] = {
+  0x03, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+  // ... The full array is long; paste the complete one from the library link above. For brevity, I'll note it here as a placeholder. You can find the full byte array in 'dmpFirmware.h' in the SparkFun repo or InvenSense Motion Driver. It starts with 0x03 and ends with 0x00, size 2671 bytes.
+  // Example segment: 0x03, 0x00, 0x48, 0x00, 0x6A, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, ... (get the full one!)
+  // Size define: #define DMP_CODE_SIZE 2671
+};
+
+#define DMP_CODE_SIZE (sizeof(dmpFirmware) / sizeof(unsigned char))
+
+HAL_StatusTypeDef MPU9250_Load_DMP_Firmware(void) {
+  uint8_t bank, addr, tmp[16];
+  const unsigned char *firm = dmpFirmware;
+  unsigned short size = DMP_CODE_SIZE;
+
+  // Disable DMP
+  tmp[0] = 0x00;
+  MPU9250_Write_Reg(USER_CTRL, tmp, 1);
+
+  // Load firmware in banks of 256 bytes
+  for (bank = 0; bank < 10; bank++) {  // MPU9250 DMP memory is 3KB, banks 0-9
+    tmp[0] = bank;
+    MPU9250_Write_Reg(BANK_SEL, tmp, 1);
+
+    for (addr = 0; addr < 0xFF; addr += 16) {
+      tmp[0] = addr;
+      MPU9250_Write_Reg(MEM_START_ADDR, tmp, 1);
+
+      unsigned short chunk = (size > 16) ? 16 : size;
+      MPU9250_Write_Reg(MEM_R_W, (uint8_t*)firm, chunk);
+      firm += chunk;
+      size -= chunk;
+      if (size == 0) break;
+    }
+    if (size == 0) break;
+  }
+
+  // Verify load (optional, add code to read back and compare)
+
+  // Set starting address for DMP
+  tmp[0] = 0x04; tmp[1] = 0x00;  // Start address 0x0400
+  MPU9250_Write_Reg(0x70, tmp, 2);  // DMP_CFG_1 and DMP_CFG_2
+
+  return HAL_OK;
+}
+
+HAL_StatusTypeDef MPU9250_Enable_DMP(void) {
+  uint8_t tmp;
+
+  // Enable FIFO and DMP
+  tmp = 0x40;  // DMP_EN
+  MPU9250_Write_Reg(USER_CTRL, &tmp, 1);
+
+  // Enable FIFO for quaternion (example)
+  tmp = 0x08;  // QUAT_EN
+  MPU9250_Write_Reg(FIFO_EN, &tmp, 1);
+
+  // Enable interrupt for DMP ready (optional)
+  tmp = 0x01;  // DATA_RDY_EN
+  MPU9250_Write_Reg(INT_ENABLE, &tmp, 1);
+
+  return HAL_OK;
+}
+
+void MPU9250_Read_DMP_Data(float *quat) {
+  uint8_t fifo_count_h, fifo_count_l, count;
+  MPU9250_Read_Reg(FIFO_COUNT_H, &fifo_count_h, 1);
+  MPU9250_Read_Reg(FIFO_COUNT_H + 1, &fifo_count_l, 1);
+  count = (fifo_count_h << 8) | fifo_count_l;
+
+  if (count >= 16) {  // Quaternion is 16 bytes (4 long ints)
+    uint8_t data[16];
+    MPU9250_Read_Reg(FIFO_R_W, data, 16);
+
+    // Convert to float quaternions (scalar first)
+    long q_raw[4];
+    q_raw[0] = ((long)data[0] << 24) | ((long)data[1] << 16) | ((long)data[2] << 8) | data[3];
+    q_raw[1] = ((long)data[4] << 24) | ((long)data[5] << 16) | ((long)data[6] << 8) | data[7];
+    q_raw[2] = ((long)data[8] << 24) | ((long)data[9] << 16) | ((long)data[10] << 8) | data[11];
+    q_raw[3] = ((long)data[12] << 24) | ((long)data[13] << 16) | ((long)data[14] << 8) | data[15];
+
+    quat[0] = q_raw[0] / (float)(1 << 30);  // Normalize (2^30 for DMP)
+    quat[1] = q_raw[1] / (float)(1 << 30);
+    quat[2] = q_raw[2] / (float)(1 << 30);
+    quat[3] = q_raw[3] / (float)(1 << 30);
+  }
+}
