@@ -1,5 +1,5 @@
 % Open serial connection (adjust port and baud rate as needed)
-s = serialport('COM10', 115200);  % Your Arduino's port
+s = serialport('COM11', 115200);  % Your Arduino's port
 configureTerminator(s, 'LF');
 flush(s);  % Clear any buffered data to start fresh
 

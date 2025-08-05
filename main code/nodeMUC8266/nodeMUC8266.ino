@@ -39,24 +39,25 @@ void loop()
 { 
 	 unsigned long currentMillis = millis(); 
 	 if (mpu.update() && currentMillis - lastPrintMillis > INTERVAL_MS_PRINT) { 
-	   Serial.print("TEMP:\\t"); 
+		/*
+	   Serial.print("TEMP:"); 
 	   Serial.print(mpu.getTemperature(), 2); 
-	   Serial.print("\\xC2\\xB0"); //Print degree symbol 
 	   Serial.print("C"); 
 	   Serial.println(); 
-	   Serial.print("Pitch:\\t"); 
+	   Serial.print("Pitch:"); 
 	   Serial.print(mpu.getPitch()); 
-	   Serial.print("\\xC2\\xB0"); //Print degree symbol 
 	   Serial.println(); 
-	   Serial.print("Roll:\\t"); 
+	   Serial.print("Roll:"); 
 	   Serial.print(mpu.getRoll()); 
-	   Serial.print("\\xC2\\xB0"); //Print degree symbol 
 	   Serial.println(); 
-	   Serial.print("Yaw:\\t"); 
-	   Serial.print(mpu.getYaw()); 
-	   Serial.print("\\xC2\\xB0"); //Print degree symbol 
-	   Serial.println(); 
-	   Serial.println(); 
+	   Serial.print("Yaw:"); 
+	   Serial.print(mpu.getYaw());
+	   Serial.println(); */
+		Serial.print(mpu.getQuaternionW(), 6); Serial.print(",");
+		Serial.print(mpu.getQuaternionX(), 6); Serial.print(",");
+		Serial.print(mpu.getQuaternionY(), 6); Serial.print(",");
+		Serial.println(mpu.getQuaternionZ(), 6);
+
 	   lastPrintMillis = currentMillis; 
 	 } 
 } 
