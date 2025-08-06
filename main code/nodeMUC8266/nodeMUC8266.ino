@@ -4,7 +4,7 @@
 #include <U8g2lib.h> // U8g2 library for OLED
 
 /*////////////////////////////defines////////////////////////////*/
-#define bud_rate 9600
+#define bud_rate 115200
 //pins
 #define BUTTON_PIN 14             											// Push button on D5 (GPIO 14) for NodeMCU
 //MpU9205
@@ -78,6 +78,10 @@ void setup()
   u8g2.sendBuffer();
   loadCalibration();
   print_calibration();
+  u8g2.clearBuffer();
+  u8g2.drawStr(25, 15, "Press Button");
+  u8g2.drawStr(35, 25, "to Calibrate");
+  u8g2.sendBuffer();
 } 
 
 void loop() 
@@ -87,40 +91,91 @@ void loop()
     delay(50);  // Debounce delay
     if (digitalRead(BUTTON_PIN) == LOW) {  // Confirm button press
       Serial.println("Button pressed. Starting calibration...");
+      u8g2.clearBuffer();
+      u8g2.drawStr(25, 15, "Calibrating...");
+      u8g2.sendBuffer();
       performCalibration();
       saveCalibration();
       print_calibration();
       Serial.println("Calibration saved to EEPROM. Press button to recalibrate.");
+      u8g2.clearBuffer();
+      u8g2.drawStr(25, 15, "Calibration Done");
+      u8g2.drawStr(25, 25, "Press to Recal");
+      u8g2.sendBuffer();
       while (digitalRead(BUTTON_PIN) == LOW) {
         delay(10);  // Wait for button release
       }
     }
   }
-	// Main sensor data loop
-	unsigned long currentMillis = millis(); 
-	if (mpu.update() && currentMillis - lastPrintMillis > INTERVAL_MS_PRINT) { 
-		Serial.print(mpu.getQuaternionW(), 6); Serial.print(",");
-		Serial.print(mpu.getQuaternionX(), 6); Serial.print(",");
-		Serial.print(mpu.getQuaternionY(), 6); Serial.print(",");
-		Serial.println(mpu.getQuaternionZ(), 6);
-	  lastPrintMillis = currentMillis; 
-	} 
+  // Main sensor data loop
+  unsigned long currentMillis = millis();
+  if (mpu.update() && currentMillis - lastPrintMillis > INTERVAL_MS_PRINT) {
+    // Get quaternions and accelerations
+    float qw = mpu.getQuaternionW();
+    float qx = mpu.getQuaternionX();
+    float qy = mpu.getQuaternionY();
+    float qz = mpu.getQuaternionZ();
+    float ax = mpu.getAccX();  // Acceleration in m/s²
+    float ay = mpu.getAccY();
+    float az = mpu.getAccZ();
+
+    // Print to Serial for MATLAB (qw,qx,qy,qz,ax,ay,az)
+    Serial.print(qw, 6); Serial.print(",");
+    Serial.print(qx, 6); Serial.print(",");
+    Serial.print(qy, 6); Serial.print(",");
+    Serial.print(qz, 6); Serial.print(",");
+    Serial.print(ax, 6); Serial.print(",");
+    Serial.print(ay, 6); Serial.print(",");
+    Serial.println(az, 6);
+
+    // Display on OLED (rotate quaternions and accelerations every 2 seconds)
+    static unsigned long lastDisplayMillis = 0;
+    static bool showQuaternions = true;
+    if (currentMillis - lastDisplayMillis > 2000) {
+      u8g2.clearBuffer();
+      if (showQuaternions) {
+        char buf[32];
+        snprintf(buf, sizeof(buf), "Qw: %.3f", qw);
+        u8g2.drawStr(0, 10, buf);
+        snprintf(buf, sizeof(buf), "Qx: %.3f", qx);
+        u8g2.drawStr(0, 20, buf);
+        snprintf(buf, sizeof(buf), "Qy: %.3f", qy);
+        u8g2.drawStr(64, 10, buf);
+        snprintf(buf, sizeof(buf), "Qz: %.3f", qz);
+        u8g2.drawStr(64, 20, buf);
+      } else {
+        char buf[32];
+        snprintf(buf, sizeof(buf), "Ax: %.2f", ax);
+        u8g2.drawStr(0, 10, buf);
+        snprintf(buf, sizeof(buf), "Ay: %.2f", ay);
+        u8g2.drawStr(0, 20, buf);
+        snprintf(buf, sizeof(buf), "Az: %.2f", az);
+        u8g2.drawStr(64, 10, buf);
+      }
+      u8g2.sendBuffer();
+      showQuaternions = !showQuaternions;  // Toggle display
+      lastDisplayMillis = currentMillis;
+    }
+
+    lastPrintMillis = currentMillis;
+  }
 } 
 
 void performCalibration() {
-  Serial.println("Accel Gyro calibration will start in 5sec.");
-  Serial.println("Please leave the device still on a flat plane.");
+  u8g2.clearBuffer();
+  u8g2.drawStr(0, 15, "Accel/Gyro Cal");
+  u8g2.drawStr(0, 25, "Keep Still 5s");
+  u8g2.sendBuffer();
   mpu.verbose(true);
   delay(5000);
   mpu.calibrateAccelGyro();
-
-  Serial.println("Mag calibration will start in 5sec.");
-  Serial.println("Please wave device in a figure eight until done.");
+  u8g2.clearBuffer();
+  u8g2.drawStr(0, 15, "Mag Cal");
+  u8g2.drawStr(0, 25, "Figure 8 - 5s");
+  u8g2.sendBuffer();
   delay(5000);
   mpu.calibrateMag();
-
   mpu.verbose(false);
-  Serial.println("Calibration complete.");
 }
 
 void print_calibration() {
@@ -153,7 +208,23 @@ void print_calibration() {
   Serial.print(", ");
   Serial.print(mpu.getMagScaleZ());
   Serial.println();
+  // Display calibration on OLED
+  u8g2.clearBuffer();
+  char buf[32];
+  snprintf(buf, sizeof(buf), "Acc: %.2f,%.2f,%.2f",
+           mpu.getAccBiasX() * 1000.f / (float)MPU9250::CALIB_ACCEL_SENSITIVITY,
+           mpu.getAccBiasY() * 1000.f / (float)MPU9250::CALIB_ACCEL_SENSITIVITY,
+           mpu.getAccBiasZ() * 1000.f / (float)MPU9250::CALIB_ACCEL_SENSITIVITY);
+  u8g2.drawStr(0, 15, buf);
+  snprintf(buf, sizeof(buf), "Gyr: %.1f,%.1f,%.1f",
+           mpu.getGyroBiasX() / (float)MPU9250::CALIB_GYRO_SENSITIVITY,
+           mpu.getGyroBiasY() / (float)MPU9250::CALIB_GYRO_SENSITIVITY,
+           mpu.getGyroBiasZ() / (float)MPU9250::CALIB_GYRO_SENSITIVITY);
+  u8g2.drawStr(0, 25, buf);
+  u8g2.sendBuffer();
+  delay(2000);  // Show calibration for 2 seconds
 }
+
 
 void saveCalibration() {
   int addr = 0;
