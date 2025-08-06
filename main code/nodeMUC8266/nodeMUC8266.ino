@@ -1,6 +1,8 @@
 /*////////////////////////////includes////////////////////////////*/
 #include "MPU9250.h" //for setting up MPU9250
-#include <EEPROM.h>  // ESP8266 EEPROM library
+#include <EEPROM.h>  // ESP8266 EEPROM library for loading calibration
+#include <U8g2lib.h> // U8g2 library for OLED
+
 /*////////////////////////////defines////////////////////////////*/
 #define bud_rate 9600
 //pins
@@ -13,23 +15,33 @@ MPU9250 mpu; 																						// handler: allowing access to all library me
 unsigned long lastPrintMillis = 0; 											// Tracks the timestamp (from millis()) of the last time sensor data was printed to Serial
 
 //MPU9250 setting
-#define MPU9250_Accelerometer_Rang  A16G 								//select: A2G, A4G, A8G, A16G
-#define MPU9250_Gyroscope_Rang  G1000DPS 								//select: G250DPS, G500DPS, G1000DPS, G2000DPS
+#define MPU9250_Accelerometer_Rang  A2G 								//select: A2G, A4G, A8G, A16G
+#define MPU9250_Gyroscope_Rang  G250DPS 								//select: G250DPS, G500DPS, G1000DPS, G2000DPS
 #define MPU9250_Magnetometer_resolution  M16BITS 				//select: M14BITS, M16BITS
-#define MPU9250_fifo_sample_rate  SMPL_250HZ 						//select: SMPL_1000HZ, SMPL_500HZ, SMPL_333HZ, SMPL_250HZ, SMPL_200HZ, SMPL_167HZ, SMPL_143HZ, SMPL_125HZ
-#define MPU9250_Gyroscope_filter_choice  0x03						//select: 0x00: Enables DLPF with 8kHz sample rate. 0x01: Enables DLPF with 1kHz sample rate. 0x02 or 0x03: Bypasses DLPF
-#define MPU9250_Gyroscope_DLPF_cutoff  DLPF_20HZ 				//select: DLPF_250HZ, DLPF_184HZ, DLPF_92HZ, DLPF_41HZ, DLPF_20HZ, DLPF_10HZ, DLPF_5HZ, DLPF_3600HZ
+#define MPU9250_fifo_sample_rate  SMPL_500HZ 						//select: SMPL_1000HZ, SMPL_500HZ, SMPL_333HZ, SMPL_250HZ, SMPL_200HZ, SMPL_167HZ, SMPL_143HZ, SMPL_125HZ
+#define MPU9250_Gyroscope_filter_choice  0x01						//select: 0x00: Enables DLPF with 8kHz sample rate. 0x01: Enables DLPF with 1kHz sample rate. 0x02 or 0x03: Bypasses DLPF
+#define MPU9250_Gyroscope_DLPF_cutoff  DLPF_10HZ 				//select: DLPF_250HZ, DLPF_184HZ, DLPF_92HZ, DLPF_41HZ, DLPF_20HZ, DLPF_10HZ, DLPF_5HZ, DLPF_3600HZ
 #define MPU9250_Accelerometer_filter_choice  0x01				//select: 0x01 Enable, 0x00 bypass
-#define MPU9250_Accelerometer_DLPF_cutoff  DLPF_45HZ 		//select: DLPF_218HZ_0, DLPF_218HZ_1, DLPF_99HZ, DLPF_45HZ, DLPF_21HZ, DLPF_10HZ, DLPF_5HZ, DLPF_420HZ
+#define MPU9250_Accelerometer_DLPF_cutoff  DLPF_10HZ 		//select: DLPF_218HZ_0, DLPF_218HZ_1, DLPF_99HZ, DLPF_45HZ, DLPF_21HZ, DLPF_10HZ, DLPF_5HZ, DLPF_420HZ
 #define MPU9250_filter_algorithm	MADGWICK 							//select: MADGWICK, MAHONY, NONE
-#define MPU9250_filter_iterations	15										//select: 1-50 higher better but may slow down
+#define MPU9250_filter_iterations	10										//select: 1-50 higher better but may slow down
+
+// OLED setup (0.91-inch SSD1306, 128x32, Software I2C on D3, D4)
+U8G2_SSD1306_128X32_UNIVISION_F_SW_I2C u8g2(U8G2_R0, /* clock=*/ 2, /* data=*/ 0, /* reset=*/ U8X8_PIN_NONE); // Software I2C on D4 (SCL, GPIO 2), D3 (SDA, GPIO 0)
 
 void setup() 
 { 
 	Serial.begin(bud_rate); 
-	Wire.begin(); 
+	Wire.begin(); // Hardware I2C for MPU9250 on D1 (SCL, GPIO 5), D2 (SDA, GPIO 4)
 	pinMode(BUTTON_PIN, INPUT_PULLUP);	 // Button with internal pull-up (active-low)
-
+  // Initialize OLED
+  u8g2.begin();
+  u8g2.clearBuffer();
+  u8g2.setFont(u8g2_font_t0_15b_me);   // 10 pixed hight font
+  u8g2.drawStr(15, 25, "<< Boot up >>");
+  u8g2.sendBuffer();
+  delay(1000);
+  u8g2.setFont(u8g2_font_helvB08_tf); //// 8 pixed hight font
 	MPU9250Setting setting;
 	// Initialize MPU9250 
 	// Sample rate must be at least 2x DLPF rate 
@@ -42,12 +54,14 @@ void setup()
 	setting.accel_fchoice = MPU9250_Accelerometer_filter_choice; 
 	setting.accel_dlpf_cfg = ACCEL_DLPF_CFG::MPU9250_Accelerometer_DLPF_cutoff; 
 	//start to setup the MPU based on setting and address
-	if (!mpu.setup(MPU9250_IMU_ADDRESS, setting)) {
-    while (1) {
-      Serial.println("MPU connection failed. Please check your connection.");
-      delay(5000);
-    }
-  }									
+  while (!mpu.setup(MPU9250_IMU_ADDRESS, setting)) {
+    Serial.println("MPU connection failed. Retrying in 5 seconds...");
+    u8g2.clearBuffer();
+    u8g2.drawStr(20, 15, "MPU9250 Failed!");
+    u8g2.drawStr(20, 28, "Retrying...");
+   u8g2.sendBuffer();
+    delay(5000); 
+  }							
 	mpu.setMagneticDeclination(MAGNETIC_DECLINATION); 
 	mpu.selectFilter(QuatFilterSel::MPU9250_filter_algorithm); 
 	mpu.setFilterIterations(MPU9250_filter_iterations);
@@ -58,9 +72,12 @@ void setup()
   #endif
  	// Load calibration from EEPROM on startup
   Serial.println("Loading calibration from EEPROM...");
+  u8g2.clearBuffer();
+  u8g2.drawStr(25, 20, "Loading calibration");
+  u8g2.drawStr(35, 30, "from EEPROM");
+  u8g2.sendBuffer();
   loadCalibration();
   print_calibration();
-  Serial.println("Press the button to start calibration...");
 } 
 
 void loop() 
