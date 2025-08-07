@@ -18,13 +18,13 @@ unsigned long lastPrintMillis = 0; 											// Tracks the timestamp (from mill
 #define MPU9250_Accelerometer_Rang  A2G 								//select: A2G, A4G, A8G, A16G
 #define MPU9250_Gyroscope_Rang  G250DPS 								//select: G250DPS, G500DPS, G1000DPS, G2000DPS
 #define MPU9250_Magnetometer_resolution  M16BITS 				//select: M14BITS, M16BITS
-#define MPU9250_fifo_sample_rate  SMPL_500HZ 						//select: SMPL_1000HZ, SMPL_500HZ, SMPL_333HZ, SMPL_250HZ, SMPL_200HZ, SMPL_167HZ, SMPL_143HZ, SMPL_125HZ
+#define MPU9250_fifo_sample_rate  SMPL_1000HZ 						//select: SMPL_1000HZ, SMPL_500HZ, SMPL_333HZ, SMPL_250HZ, SMPL_200HZ, SMPL_167HZ, SMPL_143HZ, SMPL_125HZ
 #define MPU9250_Gyroscope_filter_choice  0x01						//select: 0x00: Enables DLPF with 8kHz sample rate. 0x01: Enables DLPF with 1kHz sample rate. 0x02 or 0x03: Bypasses DLPF
-#define MPU9250_Gyroscope_DLPF_cutoff  DLPF_10HZ 				//select: DLPF_250HZ, DLPF_184HZ, DLPF_92HZ, DLPF_41HZ, DLPF_20HZ, DLPF_10HZ, DLPF_5HZ, DLPF_3600HZ
+#define MPU9250_Gyroscope_DLPF_cutoff  DLPF_5HZ 				//select: DLPF_250HZ, DLPF_184HZ, DLPF_92HZ, DLPF_41HZ, DLPF_20HZ, DLPF_10HZ, DLPF_5HZ, DLPF_3600HZ
 #define MPU9250_Accelerometer_filter_choice  0x01				//select: 0x01 Enable, 0x00 bypass
-#define MPU9250_Accelerometer_DLPF_cutoff  DLPF_10HZ 		//select: DLPF_218HZ_0, DLPF_218HZ_1, DLPF_99HZ, DLPF_45HZ, DLPF_21HZ, DLPF_10HZ, DLPF_5HZ, DLPF_420HZ
-#define MPU9250_filter_algorithm	MADGWICK 							//select: MADGWICK, MAHONY, NONE
-#define MPU9250_filter_iterations	10										//select: 1-50 higher better but may slow down
+#define MPU9250_Accelerometer_DLPF_cutoff  DLPF_5HZ 		//select: DLPF_218HZ_0, DLPF_218HZ_1, DLPF_99HZ, DLPF_45HZ, DLPF_21HZ, DLPF_10HZ, DLPF_5HZ, DLPF_420HZ
+#define MPU9250_filter_algorithm	MADGWICK 							  //select: MADGWICK, MAHONY, NONE
+#define MPU9250_filter_iterations	15										//select: 1-50 higher better but may slow down
 
 // OLED setup (0.91-inch SSD1306, 128x32, Software I2C on D3, D4)
 U8G2_SSD1306_128X32_UNIVISION_F_SW_I2C u8g2(U8G2_R0, /* clock=*/ 2, /* data=*/ 0, /* reset=*/ U8X8_PIN_NONE); // Software I2C on D4 (SCL, GPIO 2), D3 (SDA, GPIO 0)
@@ -123,10 +123,10 @@ void loop()
     Serial.print(qw, 6); Serial.print(",");
     Serial.print(qx, 6); Serial.print(",");
     Serial.print(qy, 6); Serial.print(",");
-    Serial.print(qz, 6); Serial.print(",");
+    Serial.println(qz, 6); /*Serial.print(",");
     Serial.print(ax, 6); Serial.print(",");
     Serial.print(ay, 6); Serial.print(",");
-    Serial.println(az, 6);
+    Serial.println(az, 6);*/
 
     // Display on OLED (rotate quaternions and accelerations every 2 seconds)
     static unsigned long lastDisplayMillis = 0;

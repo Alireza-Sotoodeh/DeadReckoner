@@ -3,13 +3,12 @@
 % ---------------------------
 clc;
 close all;
-clear all;  % Clear workspace to remove any lingering serialport objects
+clear all;
 port = "COM11";       % Change to match your Arduino port
-baud = 9600;          % Must match Serial.begin() in Arduino
+baud = 115200;        % Must match Serial.begin() in Arduino
 s = serialport(port, baud);
 configureTerminator(s, "LF");
-flush(s);  % Clear any buffered serial data
-% Create cleanup object to close serial port on script termination
+flush(s);
 cleanupObj = onCleanup(@() cleanupSerial(s));
 
 % ---------------------------
@@ -21,18 +20,16 @@ while ~valid_data
     try
         line = readline(s);
         disp("From Arduino: " + line);
-        
-        % Check if the line contains valid quaternion data (four comma-separated numbers)
         q_vals = sscanf(line, '%f,%f,%f,%f');
         if numel(q_vals) == 4
-            valid_data = true;  % Valid quaternion data received
+            valid_data = true;
             disp('Valid quaternion data received. Starting visualization...');
         else
             disp('Waiting for quaternion data...');
         end
     catch ME
         disp("Serial read error: " + ME.message);
-        pause(0.1);  % Brief pause to avoid flooding
+        pause(0.1);
     end
 end
 
@@ -48,17 +45,30 @@ xlabel(ax, 'X'); ylabel(ax, 'Y'); zlabel(ax, 'Z');
 title(ax, 'MPU9250 Orientation - 3D Axes');
 grid(ax, 'on');
 hold(ax, 'on');
-view(ax, [45 30]);  % Set fixed viewpoint (azimuth=45, elevation=30)
-set(ax, 'DataAspectRatio', [1 1 1]);  % Ensure equal scaling for all axes
-set(ax, 'CameraViewAngleMode', 'manual');  % Prevent zooming effect
-set(ax, 'CameraViewAngle', 7);  % Set fixed zoom level
-axis(ax, 'manual');  % Prevent automatic axis adjustments
+view(ax, [45 30]);
+set(ax, 'DataAspectRatio', [1 1 1]);
+set(ax, 'CameraViewAngleMode', 'manual');
+set(ax, 'CameraViewAngle', 7);
+axis(ax, 'manual');
+
+% Add a close button
+uicontrol('Style', 'pushbutton', 'String', 'Close', ...
+    'Position', [20 20 60 20], ...
+    'Callback', @(src, event) set(fig, 'UserData', 'close'));
 
 % ---------------------------
 % Loop and Read Data
 % ---------------------------
-while true
-    try
+try
+    while true
+        % Check for close button press
+        if isfield(get(fig), 'UserData') && strcmp(get(fig, 'UserData'), 'close')
+            disp('Close button pressed. Exiting...');
+            cleanupSerial(s);
+            close(fig);
+            break;
+        end
+
         % Read one line of text
         line = readline(s);
         disp("From Arduino: " + line);
@@ -69,10 +79,10 @@ while true
             disp("Skipping invalid data format");
             continue;
         end
-        q = quaternion(q_vals(1), q_vals(2), q_vals(3), q_vals(4));  % MATLAB quaternion
+        q = quaternion(q_vals(1), q_vals(2), q_vals(3), q_vals(4));
 
         % Convert to rotation matrix
-        R = quat2rotm(q);  % 3x3 rotation matrix
+        R = quat2rotm(q);
 
         % Extract and normalize rotated axes
         x_axis = R(:,1);  % Red - X
@@ -90,22 +100,24 @@ while true
         xlabel(ax, 'X'); ylabel(ax, 'Y'); zlabel(ax, 'Z');
         title(ax, 'MPU9250 Orientation - 3D Axes');
         grid(ax, 'on');
-        view(ax, [45 30]);  % Reinforce fixed viewpoint
-        set(ax, 'DataAspectRatio', [1 1 1]);  % Reinforce equal scaling
-        set(ax, 'CameraViewAngle', 7);  % Reinforce fixed zoom
-        axis(ax, 'manual');  % Prevent automatic axis adjustments
+        view(ax, [45 0]);
+        set(ax, 'DataAspectRatio', [1 1 1]);
+        set(ax, 'CameraViewAngle', 7);
+        axis(ax, 'manual');
         drawnow;
-
-    catch ME
-        disp("Error: " + ME.message);
-        pause(0.1);  % Brief pause to avoid flooding
     end
+catch ME
+    disp("Error or interruption: " + ME.message);
+    cleanupSerial(s);
+    close(fig);
 end
 
 % Cleanup function to close serial port
 function cleanupSerial(s)
-    if ~isempty(s)
+    if ~isempty(s) && isvalid(s)
         disp('Closing serial port...');
-        clear s;  % Close and delete the serialport object
+        flush(s);  % Flush any remaining data
+        delete(s); % Explicitly close the serial port
+        clear s;   % Clear the variable
     end
 end
