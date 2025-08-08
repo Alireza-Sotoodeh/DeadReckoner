@@ -100,7 +100,7 @@ try
         xlabel(ax, 'X'); ylabel(ax, 'Y'); zlabel(ax, 'Z');
         title(ax, 'MPU9250 Orientation - 3D Axes');
         grid(ax, 'on');
-        view(ax, [45 0]);
+        view(ax, [45 30]);
         set(ax, 'DataAspectRatio', [1 1 1]);
         set(ax, 'CameraViewAngle', 7);
         axis(ax, 'manual');

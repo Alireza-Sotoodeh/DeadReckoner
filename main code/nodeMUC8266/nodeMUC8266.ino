@@ -2,7 +2,6 @@
 #include "MPU9250.h" //for setting up MPU9250
 #include <EEPROM.h>  // ESP8266 EEPROM library for loading calibration
 #include <U8g2lib.h> // U8g2 library for OLED
-
 /*////////////////////////////defines////////////////////////////*/
 #define bud_rate 115200
 //pins
@@ -15,20 +14,23 @@ MPU9250 mpu; 																						// handler: allowing access to all library me
 unsigned long lastPrintMillis = 0; 											// Tracks the timestamp (from millis()) of the last time sensor data was printed to Serial
 
 //MPU9250 setting
-#define MPU9250_Accelerometer_Rang  A2G 								//select: A2G, A4G, A8G, A16G
-#define MPU9250_Gyroscope_Rang  G250DPS 								//select: G250DPS, G500DPS, G1000DPS, G2000DPS
+#define MPU9250_Accelerometer_Rang  A4G 								//select: A2G, A4G, A8G, A16G
+#define MPU9250_Gyroscope_Rang  G500DPS 								//select: G250DPS, G500DPS, G1000DPS, G2000DPS
 #define MPU9250_Magnetometer_resolution  M16BITS 				//select: M14BITS, M16BITS
 #define MPU9250_fifo_sample_rate  SMPL_1000HZ 						//select: SMPL_1000HZ, SMPL_500HZ, SMPL_333HZ, SMPL_250HZ, SMPL_200HZ, SMPL_167HZ, SMPL_143HZ, SMPL_125HZ
 #define MPU9250_Gyroscope_filter_choice  0x01						//select: 0x00: Enables DLPF with 8kHz sample rate. 0x01: Enables DLPF with 1kHz sample rate. 0x02 or 0x03: Bypasses DLPF
-#define MPU9250_Gyroscope_DLPF_cutoff  DLPF_5HZ 				//select: DLPF_250HZ, DLPF_184HZ, DLPF_92HZ, DLPF_41HZ, DLPF_20HZ, DLPF_10HZ, DLPF_5HZ, DLPF_3600HZ
+#define MPU9250_Gyroscope_DLPF_cutoff  DLPF_20HZ 				//select: DLPF_250HZ, DLPF_184HZ, DLPF_92HZ, DLPF_41HZ, DLPF_20HZ, DLPF_10HZ, DLPF_5HZ, DLPF_3600HZ
 #define MPU9250_Accelerometer_filter_choice  0x01				//select: 0x01 Enable, 0x00 bypass
 #define MPU9250_Accelerometer_DLPF_cutoff  DLPF_5HZ 		//select: DLPF_218HZ_0, DLPF_218HZ_1, DLPF_99HZ, DLPF_45HZ, DLPF_21HZ, DLPF_10HZ, DLPF_5HZ, DLPF_420HZ
 #define MPU9250_filter_algorithm	MADGWICK 							  //select: MADGWICK, MAHONY, NONE
-#define MPU9250_filter_iterations	15										//select: 1-50 higher better but may slow down
+#define MPU9250_filter_iterations	10										//select: 1-50 higher better but may slow down
 
 // OLED setup (0.91-inch SSD1306, 128x32, Software I2C on D3, D4)
 U8G2_SSD1306_128X32_UNIVISION_F_SW_I2C u8g2(U8G2_R0, /* clock=*/ 2, /* data=*/ 0, /* reset=*/ U8X8_PIN_NONE); // Software I2C on D4 (SCL, GPIO 2), D3 (SDA, GPIO 0)
-
+#define font_10_pixel u8g2_font_t0_15b_me
+#define font_8_pixel u8g2_font_helvB08_tf
+#define font_5_pixel u8g2_font_spleen5x8_me
+#define update_rate_oled 1500
 void setup() 
 { 
 	Serial.begin(bud_rate); 
@@ -37,11 +39,11 @@ void setup()
   // Initialize OLED
   u8g2.begin();
   u8g2.clearBuffer();
-  u8g2.setFont(u8g2_font_t0_15b_me);   // 10 pixed hight font
+  u8g2.setFont(font_10_pixel);   
   u8g2.drawStr(15, 25, "<< Boot up >>");
   u8g2.sendBuffer();
   delay(1000);
-  u8g2.setFont(u8g2_font_helvB08_tf); //// 8 pixed hight font
+  u8g2.setFont(font_8_pixel); 
 	MPU9250Setting setting;
 	// Initialize MPU9250 
 	// Sample rate must be at least 2x DLPF rate 
@@ -82,6 +84,7 @@ void setup()
   u8g2.drawStr(25, 15, "Press Button");
   u8g2.drawStr(35, 25, "to Calibrate");
   u8g2.sendBuffer();
+  u8g2.setFont(font_5_pixel); 
 } 
 
 void loop() 
@@ -90,6 +93,7 @@ void loop()
   if (digitalRead(BUTTON_PIN) == LOW) {
     delay(50);  // Debounce delay
     if (digitalRead(BUTTON_PIN) == LOW) {  // Confirm button press
+      u8g2.setFont(font_8_pixel); 
       Serial.println("Button pressed. Starting calibration...");
       u8g2.clearBuffer();
       u8g2.drawStr(25, 15, "Calibrating...");
@@ -102,6 +106,7 @@ void loop()
       u8g2.drawStr(25, 15, "Calibration Done");
       u8g2.drawStr(25, 25, "Press to Recal");
       u8g2.sendBuffer();
+      u8g2.setFont(font_5_pixel); 
       while (digitalRead(BUTTON_PIN) == LOW) {
         delay(10);  // Wait for button release
       }
@@ -118,7 +123,8 @@ void loop()
     float ax = mpu.getAccX();  // Acceleration in m/s²
     float ay = mpu.getAccY();
     float az = mpu.getAccZ();
-
+    float temp = mpu.getTemperature();
+    
     // Print to Serial for MATLAB (qw,qx,qy,qz,ax,ay,az)
     Serial.print(qw, 6); Serial.print(",");
     Serial.print(qx, 6); Serial.print(",");
@@ -131,29 +137,28 @@ void loop()
     // Display on OLED (rotate quaternions and accelerations every 2 seconds)
     static unsigned long lastDisplayMillis = 0;
     static bool showQuaternions = true;
-    if (currentMillis - lastDisplayMillis > 2000) {
+    if (currentMillis - lastDisplayMillis > update_rate_oled) {
       u8g2.clearBuffer();
-      if (showQuaternions) {
+       
         char buf[32];
         snprintf(buf, sizeof(buf), "Qw: %.3f", qw);
-        u8g2.drawStr(0, 10, buf);
+        u8g2.drawStr(0, 7, buf);
         snprintf(buf, sizeof(buf), "Qx: %.3f", qx);
-        u8g2.drawStr(0, 20, buf);
+        u8g2.drawStr(0, 15, buf);
         snprintf(buf, sizeof(buf), "Qy: %.3f", qy);
-        u8g2.drawStr(64, 10, buf);
+        u8g2.drawStr(64, 7, buf);
         snprintf(buf, sizeof(buf), "Qz: %.3f", qz);
-        u8g2.drawStr(64, 20, buf);
-      } else {
-        char buf[32];
+        u8g2.drawStr(64, 15, buf);
         snprintf(buf, sizeof(buf), "Ax: %.2f", ax);
-        u8g2.drawStr(0, 10, buf);
+        u8g2.drawStr(0, 23, buf);
         snprintf(buf, sizeof(buf), "Ay: %.2f", ay);
-        u8g2.drawStr(0, 20, buf);
+        u8g2.drawStr(0, 31, buf);
         snprintf(buf, sizeof(buf), "Az: %.2f", az);
-        u8g2.drawStr(64, 10, buf);
-      }
+        u8g2.drawStr(64, 23, buf);
+        snprintf(buf, sizeof(buf), "temp: %.2f", temp);
+        u8g2.drawStr(64, 31, buf);
+
       u8g2.sendBuffer();
-      showQuaternions = !showQuaternions;  // Toggle display
       lastDisplayMillis = currentMillis;
     }
 
