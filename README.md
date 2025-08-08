@@ -44,28 +44,23 @@ This project aims to implement GPS-less navigation by tracking orientation and m
 
 ### Hardware Setup
 
-- [ ] Setup MPU6500
-- [ ] Setup MPU9250
-- [ ] Add 3D animation to show orientation
-- [ ] Compare 3-axis modules
+- [x] Setup MPU6500
+- [x] Setup MPU9250
+- [x] Add 3D animation to show orientation
+- [x] Compare 3-axis modules
 - [ ] SD card logging
-- [ ] ESP-01S WiFi
+- [ ] GPS
 - [ ] HC-05 Bluetooth
+- [ ] BMP280
 
-### to do for MPU6500
+### to do for increase accuracy
 
-- [x] Enable DMP on MPU6500
-- [ ] Add Madgwick filter
-- [ ] Add Zero Velocity Update (ZUPT)
-- [x] Set 200 Hz sample rate
-- [x] Adjust sensor ranges: ±8g / ±1000°/s
-- [ ] Persistent offset save (to SD)
-- [ ] Monitor FIFO overflow
-- [ ] Optimize UART output
-- [ ] ~~Add magnetometer (e.g., AK8963) + modify the filter~~
-- [ ] Log data to SD
-- [ ] view on 3D module 
-
+- [ ] Use a Kalman Filter or Extended Kalman Filter (EKF) (e.g. TinyEKF)
+- [ ] RTIMULib for MPU9250 (is it better?) 
+- [ ] Incorporate BMP280 for Altitude Accuracy
+- [ ] Use GY-GPS6MV2 for Initial Position and Occasional Fixes
+- [ ] Dead Reckoning
+- [ ] Z
 ---
 
 ## 💡 Questions to Consider

@@ -1,25 +1,33 @@
 /*////////////////////////////includes////////////////////////////*/
-#include "MPU9250.h" //for setting up MPU9250
+#include "MPU9250.h" //for setting up MPU9250 (use library from C:\Users\Alireza\OneDrive\Documents\Arduino\libraries\MPU9250, remove SparkFun_MPU-9250_9_DOF_IMU_Breakout to avoid conflicts)
 #include <EEPROM.h>  // ESP8266 EEPROM library for loading calibration
 #include <U8g2lib.h> // U8g2 library for OLED
+#include <Adafruit_BMP280.h> // Adafruit BMP280 library for barometer
+#include <Adafruit_Sensor.h> // Dependency for BMP280 library
+
 /*////////////////////////////defines////////////////////////////*/
 #define bud_rate 115200
 //pins
 #define BUTTON_PIN 14             											// Push button on D5 (GPIO 14) for NodeMCU
-//MpU9205
+//MpU9250
 #define MPU9250_IMU_ADDRESS 0x68 												// Specifies the I2C slave address of the MPU9250:0x68 GND / 0x69 High
 #define MAGNETIC_DECLINATION 3.4	 											// angle between magnetic north and true north
-#define INTERVAL_MS_PRINT 50 														// Sets the minimum time interval between printing sensor data in the loop to avoid flooding the serial output. higher measn slower 
+#define INTERVAL_MS_PRINT 50 														// Sets the minimum time interval between printing sensor data in the loop to avoid flooding the serial output. higher means slower 
+//BMP280
+#define BMP280_I2C_ADDRESS 0x76 												// Specifies the I2C slave address of the BMP280: 0x76 or 0x77 depending on SDO pin
+#define SEALEVELPRESSURE_HPA 10003 										// Default sea-level pressure in hPa for altitude calculation (calibrate based on location)
 MPU9250 mpu; 																						// handler: allowing access to all library methods
+Adafruit_BMP280 bmp; 																		// handler: allowing access to BMP280 methods
 unsigned long lastPrintMillis = 0; 											// Tracks the timestamp (from millis()) of the last time sensor data was printed to Serial
+float bmp_seaLevelPressure = SEALEVELPRESSURE_HPA; // Global variable to store calibrated sea-level pressure
 
 //MPU9250 setting
-#define MPU9250_Accelerometer_Rang  A2G 								//select: A2G, A4G, A8G, A16G
+#define MPU9250_Accelerometer_Rang  A4G 								//select: A2G, A4G, A8G, A16G
 #define MPU9250_Gyroscope_Rang  G500DPS 								//select: G250DPS, G500DPS, G1000DPS, G2000DPS
 #define MPU9250_Magnetometer_resolution  M16BITS 				//select: M14BITS, M16BITS
 #define MPU9250_fifo_sample_rate  SMPL_1000HZ 						//select: SMPL_1000HZ, SMPL_500HZ, SMPL_333HZ, SMPL_250HZ, SMPL_200HZ, SMPL_167HZ, SMPL_143HZ, SMPL_125HZ
 #define MPU9250_Gyroscope_filter_choice  0x01						//select: 0x00: Enables DLPF with 8kHz sample rate. 0x01: Enables DLPF with 1kHz sample rate. 0x02 or 0x03: Bypasses DLPF
-#define MPU9250_Gyroscope_DLPF_cutoff  DLPF_5HZ 				//select: DLPF_250HZ, DLPF_184HZ, DLPF_92HZ, DLPF_41HZ, DLPF_20HZ, DLPF_10HZ, DLPF_5HZ, DLPF_3600HZ
+#define MPU9250_Gyroscope_DLPF_cutoff  DLPF_20HZ 				//select: DLPF_250HZ, DLPF_184HZ, DLPF_92HZ, DLPF_41HZ, DLPF_20HZ, DLPF_10HZ, DLPF_5HZ, DLPF_3600HZ
 #define MPU9250_Accelerometer_filter_choice  0x01				//select: 0x01 Enable, 0x00 bypass
 #define MPU9250_Accelerometer_DLPF_cutoff  DLPF_5HZ 		//select: DLPF_218HZ_0, DLPF_218HZ_1, DLPF_99HZ, DLPF_45HZ, DLPF_21HZ, DLPF_10HZ, DLPF_5HZ, DLPF_420HZ
 #define MPU9250_filter_algorithm	MADGWICK 							  //select: MADGWICK, MAHONY, NONE
@@ -31,11 +39,11 @@ U8G2_SSD1306_128X32_UNIVISION_F_SW_I2C u8g2(U8G2_R0, /* clock=*/ 2, /* data=*/ 0
 #define font_8_pixel u8g2_font_helvB08_tf
 #define font_5_pixel u8g2_font_spleen5x8_me
 #define update_rate_oled 1500
-/*////////////////////////////setup////////////////////////////*/
+
 void setup() 
 { 
 	Serial.begin(bud_rate); 
-	Wire.begin(); // Hardware I2C for MPU9250 on D1 (SCL, GPIO 5), D2 (SDA, GPIO 4)
+	Wire.begin(); // Hardware I2C for MPU9250 and BMP280 on D1 (SCL, GPIO 5), D2 (SDA, GPIO 4)
 	pinMode(BUTTON_PIN, INPUT_PULLUP);	 // Button with internal pull-up (active-low)
   // Initialize OLED
   u8g2.begin();
@@ -45,9 +53,9 @@ void setup()
   u8g2.sendBuffer();
   delay(1000);
   u8g2.setFont(font_8_pixel); 
-	MPU9250Setting setting;
 	// Initialize MPU9250 
 	// Sample rate must be at least 2x DLPF rate 
+	MPU9250Setting setting;
 	setting.accel_fs_sel = ACCEL_FS_SEL::MPU9250_Accelerometer_Rang; 
 	setting.gyro_fs_sel = GYRO_FS_SEL::MPU9250_Gyroscope_Rang; 
 	setting.mag_output_bits = MAG_OUTPUT_BITS::MPU9250_Magnetometer_resolution; 
@@ -62,16 +70,33 @@ void setup()
     u8g2.clearBuffer();
     u8g2.drawStr(20, 15, "MPU9250 Failed!");
     u8g2.drawStr(20, 28, "Retrying...");
-   u8g2.sendBuffer();
+    u8g2.sendBuffer();
     delay(5000); 
   }							
 	mpu.setMagneticDeclination(MAGNETIC_DECLINATION); 
 	mpu.selectFilter(QuatFilterSel::MPU9250_filter_algorithm); 
 	mpu.setFilterIterations(MPU9250_filter_iterations);
 	
+	// Initialize BMP280
+  if (!bmp.begin(BMP280_I2C_ADDRESS)) {
+    Serial.println("BMP280 connection failed. Retrying in 5 seconds...");
+    u8g2.clearBuffer();
+    u8g2.drawStr(20, 15, "BMP280 Failed!");
+    u8g2.drawStr(20, 28, "Retrying...");
+    u8g2.sendBuffer();
+    delay(5000);
+    while (1); // Halt if BMP280 fails (adjust as needed)
+  }
+  // Configure BMP280 settings for better accuracy
+  bmp.setSampling(Adafruit_BMP280::MODE_NORMAL,     // Operating mode
+                  Adafruit_BMP280::SAMPLING_X2,     // Temperature oversampling
+                  Adafruit_BMP280::SAMPLING_X16,    // Pressure oversampling
+                  Adafruit_BMP280::FILTER_X16,      // Filtering
+                  Adafruit_BMP280::STANDBY_MS_500); // Standby time
+	
 	// Initialize EEPROM for ESP8266
   #if defined(ESP_PLATFORM) || defined(ESP8266)
-    EEPROM.begin(0x80);  // Allocate 128 bytes for EEPROM
+    EEPROM.begin(0x80);  // Allocate 128 bytes for EEPROM (covers MPU9250 and BMP280 calibration)
   #endif
  	// Load calibration from EEPROM on startup
   Serial.println("Loading calibration from EEPROM...");
@@ -80,6 +105,11 @@ void setup()
   u8g2.drawStr(35, 30, "from EEPROM");
   u8g2.sendBuffer();
   loadCalibration();
+  // Validate loaded sea-level pressure
+  if (isnan(bmp_seaLevelPressure) || bmp_seaLevelPressure <= 0 || bmp_seaLevelPressure > 2000) {
+    Serial.println("Invalid sea-level pressure from EEPROM, resetting to default...");
+    bmp_seaLevelPressure = SEALEVELPRESSURE_HPA;
+  }
   print_calibration();
   u8g2.clearBuffer();
   u8g2.drawStr(25, 15, "Press Button");
@@ -87,7 +117,6 @@ void setup()
   u8g2.sendBuffer();
   u8g2.setFont(font_5_pixel); 
 } 
-/*////////////////////////////loop////////////////////////////*/
 
 void loop() 
 { 
@@ -117,31 +146,50 @@ void loop()
   // Main sensor data loop
   unsigned long currentMillis = millis();
   if (mpu.update() && currentMillis - lastPrintMillis > INTERVAL_MS_PRINT) {
-    // Get quaternions and accelerations
+    // Get quaternions and accelerations from MPU9250
     float qw = mpu.getQuaternionW();
     float qx = mpu.getQuaternionX();
     float qy = mpu.getQuaternionY();
     float qz = mpu.getQuaternionZ();
-    float ax = mpu.getLinearAccX();  // Acceleration in m/s²
+    float ax = mpu.getLinearAccX();
     float ay = mpu.getLinearAccY();
     float az = mpu.getLinearAccZ();
     float temp = mpu.getTemperature();
+    // Get pressure, temperature, and altitude from BMP280
+    float pressure = bmp.readPressure() / 100.0F; // Convert Pa to hPa
+    float bmp_temp = bmp.readTemperature(); // Read BMP280 temperature
+    float altitude = bmp.readAltitude(bmp_seaLevelPressure); // Use calibrated sea-level pressure
     
-    // Print to Serial for MATLAB (qw,qx,qy,qz,ax,ay,az)
+    // Debug: Print sea-level pressure and BMP280 temperature
+    static unsigned long lastDebugPrint = 0;
+    if (currentMillis - lastDebugPrint > 1000) { // Print every 1 second
+      Serial.print("SeaLevelPressure: "); Serial.print(bmp_seaLevelPressure, 2); Serial.println(" hPa");
+      Serial.print("BMP280 Temp: "); Serial.print(bmp_temp, 2); Serial.println(" C");
+      if (isnan(altitude) || pressure <= 0 || bmp_seaLevelPressure <= 0) {
+        Serial.println("Warning: Invalid altitude calculation!");
+        Serial.print("Pressure: "); Serial.println(pressure, 2);
+        Serial.print("SeaLevelPressure: "); Serial.println(bmp_seaLevelPressure, 2);
+      }
+      lastDebugPrint = currentMillis;
+    }
+
+    // Print to Serial for MATLAB (qw,qx,qy,qz,ax,ay,az,pressure,altitude)
     Serial.print(qw, 6); Serial.print(",");
     Serial.print(qx, 6); Serial.print(",");
     Serial.print(qy, 6); Serial.print(",");
     Serial.print(qz, 6); Serial.print(",");
     Serial.print(ax, 6); Serial.print(",");
     Serial.print(ay, 6); Serial.print(",");
-    Serial.println(az, 6);
+    Serial.print(az, 6); Serial.print(",");
+    Serial.print(pressure, 2); Serial.print(",");
+    Serial.println(altitude, 2);
 
-    // Display on OLED (rotate quaternions and accelerations every 2 seconds)
+    // Display on OLED (rotate quaternions, accelerations, and BMP280 data every 1.5 seconds)
     static unsigned long lastDisplayMillis = 0;
     static bool showQuaternions = true;
     if (currentMillis - lastDisplayMillis > update_rate_oled) {
       u8g2.clearBuffer();
-       
+      if (showQuaternions) {
         char buf[32];
         snprintf(buf, sizeof(buf), "Qw: %.3f", qw);
         u8g2.drawStr(0, 7, buf);
@@ -151,15 +199,25 @@ void loop()
         u8g2.drawStr(64, 7, buf);
         snprintf(buf, sizeof(buf), "Qz: %.3f", qz);
         u8g2.drawStr(64, 15, buf);
-        snprintf(buf, sizeof(buf), "Ax: %.2f", ax);
+        snprintf(buf, sizeof(buf), "Temp: %.2f C", temp);
         u8g2.drawStr(0, 23, buf);
-        snprintf(buf, sizeof(buf), "Ay: %.2f", ay);
+        snprintf(buf, sizeof(buf), "Alt: %.2f m", isnan(altitude) ? 0.0 : altitude); // Avoid displaying nan
         u8g2.drawStr(0, 31, buf);
+        showQuaternions = false;
+      } else {
+        char buf[32];
+        snprintf(buf, sizeof(buf), "Ax: %.2f", ax);
+        u8g2.drawStr(0, 7, buf);
+        snprintf(buf, sizeof(buf), "Ay: %.2f", ay);
+        u8g2.drawStr(0, 15, buf);
         snprintf(buf, sizeof(buf), "Az: %.2f", az);
-        u8g2.drawStr(64, 23, buf);
-        snprintf(buf, sizeof(buf), "temp: %.2f", temp);
-        u8g2.drawStr(64, 31, buf);
-
+        u8g2.drawStr(64, 7, buf);
+        snprintf(buf, sizeof(buf), "Pres: %.2f hPa", pressure);
+        u8g2.drawStr(0, 23, buf);
+        snprintf(buf, sizeof(buf), "Alt: %.2f m", isnan(altitude) ? 0.0 : altitude); // Avoid displaying nan
+        u8g2.drawStr(0, 31, buf);
+        showQuaternions = true;
+      }
       u8g2.sendBuffer();
       lastDisplayMillis = currentMillis;
     }
@@ -169,6 +227,7 @@ void loop()
 } 
 
 void performCalibration() {
+  // Calibrate MPU9250 accelerometer and gyroscope
   u8g2.clearBuffer();
   u8g2.drawStr(0, 15, "Accel/Gyro Cal");
   u8g2.drawStr(0, 25, "Keep Still 5s");
@@ -176,6 +235,7 @@ void performCalibration() {
   mpu.verbose(true);
   delay(5000);
   mpu.calibrateAccelGyro();
+  // Calibrate MPU9250 magnetometer
   u8g2.clearBuffer();
   u8g2.drawStr(0, 15, "Mag Cal");
   u8g2.drawStr(0, 25, "Figure 8 - 5s");
@@ -183,9 +243,29 @@ void performCalibration() {
   delay(5000);
   mpu.calibrateMag();
   mpu.verbose(false);
+  // Calibrate BMP280 sea-level pressure (assume current pressure is at known altitude, e.g., 0m)
+  u8g2.clearBuffer();
+  u8g2.drawStr(0, 15, "BMP280 Cal");
+  u8g2.drawStr(0, 25, "Keep Still 5s");
+  u8g2.sendBuffer();
+  delay(5000);
+  float pressure = bmp.readPressure() / 100.0F; // Current pressure in hPa
+  float knownAltitude = 0.0; // Assume calibration at sea level (adjust as needed)
+  if (pressure > 0) { // Validate pressure
+    float seaLevelPressure = pressure / pow(1.0 - knownAltitude / 44330.0, 5.255); // Calculate sea-level pressure
+    Serial.print("Calibrated sea-level pressure: ");
+    Serial.print(seaLevelPressure, 2);
+    Serial.println(" hPa");
+    // Save to global variable for altitude calculations
+    bmp_seaLevelPressure = seaLevelPressure;
+  } else {
+    Serial.println("Invalid pressure reading during calibration, using default...");
+    bmp_seaLevelPressure = SEALEVELPRESSURE_HPA;
+  }
 }
 
 void print_calibration() {
+  // Print MPU9250 calibration
   Serial.println("< calibration parameters >");
   Serial.println("accel bias [g]: ");
   Serial.print(mpu.getAccBiasX() * 1000.f / (float)MPU9250::CALIB_ACCEL_SENSITIVITY);
@@ -215,6 +295,9 @@ void print_calibration() {
   Serial.print(", ");
   Serial.print(mpu.getMagScaleZ());
   Serial.println();
+  // Print BMP280 calibration
+  Serial.println("BMP280 sea-level pressure [hPa]: ");
+  Serial.println(bmp_seaLevelPressure, 2);
   // Display calibration on OLED
   u8g2.clearBuffer();
   char buf[32];
@@ -223,18 +306,15 @@ void print_calibration() {
            mpu.getAccBiasY() * 1000.f / (float)MPU9250::CALIB_ACCEL_SENSITIVITY,
            mpu.getAccBiasZ() * 1000.f / (float)MPU9250::CALIB_ACCEL_SENSITIVITY);
   u8g2.drawStr(0, 15, buf);
-  snprintf(buf, sizeof(buf), "Gyr: %.1f,%.1f,%.1f",
-           mpu.getGyroBiasX() / (float)MPU9250::CALIB_GYRO_SENSITIVITY,
-           mpu.getGyroBiasY() / (float)MPU9250::CALIB_GYRO_SENSITIVITY,
-           mpu.getGyroBiasZ() / (float)MPU9250::CALIB_GYRO_SENSITIVITY);
+  snprintf(buf, sizeof(buf), "SeaP: %.2f hPa", bmp_seaLevelPressure);
   u8g2.drawStr(0, 25, buf);
   u8g2.sendBuffer();
   delay(2000);  // Show calibration for 2 seconds
 }
 
-
 void saveCalibration() {
   int addr = 0;
+  // Save MPU9250 calibration
   EEPROM.put(addr, mpu.getAccBiasX()); addr += sizeof(float);
   EEPROM.put(addr, mpu.getAccBiasY()); addr += sizeof(float);
   EEPROM.put(addr, mpu.getAccBiasZ()); addr += sizeof(float);
@@ -247,6 +327,8 @@ void saveCalibration() {
   EEPROM.put(addr, mpu.getMagScaleX()); addr += sizeof(float);
   EEPROM.put(addr, mpu.getMagScaleY()); addr += sizeof(float);
   EEPROM.put(addr, mpu.getMagScaleZ()); addr += sizeof(float);
+  // Save BMP280 calibration
+  EEPROM.put(addr, bmp_seaLevelPressure); addr += sizeof(float);
   EEPROM.commit();  // Save to EEPROM on ESP8266
 }
 
@@ -257,7 +339,9 @@ void loadCalibration() {
   float gyroBiasX, gyroBiasY, gyroBiasZ;
   float magBiasX, magBiasY, magBiasZ;
   float magScaleX, magScaleY, magScaleZ;
+  float seaLevelPressure;
 
+  // Load MPU9250 calibration
   EEPROM.get(addr, accBiasX); addr += sizeof(float);
   EEPROM.get(addr, accBiasY); addr += sizeof(float);
   EEPROM.get(addr, accBiasZ); addr += sizeof(float);
@@ -270,6 +354,9 @@ void loadCalibration() {
   EEPROM.get(addr, magScaleX); addr += sizeof(float);
   EEPROM.get(addr, magScaleY); addr += sizeof(float);
   EEPROM.get(addr, magScaleZ); addr += sizeof(float);
+  // Load BMP280 calibration
+  EEPROM.get(addr, seaLevelPressure); addr += sizeof(float);
+  bmp_seaLevelPressure = seaLevelPressure;
 
   // Print loaded values for verification
   Serial.println("Loaded calibration values from EEPROM:");
@@ -285,4 +372,17 @@ void loadCalibration() {
   Serial.print("Mag Scale X: "); Serial.println(magScaleX);
   Serial.print("Mag Scale Y: "); Serial.println(magScaleY);
   Serial.print("Mag Scale Z: "); Serial.println(magScaleZ);
+  Serial.print("BMP280 Sea-Level Pressure: "); Serial.println(seaLevelPressure);
 }
+
+// Optional: Function to reset EEPROM (uncomment to use)
+/*
+void resetEEPROM() {
+  Serial.println("Resetting EEPROM...");
+  for (int i = 0; i < 128; i++) {
+    EEPROM.write(i, 0xFF);
+  }
+  EEPROM.commit();
+  Serial.println("EEPROM reset complete. Recalibrate sensors.");
+}
+*/
