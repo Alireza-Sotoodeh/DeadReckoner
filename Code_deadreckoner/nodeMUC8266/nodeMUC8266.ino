@@ -1,3 +1,33 @@
+// Last Edit: 2026-06-03 15:27:00
+// Reason for Last Edit: Added comprehensive wiring diagram and project metadata
+// Author: Alireza Sotoodeh
+
+/*
+ * =========================================================================
+ * PROJECT: Dead Reckoner Project
+ * VERSION: 1.0 (Prototype)
+ * * WIRING DIAGRAM
+ * -------------------------------------------------------------------------
+ * Component        | ESP8266 (NodeMCU) Pin | Note / Reasoning
+ * -------------------------------------------------------------------------
+ * MPU9250 VCC      | 3.3V                  | MPU9250 is 3.3V tolerant logic
+ * MPU9250 GND      | GND                   | Common ground
+ * MPU9250 SCL      | D1 (GPIO 5)           | Hardware I2C Clock for fast IMU reads
+ * MPU9250 SDA      | D2 (GPIO 4)           | Hardware I2C Data for fast IMU reads
+ * -------------------------------------------------------------------------
+ * OLED VCC         | 3.3V                  | 
+ * OLED GND         | GND                   | Common ground
+ * OLED SCL         | D4 (GPIO 2)           | Software I2C to avoid bus congestion
+ * OLED SDA         | D3 (GPIO 0)           | Software I2C with the IMU
+ * -------------------------------------------------------------------------
+ * Push Button      | D5 (GPIO 14)          | Input Pullup; Connects to GND when pressed
+ * -------------------------------------------------------------------------
+ * * DESIGN NOTES:
+ * - OLED is intentionally separated onto Software I2C to prevent display 
+ * updates from blocking high-speed sensor fusion reads from the MPU9250.
+ * =========================================================================
+ */
+ 
 /*////////////////////////////includes////////////////////////////*/
 #include "MPU9250.h" //for setting up MPU9250
 #include <EEPROM.h>  // ESP8266 EEPROM library for loading calibration
