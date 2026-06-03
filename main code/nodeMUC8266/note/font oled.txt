@@ -1,2 +1,0 @@
-u8g2_font_t0_15b_me 
-u8g2_font_helvB08_tf
