@@ -1,5 +1,0 @@
-Add Madgwick:
-https://github.com/xioTechnologies/Fusion/tree/main
-
-Add lib MPU6500:
-https://github.com/libdriver/mpu6500
