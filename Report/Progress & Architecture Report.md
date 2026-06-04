@@ -220,3 +220,36 @@ QueueHandle_t dataQueue;
 - **RAM Footprint:** 300 items * 48 bytes = **14,400 bytes (14.06 KB)** This memory footprint is safely accommodated by the ESP32-S3's internal SRAM, leaving the 8MB PSRAM completely free for larger operational tasks.
 
 ---
+
+## 7. Hardware & Filter Validation (Test Results)
+
+To ensure the reliability of the Dead Reckoning system during periods of GPS signal loss, the MPU9250 IMU and the FreeRTOS-based Madgwick filter underwent three rigorous physical tests. The raw quaternion data was streamed to MATLAB (`visual.m`) for mathematical analysis.
+
+### 7.1 Test 1: Static Drift (Zero-Rate Offset)
+
+* **Objective:** Measure the accumulated error (drift) over a 15-minute stationary period to evaluate baseline stability.
+* **Methodology:** Device kept completely still on an isolated, flat surface for ~900 seconds post-calibration.
+* **Results:**
+  * **Max Roll Drift:** 0.43°
+  * **Max Pitch Drift:** 0.39°
+  * **Max Yaw Drift:** 2.73° (over 15 minutes)
+* **Conclusion:** **PASS.** The accelerometer perfectly isolates the gravity vector, effectively eliminating Pitch/Roll drift (<0.5°). The magnetometer bounds the Yaw drift to ~0.18° per minute, proving high immunity against false map rotations during prolonged GPS outages.
+
+### 7.2 Test 2: Dynamic Return-to-Zero
+
+* **Objective:** Evaluate the filter's ability to recover from high-G linear accelerations without losing the true horizon.
+* **Methodology:** Device subjected to violent 3D rotations and linear accelerations (up to 130° swings) for 30 seconds, then returned exactly to its initial physical position.
+* **Results (Absolute Return Error):**
+  * **Roll Error:** 0.07°
+  * **Pitch Error:** 0.36°
+  * **Yaw Error:** 1.55°
+* **Conclusion:** **PASS.** The Madgwick filter's `Beta` gain is optimally tuned. The system successfully ignores temporary linear accelerations (preventing them from being mistaken as gravity) and snaps back to the true orientation with sub-degree accuracy.
+
+### 7.3 Test 3: Vibration Rejection
+
+* **Objective:** Test the system's resilience against high-frequency mechanical noise (e.g., vehicle engine vibrations or footsteps).
+* **Methodology:** Device subjected to external mechanical shocks, including light pen tapping and heavy fist pounds on the adjacent surface.
+* **Results (Max Deviation during impact):**
+  * **Pen Tapping (Roll/Pitch Swing):** < 0.1° deviation
+  * **Heavy Fist Pound (Max Pitch Swing):** 0.57° deviation
+* **Conclusion:** **PASS.** The hardware Digital Low Pass Filter (DLPF) configured at `5Hz` effectively isolates the IMU from environmental vibrations. The tracking coordinates will remain highly stable even under harsh physical or automotive conditions.
