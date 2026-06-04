@@ -93,6 +93,7 @@ To transform this prototype into an industrial-grade offline tracker, the develo
 * ### 5.1 Hardware Testing (Prerequisites)
   
   *These tests must be validated before full system assembly to isolate hardware faults from software bugs.*
+  
   - [x] **MPU9250 Sanity Check (I2C Bus & Register Validation)**
     
     - *Method:* Read `WHO_AM_I` register (0x75) and raw accelerometer data via basic I2C polling.
@@ -117,8 +118,6 @@ To transform this prototype into an industrial-grade offline tracker, the develo
 - [x] **FreeRTOS Implementation:** Decouple system logic into `sensorTask` (Core 0, high-frequency) and `loggingTask` (Core 1, low-frequency/blocking ops).
 - [x] **Race Condition Mitigation:** Implement Producer-Consumer pattern using a 48-byte binary `LogFrame` struct and a thread-safe `xQueue` buffer (300 frames depth).
 
-
-
 #### Phase 2: Calibration Fixes & I2C Optimization
 
 - [x] **I2C Acceleration:** Boost hardware I2C bus clock to 400kHz (Fast Mode) to prevent IMU read bottlenecks.
@@ -126,15 +125,11 @@ To transform this prototype into an industrial-grade offline tracker, the develo
 - [x] **EEPROM Load Bug Fix:** Implement manual deduction of loaded EEPROM bias values from raw sensor readings in the code (workaround for missing setter methods in the MPU9250 library).
 - [x] **I2C Bus Separation:** Transition the OLED display to the secondary hardware I2C bus (`Wire1`) for complete electrical isolation from the IMU.
 
-
-
 #### Phase 3: Binary Logging Implementation
 
 - [ ] **Storage Medium Selection:** Finalize the architectural decision between utilizing the internal 16MB LittleFS or wiring an external SPI SD Card module.
 - [ ] **Binary Block Writing:** Replace string-based `Serial.print` operations with high-speed binary block writes (`file.write()`) to maximize Core 1 efficiency.
 - [ ] **Fail-Safe Strategy:** Code a periodic `file.flush()` routine (triggered every 5 seconds or 500 frames) to secure data integrity against sudden power loss without introducing continuous write lag.
-
-
 
 #### Phase 4: GPS Integration & Data Synchronization
 

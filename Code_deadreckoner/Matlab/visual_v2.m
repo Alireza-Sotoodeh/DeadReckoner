@@ -8,6 +8,7 @@ clear all;
 port = "COM11";       % Change to match your Arduino port
 baud = 115200;        % Must match Serial.begin() in Arduino
 
+logFileName = '2_Dynamic_Return_to_Zero.csv';
 % ---------------------------
 % Setup Serial Connection
 % ---------------------------
@@ -22,7 +23,6 @@ end
 % ---------------------------
 % Setup Data Logger (CSV)
 % ---------------------------
-logFileName = 'Static_Drift_Log.csv';
 logFile = fopen(logFileName, 'w');
 if logFile == -1
     error('Cannot create log file. Check folder permissions.');
