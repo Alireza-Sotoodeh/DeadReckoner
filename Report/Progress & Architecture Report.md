@@ -133,6 +133,29 @@ To transform this prototype into an industrial-grade offline tracker, the develo
 - [ ] **Data Injection:** Parse and inject double-precision coordinates (`gps_lat`, `gps_lng`) into the `LogFrame` queue structure.
 - [ ] **Time Synchronization Algorithm:** Develop a temporal interpolation algorithm to mathematically align the low-frequency GPS data (1Hz) with the high-frequency IMU stream (100Hz) to ensure coherent logging.
 
+###### 5.3 Firmware Flashing Configuration (ESP32-S3 N16R8)
+
+*Comprehensive Arduino IDE settings required to utilize the full 16MB Flash and 8MB PSRAM, ensuring stable FreeRTOS execution and maximum data logging capacity.*
+
+* **Board:** ESP32S3 Dev Module
+* **USB CDC On Boot:** Disabled
+* **CPU Frequency:** 240MHz (WiFi)
+* **Core Debug Level:** None
+* **USB DFU On Boot:** Disabled
+* **Erase All Flash Before Sketch Upload:** Disabled
+* **Events Run On:** Core 1
+* **Flash Mode:** QIO 80MHz
+* **Flash Size:** 16MB (128Mb)
+* **JTAG Adapter:** Disabled
+* **Arduino Runs On:** Core 1
+* **USB Firmware MSC On Boot:** Disabled
+* **Partition Scheme:** 16M Flash (e.g., 3MB APP/9.9MB FATFS) *[CRITICAL: Must not be 4MB default]*
+* **PSRAM:** OPI PSRAM
+* **Upload Mode:** UART0 / Hardware CDC
+* **Upload Speed:** 921600
+* **USB Mode:** Hardware CDC and JTAG
+* **Zigbee Mode:** Disabled
+
 ---
 
 ## 5. Hardware Migration Rationale: ESP8266 to ESP32-S3
