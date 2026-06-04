@@ -99,12 +99,15 @@ To transform this prototype into an industrial-grade offline tracker, the develo
     - *Results:* ID `0x71` received successfully. Z-axis reading ~16384 (1g). X/Y axes show normal physical offset (-300 to 80 LSB).
     - *Notes:* AD0 grounded to lock address `0x68`. **Action:** External 4.7k pull-up resistors on SDA/SCL are mandatory for 400kHz operation on the ESP32-S3.
   
-  - [ ] **MPU9250 Precision Test (Drift, Return-to-Zero, Vibration)**
+  - [ ]  Phase 3: MPU9250 Precision Test
     
-    - *Method:* Isolated test using USB serial and MATLAB `visual.m` (Wi-Fi off to prevent thermal drift). Evaluate 15-minute static drift, dynamic movement recovery, and table vibration rejection.
-    - *Notes:* Results will dictate the tuning of the Madgwick filter `Beta` gain and DLPF cut-off frequency.
+    - [ ] Static Drift Test - Zero Rate Offset
+    
+    - [ ] Dynamic Return-to-Zero
+    
+    - [ ] Vibration Rejection
 
-### . 5.2 Software Architecture & Development Phases
+### 5.2 Software Architecture & Development Phases
 
 *These phases follow a strict dependency sequence. Each phase acts as a prerequisite for the next.*
 
@@ -114,18 +117,24 @@ To transform this prototype into an industrial-grade offline tracker, the develo
 - [x] **FreeRTOS Implementation:** Decouple system logic into `sensorTask` (Core 0, high-frequency) and `loggingTask` (Core 1, low-frequency/blocking ops).
 - [x] **Race Condition Mitigation:** Implement Producer-Consumer pattern using a 48-byte binary `LogFrame` struct and a thread-safe `xQueue` buffer (300 frames depth).
 
+
+
 #### Phase 2: Calibration Fixes & I2C Optimization
 
 - [x] **I2C Acceleration:** Boost hardware I2C bus clock to 400kHz (Fast Mode) to prevent IMU read bottlenecks.
 - [x] **Bus Collision Prevention:** Utilize `vTaskSuspend` and `vTaskResume` to freeze Core 0 during Core 1's blocking EEPROM calibration routines.
-- [ ] **EEPROM Load Bug Fix:** Implement manual deduction of loaded EEPROM bias values from raw sensor readings in the code (workaround for missing setter methods in the MPU9250 library).
-- [ ] **I2C Bus Separation:** Transition the OLED display to the secondary hardware I2C bus (`Wire1`) for complete electrical isolation from the IMU.
+- [x] **EEPROM Load Bug Fix:** Implement manual deduction of loaded EEPROM bias values from raw sensor readings in the code (workaround for missing setter methods in the MPU9250 library).
+- [x] **I2C Bus Separation:** Transition the OLED display to the secondary hardware I2C bus (`Wire1`) for complete electrical isolation from the IMU.
+
+
 
 #### Phase 3: Binary Logging Implementation
 
 - [ ] **Storage Medium Selection:** Finalize the architectural decision between utilizing the internal 16MB LittleFS or wiring an external SPI SD Card module.
 - [ ] **Binary Block Writing:** Replace string-based `Serial.print` operations with high-speed binary block writes (`file.write()`) to maximize Core 1 efficiency.
 - [ ] **Fail-Safe Strategy:** Code a periodic `file.flush()` routine (triggered every 5 seconds or 500 frames) to secure data integrity against sudden power loss without introducing continuous write lag.
+
+
 
 #### Phase 4: GPS Integration & Data Synchronization
 
