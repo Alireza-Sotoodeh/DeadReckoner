@@ -75,9 +75,9 @@ unsigned long lastPrintMillis = 0;
 #define MPU9250_filter_algorithm	MADGWICK 							//select: MADGWICK, MAHONY, NONE
 #define MPU9250_filter_iterations	10										//select: 1-50 higher better but may slow down
 
-// OLED setup (0.91-inch SSD1306, 128x32, Software I2C updated pins)
-// UPDATE: Changed to Hardware I2C (Wire1) to save CPU cycles
-U8G2_SSD1306_128X32_UNIVISION_F_HW_I2C u8g2(U8G2_R0, /* reset=*/ U8X8_PIN_NONE, /* clock=*/ I2C_OLED_SCL, /* data=*/ I2C_OLED_SDA);
+// OLED setup (0.91-inch SSD1306, 128x32, Software I2C)
+// Reverted to SW_I2C to resolve library conflicts on ESP32-S3 secondary buses. Safe on Core 1.
+U8G2_SSD1306_128X32_UNIVISION_F_SW_I2C u8g2(U8G2_R0, /* clock=*/ I2C_OLED_SCL, /* data=*/ I2C_OLED_SDA, /* reset=*/ U8X8_PIN_NONE);
 // Software I2C on custom ESP32-S3 pins to avoid bus congestion
 
 #define font_10_pixel u8g2_font_t0_15b_me
