@@ -1,5 +1,5 @@
-// Last Edit: 2026-06-03 18:30:00
-// Reason for Last Edit: Finalized FreeRTOS dual-core architecture (Version 1.2) and cleared versioning confusion.
+// Last Edit: 2026-06-04 10:30:00
+// Reason for Last Edit: Updated wiring diagram to explicitly define all MPU9250 pins, I2C pull-ups, and NC states.
 // Author: Alireza Sotoodeh
 
 /*
@@ -12,8 +12,14 @@
  * -------------------------------------------------------------------------
  * MPU9250 VCC      | 3.3V                  | MPU9250 is 3.3V tolerant logic
  * MPU9250 GND      | GND                   | Common ground
- * MPU9250 SCL      | GPIO 5                | Hardware I2C (Wire) Clock for fast IMU reads
- * MPU9250 SDA      | GPIO 4                | Hardware I2C (Wire) Data for fast IMU reads
+ * MPU9250 SCL      | GPIO 5                | Hardware I2C (Wire) Clock (Requires external 4.7k pull-up to 3.3V)
+ * MPU9250 SDA      | GPIO 4                | Hardware I2C (Wire) Data (Requires external 4.7k pull-up to 3.3V)
+ * MPU9250 AD0      | GND                   | Sets I2C Address to 0x68
+ * MPU9250 NCS      | 3.3V                  | Chip Select: HIGH forces I2C Mode
+ * MPU9250 FSYNC    | GND                   | Frame Sync: Not used, tied to GND to prevent noise
+ * MPU9250 INT      | NC (Not Connected)    | Interrupt: Not used, polling via mpu.update()
+ * MPU9250 ECL      | NC (Not Connected)    | Aux I2C Clock: Not used
+ * MPU9250 EDA      | NC (Not Connected)    | Aux I2C Data: Not used
  * -------------------------------------------------------------------------
  * OLED VCC         | 3.3V                  | 
  * OLED GND         | GND                   | Common ground
