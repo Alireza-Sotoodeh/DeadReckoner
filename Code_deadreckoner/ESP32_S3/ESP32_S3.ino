@@ -1,5 +1,7 @@
 // Last Edit: 2026-06-04 10:30:00
 // Reason for Last Edit: Updated wiring diagram to explicitly define all MPU9250 pins, I2C pull-ups, and NC states.
+// Last Edit: 2026-06-04 14:15:00
+// Reason for Last Edit: Fixed EEPROM load bug (added setters) and migrated OLED to Hardware I2C (Wire1).
 // Author: Alireza Sotoodeh
 
 /*
@@ -53,7 +55,8 @@
 //MpU9205
 #define MPU9250_IMU_ADDRESS 0x68 												// Specifies the I2C slave address of the MPU9250:0x68 GND / 0x69 High
 #define MAGNETIC_DECLINATION 3.4	 											// angle between magnetic north and true north
-#define INTERVAL_MS_PRINT 50 														// Sets the minimum time interval between printing sensor data.
+#define INTERVAL_MS_PRINT 50 														// Sets the minimum time interval between 
+// printing sensor data.
 MPU9250 mpu;
 // handler: allowing access to all library methods
 unsigned long lastPrintMillis = 0;
@@ -67,12 +70,14 @@ unsigned long lastPrintMillis = 0;
 #define MPU9250_Gyroscope_filter_choice  0x01						//select: 0x00: Enables DLPF with 8kHz sample rate|0x01: Enables DLPF with 1kHz sample rate|0x02 or 0x03: Bypasses DLPF
 #define MPU9250_Gyroscope_DLPF_cutoff  DLPF_5HZ 				//select: DLPF_250HZ, DLPF_184HZ, DLPF_92HZ, DLPF_41HZ, DLPF_20HZ, DLPF_10HZ, DLPF_5HZ, DLPF_3600HZ
 #define MPU9250_Accelerometer_filter_choice  0x01				//select: 0x01 Enable, 0x00 bypass
-#define MPU9250_Accelerometer_DLPF_cutoff  DLPF_5HZ 		//select: DLPF_218HZ_0, DLPF_218HZ_1, DLPF_99HZ, DLPF_45HZ, DLPF_21HZ, DLPF_10HZ, DLPF_5HZ, DLPF_420HZ
+#define MPU9250_Accelerometer_DLPF_cutoff  DLPF_5HZ 		//select: DLPF_218HZ_0, DLPF_218HZ_1, DLPF_99HZ, DLPF_45HZ, DLPF_21HZ, DLPF_10HZ, 
+// DLPF_5HZ, DLPF_420HZ
 #define MPU9250_filter_algorithm	MADGWICK 							//select: MADGWICK, MAHONY, NONE
 #define MPU9250_filter_iterations	10										//select: 1-50 higher better but may slow down
 
 // OLED setup (0.91-inch SSD1306, 128x32, Software I2C updated pins)
-U8G2_SSD1306_128X32_UNIVISION_F_SW_I2C u8g2(U8G2_R0, /* clock=*/ I2C_OLED_SCL, /* data=*/ I2C_OLED_SDA, /* reset=*/ U8X8_PIN_NONE);
+// UPDATE: Changed to Hardware I2C (Wire1) to save CPU cycles
+U8G2_SSD1306_128X32_UNIVISION_F_HW_I2C u8g2(U8G2_R0, /* reset=*/ U8X8_PIN_NONE, /* clock=*/ I2C_OLED_SCL, /* data=*/ I2C_OLED_SDA);
 // Software I2C on custom ESP32-S3 pins to avoid bus congestion
 
 #define font_10_pixel u8g2_font_t0_15b_me
@@ -95,19 +100,16 @@ typedef struct {
 QueueHandle_t dataQueue;
 TaskHandle_t sensorTaskHandle;
 TaskHandle_t loggingTaskHandle;
-
 // Function prototypes to avoid scope issues
 void performCalibration();
 void print_calibration();
 void saveCalibration();
 void loadCalibration();
-
 /*//////////////////////////// FreeRTOS Tasks ////////////////////////////*/
 
 // Core 0 Task: Strictly for high-speed sensor reading and mathematical fusion
 void sensorTask(void *pvParameters) {
   LogFrame frame;
-  
   for(;;) {
     if (mpu.update()) {
       // Pack the struct with highest precision possible
@@ -120,13 +122,12 @@ void sensorTask(void *pvParameters) {
       frame.accel[1] = mpu.getLinearAccY();
       frame.accel[2] = mpu.getLinearAccZ();
       frame.gps_lat = 0.0; // Ready for S6MV2 GPS module
-      frame.gps_lng = 0.0; 
-
+      frame.gps_lng = 0.0;
       // Send to queue without blocking. If queue is full, frame drops (keeps real-time integrity)
       xQueueSend(dataQueue, &frame, 0);
     }
     // Yield to scheduler to avoid Watchdog timeout
-    vTaskDelay(pdMS_TO_TICKS(5)); 
+    vTaskDelay(pdMS_TO_TICKS(5));
   }
 }
 
@@ -134,7 +135,8 @@ void sensorTask(void *pvParameters) {
 void loggingTask(void *pvParameters) {
   LogFrame receivedFrame;
   unsigned long lastDisplayMillis = 0;
-  // unsigned long lastFlushMillis = 0; // Will be used for the 5-second flush strategy
+  // unsigned long lastFlushMillis = 0;
+  // Will be used for the 5-second flush strategy
   
   for(;;) {
     // Check for button press (active-low) for calibration
@@ -145,7 +147,6 @@ void loggingTask(void *pvParameters) {
         
         // CRITICAL: Suspend Core 0 so I2C bus isn't interrupted during calibration
         vTaskSuspend(sensorTaskHandle);
-        
         u8g2.setFont(font_8_pixel);
         Serial.println("Button pressed. Starting calibration...");
         u8g2.clearBuffer();
@@ -155,19 +156,16 @@ void loggingTask(void *pvParameters) {
         performCalibration();
         saveCalibration();
         print_calibration();
-        
         Serial.println("Calibration saved to EEPROM. Press button to recalibrate.");
         u8g2.clearBuffer();
         u8g2.drawStr(25, 15, "Calibration Done");
         u8g2.drawStr(25, 25, "Press to Recal");
         u8g2.sendBuffer();
         u8g2.setFont(font_5_pixel);
-        
         vTaskDelay(pdMS_TO_TICKS(2000));
         
         // Resume Core 0 to continue normal operation
         vTaskResume(sensorTaskHandle);
-        
         while (digitalRead(BUTTON_PIN) == LOW) {
           vTaskDelay(pdMS_TO_TICKS(10));
           // Wait for button release
@@ -180,12 +178,14 @@ void loggingTask(void *pvParameters) {
       
       // === PHASE 3 SD CARD / LITTLEFS WRITING WILL GO HERE ===
       // file.write((uint8_t*)&receivedFrame, sizeof(LogFrame));
-      // if (millis() - lastFlushMillis > 5000) { file.flush(); lastFlushMillis = millis(); }
+      // if (millis() - lastFlushMillis > 5000) { file.flush(); lastFlushMillis = millis();
+      // }
       
       unsigned long currentMillis = millis();
       if (currentMillis - lastDisplayMillis > update_rate_oled) {
         // Print to Serial for MATLAB visualization
-        Serial.print(receivedFrame.q[0], 6); Serial.print(",");
+        Serial.print(receivedFrame.q[0], 6);
+        Serial.print(",");
         Serial.print(receivedFrame.q[1], 6); Serial.print(",");
         Serial.print(receivedFrame.q[2], 6); Serial.print(",");
         Serial.println(receivedFrame.q[3], 6);
@@ -215,7 +215,12 @@ void setup()
 	Serial.begin(bud_rate);
   // Initialize Hardware I2C for MPU9250 with explicit pins for ESP32-S3
 	Wire.begin(I2C_MPU_SDA, I2C_MPU_SCL); 
-  Wire.setClock(400000); // Boost I2C to 400kHz for maximum IMU read speed
+  Wire.setClock(400000);
+  // Boost I2C to 400kHz for maximum IMU read speed
+
+  // Initialize Secondary Hardware I2C (Wire1) specifically for OLED
+  Wire1.begin(I2C_OLED_SDA, I2C_OLED_SCL);
+  Wire1.setClock(400000);
 	
   pinMode(BUTTON_PIN, INPUT_PULLUP);
   // Button with internal pull-up (active-low)
@@ -272,10 +277,8 @@ void setup()
 
   // Create queue capable of buffering 300 frames (~3 seconds of data at 100Hz)
   dataQueue = xQueueCreate(300, sizeof(LogFrame));
-  
   // Pin Sensor Task to Core 0 (Highest Priority)
   xTaskCreatePinnedToCore(sensorTask, "SensorTask", 4096, NULL, 2, &sensorTaskHandle, 0);
-  
   // Pin Logging Task to Core 1
   xTaskCreatePinnedToCore(loggingTask, "LoggingTask", 8192, NULL, 1, &loggingTaskHandle, 1);
 } 
@@ -283,7 +286,7 @@ void setup()
 /*////////////////////////////loop////////////////////////////*/
 void loop() 
 { 
-  // Main loop is intentionally left empty. 
+  // Main loop is intentionally left empty.
   // FreeRTOS tasks now manage the entire system architecture.
   vTaskDelete(NULL);
 }
@@ -360,23 +363,28 @@ void saveCalibration() {
   int addr = 0;
   EEPROM.put(addr, mpu.getAccBiasX());
   addr += sizeof(float);
-  EEPROM.put(addr, mpu.getAccBiasY()); addr += sizeof(float);
+  EEPROM.put(addr, mpu.getAccBiasY());
+  addr += sizeof(float);
   EEPROM.put(addr, mpu.getAccBiasZ()); addr += sizeof(float);
   EEPROM.put(addr, mpu.getGyroBiasX()); addr += sizeof(float);
   EEPROM.put(addr, mpu.getGyroBiasY());
   addr += sizeof(float);
-  EEPROM.put(addr, mpu.getGyroBiasZ()); addr += sizeof(float);
+  EEPROM.put(addr, mpu.getGyroBiasZ());
+  addr += sizeof(float);
   EEPROM.put(addr, mpu.getMagBiasX()); addr += sizeof(float);
   EEPROM.put(addr, mpu.getMagBiasY()); addr += sizeof(float);
   EEPROM.put(addr, mpu.getMagBiasZ());
   addr += sizeof(float);
-  EEPROM.put(addr, mpu.getMagScaleX()); addr += sizeof(float);
+  EEPROM.put(addr, mpu.getMagScaleX());
+  addr += sizeof(float);
   EEPROM.put(addr, mpu.getMagScaleY()); addr += sizeof(float);
   EEPROM.put(addr, mpu.getMagScaleZ()); addr += sizeof(float);
   EEPROM.commit();
 }
 
 void loadCalibration() {
+  // Since setter methods are unavailable, we only read and verify calibration data
+  // UPDATE: Applying values using library setters to ensure Madgwick filter runs accurately
   int addr = 0;
   float accBiasX, accBiasY, accBiasZ;
   float gyroBiasX, gyroBiasY, gyroBiasZ;
@@ -399,6 +407,13 @@ void loadCalibration() {
   EEPROM.get(addr, magScaleY); addr += sizeof(float);
   EEPROM.get(addr, magScaleZ); addr += sizeof(float);
   
+  // Apply the loaded biases to the MPU object
+  mpu.setAccBias(accBiasX, accBiasY, accBiasZ);
+  mpu.setGyroBias(gyroBiasX, gyroBiasY, gyroBiasZ);
+  mpu.setMagBias(magBiasX, magBiasY, magBiasZ);
+  mpu.setMagScale(magScaleX, magScaleY, magScaleZ);
+  
+  // Print loaded values for verification
   Serial.println("Loaded calibration values from EEPROM:");
   Serial.print("Acc Bias X: "); Serial.println(accBiasX);
   Serial.print("Acc Bias Y: "); Serial.println(accBiasY);
@@ -412,4 +427,5 @@ void loadCalibration() {
   Serial.print("Mag Scale X: "); Serial.println(magScaleX);
   Serial.print("Mag Scale Y: "); Serial.println(magScaleY);
   Serial.print("Mag Scale Z: "); Serial.println(magScaleZ);
+  Serial.println("STATUS: Calibration successfully applied to internal filter.");
 }
