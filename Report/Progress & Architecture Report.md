@@ -89,18 +89,15 @@ To transform this prototype into an industrial-grade offline tracker, we will ta
 - [ ] **Phase 1: Hardware Migration & Architecture Update**
   - Port the existing codebase from ESP8266 to ESP32-S3.
   - Implement FreeRTOS tasks (Task 1: IMU reading on Core 0, Task 2: Data formatting/Logging on Core 1).This casuse a problem named **Race Condition**
-  
-  
+
 - [ ] **Phase 2: Fix Calibration & I2C Optimization**
   - Resolve the EEPROM load issue so calibration applies correctly on boot.
   - Move OLED and MPU9250 to separate *Hardware* I2C buses using the ESP32's `Wire` and `Wire1` interfaces.
-  
-  
+
 - [ ] **Phase 3: Binary Logging Implementation**
   - Define a strict `C struct` for the data packet (Timestamp, Quaternions, Acceleration, GPS coords).
   - Implement LittleFS / SD Card write operations using block binary writes (`file.write((uint8_t*)&data, sizeof(data))`) instead of string conversion.
-  
-  
+
 - [ ] **Phase 4: GPS Integration & Data Synchronization**
   - Integrate S6MV2 reading via hardware UART.
   - Develop an interpolation/sync algorithm to match 1Hz GPS data with 100Hz IMU data.
@@ -165,7 +162,3 @@ QueueHandle_t dataQueue;
 - **RAM Footprint:** 300 items * 48 bytes = **14,400 bytes (14.06 KB)** This memory footprint is safely accommodated by the ESP32-S3's internal SRAM, leaving the 8MB PSRAM completely free for larger operational tasks.
 
 ---
-
-
-
-
