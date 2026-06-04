@@ -82,25 +82,56 @@ A script designed to parse the incoming serial stream and render a real-time 3D 
 
 ---
 
-## 5. Next Steps Roadmap (To-Do List)
+#### 5. Comprehensive Next Steps Roadmap (To-Do List)
 
-To transform this prototype into an industrial-grade offline tracker, we will tackle the following phases sequentially:
+To transform this prototype into an industrial-grade offline tracker, the development is divided into foundational hardware testing and sequential software architecture phases.
 
-- [ ] **Phase 1: Hardware Migration & Architecture Update**
-  - Port the existing codebase from ESP8266 to ESP32-S3.
-  - Implement FreeRTOS tasks (Task 1: IMU reading on Core 0, Task 2: Data formatting/Logging on Core 1).This casuse a problem named **Race Condition**
+### 5.1 Hardware Testing (Prerequisites)
 
-- [ ] **Phase 2: Fix Calibration & I2C Optimization**
-  - Resolve the EEPROM load issue so calibration applies correctly on boot.
-  - Move OLED and MPU9250 to separate *Hardware* I2C buses using the ESP32's `Wire` and `Wire1` interfaces.
+*These tests must be validated before full system assembly to isolate hardware faults from software bugs.*
 
-- [ ] **Phase 3: Binary Logging Implementation**
-  - Define a strict `C struct` for the data packet (Timestamp, Quaternions, Acceleration, GPS coords).
-  - Implement LittleFS / SD Card write operations using block binary writes (`file.write((uint8_t*)&data, sizeof(data))`) instead of string conversion.
+* ### 5.1 Hardware Testing (Prerequisites)
+  
+  *These tests must be validated before full system assembly to isolate hardware faults from software bugs.*
+  - [x] **MPU9250 Sanity Check (I2C Bus & Register Validation)**
+    
+    - *Method:* Read `WHO_AM_I` register (0x75) and raw accelerometer data via basic I2C polling.
+    - *Results:* ID `0x71` received successfully. Z-axis reading ~16384 (1g). X/Y axes show normal physical offset (-300 to 80 LSB).
+    - *Notes:* AD0 grounded to lock address `0x68`. **Action:** External 4.7k pull-up resistors on SDA/SCL are mandatory for 400kHz operation on the ESP32-S3.
+  
+  - [ ] **MPU9250 Precision Test (Drift, Return-to-Zero, Vibration)**
+    
+    - *Method:* Isolated test using USB serial and MATLAB `visual.m` (Wi-Fi off to prevent thermal drift). Evaluate 15-minute static drift, dynamic movement recovery, and table vibration rejection.
+    - *Notes:* Results will dictate the tuning of the Madgwick filter `Beta` gain and DLPF cut-off frequency.
 
-- [ ] **Phase 4: GPS Integration & Data Synchronization**
-  - Integrate S6MV2 reading via hardware UART.
-  - Develop an interpolation/sync algorithm to match 1Hz GPS data with 100Hz IMU data.
+### . 5.2 Software Architecture & Development Phases
+
+*These phases follow a strict dependency sequence. Each phase acts as a prerequisite for the next.*
+
+#### Phase 1: Hardware Migration & RTOS Architecture (Foundation)
+
+- [x] **Pin Porting:** Update hardware pin definitions to match the ESP32-S3 N16R8 IO MUX matrix.
+- [x] **FreeRTOS Implementation:** Decouple system logic into `sensorTask` (Core 0, high-frequency) and `loggingTask` (Core 1, low-frequency/blocking ops).
+- [x] **Race Condition Mitigation:** Implement Producer-Consumer pattern using a 48-byte binary `LogFrame` struct and a thread-safe `xQueue` buffer (300 frames depth).
+
+#### Phase 2: Calibration Fixes & I2C Optimization
+
+- [x] **I2C Acceleration:** Boost hardware I2C bus clock to 400kHz (Fast Mode) to prevent IMU read bottlenecks.
+- [x] **Bus Collision Prevention:** Utilize `vTaskSuspend` and `vTaskResume` to freeze Core 0 during Core 1's blocking EEPROM calibration routines.
+- [ ] **EEPROM Load Bug Fix:** Implement manual deduction of loaded EEPROM bias values from raw sensor readings in the code (workaround for missing setter methods in the MPU9250 library).
+- [ ] **I2C Bus Separation:** Transition the OLED display to the secondary hardware I2C bus (`Wire1`) for complete electrical isolation from the IMU.
+
+#### Phase 3: Binary Logging Implementation
+
+- [ ] **Storage Medium Selection:** Finalize the architectural decision between utilizing the internal 16MB LittleFS or wiring an external SPI SD Card module.
+- [ ] **Binary Block Writing:** Replace string-based `Serial.print` operations with high-speed binary block writes (`file.write()`) to maximize Core 1 efficiency.
+- [ ] **Fail-Safe Strategy:** Code a periodic `file.flush()` routine (triggered every 5 seconds or 500 frames) to secure data integrity against sudden power loss without introducing continuous write lag.
+
+#### Phase 4: GPS Integration & Data Synchronization
+
+- [ ] **Hardware UART Initialization:** Configure the secondary serial port (UART1/2) on the ESP32-S3 strictly for the S6MV2 GNSS module.
+- [ ] **Data Injection:** Parse and inject double-precision coordinates (`gps_lat`, `gps_lng`) into the `LogFrame` queue structure.
+- [ ] **Time Synchronization Algorithm:** Develop a temporal interpolation algorithm to mathematically align the low-frequency GPS data (1Hz) with the high-frequency IMU stream (100Hz) to ensure coherent logging.
 
 ---
 
