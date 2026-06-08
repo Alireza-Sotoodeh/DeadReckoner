@@ -1,0 +1,52 @@
+ets Jul 29 2019 12:21:46
+
+rst:0x1 (POWERON_RESET),boot:0x13 (SPI_FAST_FLASH_BOOT)
+configsip: 0, SPIWP:0xee
+clk_drv:0x00,q_drv:0x00,d_drv:0x00,cs0_drv:0x00,hd_drv:0x00,wp_drv:0x00
+mode:DIO, clock div:1
+load:0x3fff0030,len:4980
+load:0x40078000,len:16612
+load:0x40080400,len:3480
+entry 0x400805b4
+
+=============================================
+  ADVANCED SDFAT DIAGNOSTIC (ESP32 / DIY)    
+=============================================
+Initializing SD Card at high speed... PASSED.
+Initialization Time: 7 ms
+SdFat Version: 10102
+
+Card Type: SDHC
+
+Manufacturer ID: 0X84
+Product: MS□□□
+Card Size: 3995.07 MB
+OCR: 0XC0FF8000
+Partition info extracted successfully.
+
+Volume is FAT32
+Free Space: 3990.68 MB
+
+--- Directory Creation Test ---
+Folder 'testFolder' already exists.
+
+--- File Write Test ---
+Writing data... Write Complete.
+
+--- File Read Test ---
+Content of 'testFolder/test.txt':
+testing 1, 2, 3.
+testing 1, 2, 3.
+testing 1, 2, 3.
+testing 1, 2, 3.
+testing 1, 2, 3.
+testing 1, 2, 3.
+
+--- Directory Read Test ---
+       108 2000-01-01 01:00:00 test.txt
+
+--- Folder Removal Test ---
+Removal of 'testFolder' failed.
+=============================================
+  DIAGNOSTIC SEQUENCE COMPLETE.              
+=============================================
