@@ -1,0 +1,43 @@
+ets Jul 29 2019 12:21:46
+
+rst:0x1 (POWERON_RESET),boot:0x13 (SPI_FAST_FLASH_BOOT)
+configsip: 0, SPIWP:0xee
+clk_drv:0x00,q_drv:0x00,d_drv:0x00,cs0_drv:0x00,hd_drv:0x00,wp_drv:0x00
+mode:DIO, clock div:1
+load:0x3fff0030,len:4980
+load:0x40078000,len:16612
+load:0x40080400,len:3480
+entry 0x400805b4
+
+--- HIGH-PRECISION SPI SWEEP (1MHz Steps) ---
+Freq(MHz) | Result | Speed(KB/s)
+------------------------------------
+1 MHz    | PASSED | 93.57 KB/s
+2 MHz    | PASSED | 175.34 KB/s
+3 MHz    | PASSED | 226.35 KB/s
+4 MHz    | PASSED | 278.56 KB/s
+5 MHz    | PASSED | 365.19 KB/s
+6 MHz    | PASSED | 399.38 KB/s
+7 MHz    | PASSED | 440.62 KB/s
+8 MHz    | PASSED | 465.03 KB/s
+9 MHz    | PASSED | 532.22 KB/s
+10 MHz    | PASSED | 555.31 KB/s
+11 MHz    | PASSED | 554.71 KB/s
+12 MHz    | PASSED | 568.26 KB/s
+13 MHz    | PASSED | 608.08 KB/s
+14 MHz    | PASSED | 638.40 KB/s
+15 MHz    | PASSED | 638.40 KB/s
+16 MHz    | PASSED | 709.14 KB/s
+17 MHz    | PASSED | 709.14 KB/s
+18 MHz    | PASSED | 709.14 KB/s
+19 MHz    | PASSED | 709.14 KB/s
+20 MHz    | PASSED | 797.51 KB/s
+21 MHz    | PASSED | 791.34 KB/s
+22 MHz    | PASSED | 797.51 KB/s
+23 MHz    | PASSED | 797.51 KB/s
+24 MHz    | PASSED | 797.51 KB/s
+25 MHz    | PASSED | 727.27 KB/s
+26 MHz    | PASSED | 797.51 KB/s
+27 MHz    | FAILED | N/A
+--- LIMIT REACHED. SYSTEM UNSTABLE ABOVE THIS FREQ. ---
+--- SWEEP FINISHED ---
