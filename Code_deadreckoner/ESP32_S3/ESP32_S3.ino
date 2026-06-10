@@ -113,7 +113,8 @@ typedef struct {
 // UI State Machine Definitions
 enum UIState {
     STATE_LIVE_VIEW,
-    STATE_MENU
+    STATE_MENU,
+    STATE_SUBMENU_MSG // A generic state to show temporary messages
 };
 volatile UIState currentState = STATE_LIVE_VIEW;
 
@@ -126,6 +127,7 @@ const char* menuItems[MENU_ITEMS_COUNT] = {
     "5.Exit Menu"
 };
 int8_t menuCursor = 0; // Tracks selected menu item
+char subMenuMsg[20] = ""; // To hold temporary messages for submenus
 
 // Inter-Core Communication Flags
 volatile bool tag_event_triggered = false;
@@ -184,75 +186,108 @@ void loggingTask(void *pvParameters) {
   LogFrame receivedFrame;
   unsigned long lastDisplayMillis = 0;
   unsigned long lastFlushMillis = 0;
-  unsigned long lastBtnCheckMillis = 0; // For debouncing
+  unsigned long lastBtnCheckMillis = 0; 
+  
+  // State tracking variables for Edge Detection
+  bool selectWasPressed = false;
+  bool upWasPressed = false;
+  bool downWasPressed = false;
+  bool tagWasPressed = false;
+  
+  // Flag for instant UI rendering
+  bool force_update_ui = false;
   
   for(;;) {
     unsigned long currentMillis = millis();
 
-    // === PHASE 1: Non-Blocking Button Debouncing (Every 150ms) ===
-    bool selectPressed = false, upPressed = false, downPressed = false;
+    // === PHASE 1: Button Edge Detection & Debouncing ===
+    // Scan buttons every 50ms (faster response, but still debounced)
+    bool selectTriggered = false, upTriggered = false, downTriggered = false;
     
-    if (currentMillis - lastBtnCheckMillis > 150) {
+    if (currentMillis - lastBtnCheckMillis > 50) {
+      
+      // TAG Button
       if (digitalRead(BTN_TAG_PIN) == LOW) {
-        tag_event_triggered = true;
-        // Future: Trigger Buzzer short beep here
-        lastBtnCheckMillis = currentMillis;
-      }
-      if (digitalRead(BTN_SELECT_PIN) == LOW) { selectPressed = true; lastBtnCheckMillis = currentMillis; }
-      if (digitalRead(BTN_UP_PIN) == LOW)     { upPressed = true;     lastBtnCheckMillis = currentMillis; }
-      if (digitalRead(BTN_DOWN_PIN) == LOW)   { downPressed = true;   lastBtnCheckMillis = currentMillis; }
+        if (!tagWasPressed) { tag_event_triggered = true; tagWasPressed = true; }
+      } else { tagWasPressed = false; }
+
+      // SELECT Button
+      if (digitalRead(BTN_SELECT_PIN) == LOW) {
+        if (!selectWasPressed) { selectTriggered = true; force_update_ui = true; selectWasPressed = true; }
+      } else { selectWasPressed = false; }
+
+      // UP Button
+      if (digitalRead(BTN_UP_PIN) == LOW) {
+        if (!upWasPressed) { upTriggered = true; force_update_ui = true; upWasPressed = true; }
+      } else { upWasPressed = false; }
+
+      // DOWN Button
+      if (digitalRead(BTN_DOWN_PIN) == LOW) {
+        if (!downWasPressed) { downTriggered = true; force_update_ui = true; downWasPressed = true; }
+      } else { downWasPressed = false; }
+
+      lastBtnCheckMillis = currentMillis;
     }
 
     // === PHASE 2: UI State Machine ===
     if (currentState == STATE_LIVE_VIEW) {
-      if (selectPressed) {
+      if (selectTriggered) {
         currentState = STATE_MENU;
         menuCursor = 0;
-        u8g2.clearBuffer();
       }
     } 
     else if (currentState == STATE_MENU) {
-      if (upPressed) {
+      if (upTriggered) {
         menuCursor--;
         if (menuCursor < 0) menuCursor = MENU_ITEMS_COUNT - 1;
       }
-      if (downPressed) {
+      if (downTriggered) {
         menuCursor++;
         if (menuCursor >= MENU_ITEMS_COUNT) menuCursor = 0;
       }
-      if (selectPressed) {
+      
+      if (selectTriggered) {
         // Handle Menu Actions
-        if (menuCursor == 3) { 
+        if (menuCursor == 0 || menuCursor == 1 || menuCursor == 2) {
+            // Future Sub-menus Placeholder
+            snprintf(subMenuMsg, sizeof(subMenuMsg), "Under Construct!");
+            currentState = STATE_SUBMENU_MSG;
+        }
+        else if (menuCursor == 3) { 
           // Action: Calibration
-          vTaskSuspend(sensorTaskHandle); // Critical: Block I2C on Core 0
+          vTaskSuspend(sensorTaskHandle);
           performCalibration();
           saveCalibration();
           vTaskResume(sensorTaskHandle);
-          currentState = STATE_LIVE_VIEW; // Return to live view after calib
+          currentState = STATE_LIVE_VIEW; 
         } 
         else if (menuCursor == 4) {
           // Action: Exit Menu
           currentState = STATE_LIVE_VIEW;
         }
-        // Future: Implement actions for SD Info, Display Mode, etc.
       }
+    }
+    else if (currentState == STATE_SUBMENU_MSG) {
+        // Pressing SELECT in a message screen returns to Menu
+        if (selectTriggered) {
+            currentState = STATE_MENU;
+        }
     }
 
     // === PHASE 3: Pull Data from Queue & SD Logging ===
     if (xQueueReceive(dataQueue, &receivedFrame, pdMS_TO_TICKS(10)) == pdPASS) {
-      
       if (logFile) {
         logFile.write((uint8_t*)&receivedFrame, sizeof(LogFrame));
       }
-      
       if (currentMillis - lastFlushMillis > 5000) { 
         if (logFile) logFile.sync();
         lastFlushMillis = currentMillis;
       }
       
       // === PHASE 4: Graphics Rendering ===
-      // Note: Display updates ONLY when we have fresh data to show
-      if (currentMillis - lastDisplayMillis > update_rate_oled) {
+      // Render if time has passed OR if user pressed a button (force update)
+      if ((currentMillis - lastDisplayMillis > update_rate_oled) || force_update_ui) {
+        force_update_ui = false; // Reset the flag immediately
         u8g2.clearBuffer();
         
         if (currentState == STATE_LIVE_VIEW) {
@@ -266,16 +301,17 @@ void loggingTask(void *pvParameters) {
           snprintf(buf, sizeof(buf), "Qz: %.2f", receivedFrame.q[3]);
           u8g2.drawStr(64, 15, buf);
           
-          // Show Temperature (Hardware Vitals in Live View)
           snprintf(buf, sizeof(buf), "T: %.1fC", mpu.getTemperature());
           u8g2.drawStr(0, 28, buf);
         } 
         else if (currentState == STATE_MENU) {
-          // Render Menu
           u8g2.drawStr(0, 8, "--- MENU ---");
           u8g2.drawStr(10, 20, menuItems[menuCursor]);
-          // Draw simple cursor
-          u8g2.drawStr(0, 20, ">");
+          u8g2.drawStr(0, 20, ">"); // Cursor
+        }
+        else if (currentState == STATE_SUBMENU_MSG) {
+          u8g2.drawStr(5, 15, subMenuMsg);
+          u8g2.drawStr(5, 28, "[Select] to Back");
         }
         
         u8g2.sendBuffer();
