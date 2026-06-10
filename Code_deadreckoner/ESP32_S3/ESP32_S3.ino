@@ -1,11 +1,11 @@
-// Last Edit: 2026-06-09 10:30:00
-// Reason for Last Edit: Integrated SdFat (v1.x) binary logging into Core 1 loggingTask. Resolved GPIO 5 pin conflict.
+// Last Edit: 2026-06-10 15:25:00
+// Reason for Last Edit: Migrated to Dual-State UI, added 4-button navigation, non-blocking debouncing, and Tag/Waypoint system.
 // Author: Alireza Sotoodeh
 
 /*
  * =========================================================================
  * PROJECT: Signal-Free Offline Tracking System
- * VERSION: 1.3 (FreeRTOS Dual-Core + High-Speed SD Logging)
+ * VERSION: 1.4 (Interactive UI + Waypoint Tagging)
  * * WIRING DIAGRAM
  * -------------------------------------------------------------------------
  * Component        | ESP32-S3 Pin          | Note / Reasoning
@@ -23,8 +23,8 @@
  * -------------------------------------------------------------------------
  * OLED VCC         | 3.3V                  | 
  * OLED GND         | GND                   | Common ground
- * OLED SCL         | GPIO 7                | Software I2C to avoid bus congestion
- * OLED SDA         | GPIO 6                | Software I2C with the IMU
+ * OLED SCL         | GPIO 7                | Software I2C
+ * OLED SDA         | GPIO 6                | Software I2C
  * -------------------------------------------------------------------------
  * SD Adapter 3V3   | 3.3V                  | DIRECT 3.3V ONLY (No onboard regulator)
  * SD Adapter GND   | GND                   | Common Ground
@@ -33,11 +33,10 @@
  * SD Adapter SCK   | GPIO 12               | FSPI SCK
  * SD Adapter MISO  | GPIO 13               | FSPI MISO
  * -------------------------------------------------------------------------
- * Push Button      | GPIO 0 (Boot Btn)     | Input Pullup; Connects to GND when pressed
- * -------------------------------------------------------------------------
- * * DESIGN NOTES:
- * - OLED is intentionally separated onto Software I2C to prevent display 
- * updates from blocking high-speed sensor fusion reads from the MPU9250.
+ * BTN SELECT       | GPIO 1                | Menu Enter/Open (Active-Low)
+ * BTN UP           | GPIO 2                | Menu Navigation (Active-Low)
+ * BTN DOWN         | GPIO 8                | Menu Navigation (Active-Low)
+ * BTN TAG          | GPIO 9                | Waypoint Event Trigger (Active-Low)
  * =========================================================================
  */
  
@@ -52,8 +51,12 @@
 /*////////////////////////////defines////////////////////////////*/
 #define bud_rate 115200
 
-//pins (Updated for ESP32-S3)
-#define BUTTON_PIN 0             											// Using onboard BOOT button (GPIO 0)
+// UI and Button Pins (Active-Low, Internal Pull-up)
+#define BTN_SELECT_PIN 1
+#define BTN_UP_PIN 2
+#define BTN_DOWN_PIN 8
+#define BTN_TAG_PIN 9
+
 #define I2C_MPU_SDA 4
 #define I2C_MPU_SCL 5
 #define I2C_OLED_SDA 6
@@ -97,14 +100,35 @@ U8G2_SSD1306_128X32_UNIVISION_F_SW_I2C u8g2(U8G2_R0, /* clock=*/ I2C_OLED_SCL, /
 
 /*//////////////////////////// RTOS Data Structures ////////////////////////////*/
 
-// Binary structure to hold one frame of sensor data safely (48 Bytes)
+// Binary structure to hold one frame of sensor data safely (49 Bytes)
 typedef struct {
     uint32_t timestamp;
     float q[4];
     float accel[3];
     double gps_lat;
     double gps_lng;
+    uint8_t event_flag; // NEW: 1 if TAG button was pressed, 0 otherwise
 } LogFrame;
+
+// UI State Machine Definitions
+enum UIState {
+    STATE_LIVE_VIEW,
+    STATE_MENU
+};
+volatile UIState currentState = STATE_LIVE_VIEW;
+
+#define MENU_ITEMS_COUNT 5
+const char* menuItems[MENU_ITEMS_COUNT] = {
+    "1.Display Mode",
+    "2.Step Feedback",
+    "3.SD Card Info",
+    "4.Calibration",
+    "5.Exit Menu"
+};
+int8_t menuCursor = 0; // Tracks selected menu item
+
+// Inter-Core Communication Flags
+volatile bool tag_event_triggered = false;
 
 // FreeRTOS Handles
 QueueHandle_t dataQueue;
@@ -140,6 +164,13 @@ void sensorTask(void *pvParameters) {
       frame.gps_lat = 0.0; // Ready for S6MV2 GPS module
       frame.gps_lng = 0.0;
       
+      // Thread-safe check for Waypoint Tagging
+      if (tag_event_triggered) {
+          frame.event_flag = 1;
+          tag_event_triggered = false; // Reset the flag after recording
+      } else {
+          frame.event_flag = 0;
+      }
       // Send to queue without blocking. If queue is full, frame drops (keeps real-time integrity)
       xQueueSend(dataQueue, &frame, 0);
     }
@@ -152,79 +183,102 @@ void sensorTask(void *pvParameters) {
 void loggingTask(void *pvParameters) {
   LogFrame receivedFrame;
   unsigned long lastDisplayMillis = 0;
-  unsigned long lastFlushMillis = 0; // Will be used for the 5-second flush strategy
+  unsigned long lastFlushMillis = 0;
+  unsigned long lastBtnCheckMillis = 0; // For debouncing
   
   for(;;) {
-    // Check for button press (active-low) for calibration
-    if (digitalRead(BUTTON_PIN) == LOW) {
-      vTaskDelay(pdMS_TO_TICKS(50)); // Debounce delay
-      if (digitalRead(BUTTON_PIN) == LOW) {  // Confirm button press
-        
-        // CRITICAL: Suspend Core 0 so I2C bus isn't interrupted during calibration
-        vTaskSuspend(sensorTaskHandle);
-        u8g2.setFont(font_8_pixel);
-        Serial.println("Button pressed. Starting calibration...");
+    unsigned long currentMillis = millis();
+
+    // === PHASE 1: Non-Blocking Button Debouncing (Every 150ms) ===
+    bool selectPressed = false, upPressed = false, downPressed = false;
+    
+    if (currentMillis - lastBtnCheckMillis > 150) {
+      if (digitalRead(BTN_TAG_PIN) == LOW) {
+        tag_event_triggered = true;
+        // Future: Trigger Buzzer short beep here
+        lastBtnCheckMillis = currentMillis;
+      }
+      if (digitalRead(BTN_SELECT_PIN) == LOW) { selectPressed = true; lastBtnCheckMillis = currentMillis; }
+      if (digitalRead(BTN_UP_PIN) == LOW)     { upPressed = true;     lastBtnCheckMillis = currentMillis; }
+      if (digitalRead(BTN_DOWN_PIN) == LOW)   { downPressed = true;   lastBtnCheckMillis = currentMillis; }
+    }
+
+    // === PHASE 2: UI State Machine ===
+    if (currentState == STATE_LIVE_VIEW) {
+      if (selectPressed) {
+        currentState = STATE_MENU;
+        menuCursor = 0;
         u8g2.clearBuffer();
-        u8g2.drawStr(25, 15, "Calibrating...");
-        u8g2.sendBuffer();
-        
-        performCalibration();
-        saveCalibration();
-        print_calibration();
-        Serial.println("Calibration saved to EEPROM. Press button to recalibrate.");
-        
-        u8g2.clearBuffer();
-        u8g2.drawStr(25, 15, "Calibration Done");
-        u8g2.drawStr(25, 25, "Press to Recal");
-        u8g2.sendBuffer();
-        u8g2.setFont(font_5_pixel);
-        vTaskDelay(pdMS_TO_TICKS(2000));
-        
-        // Resume Core 0 to continue normal operation
-        vTaskResume(sensorTaskHandle);
-        while (digitalRead(BUTTON_PIN) == LOW) {
-          vTaskDelay(pdMS_TO_TICKS(10)); // Wait for button release
+      }
+    } 
+    else if (currentState == STATE_MENU) {
+      if (upPressed) {
+        menuCursor--;
+        if (menuCursor < 0) menuCursor = MENU_ITEMS_COUNT - 1;
+      }
+      if (downPressed) {
+        menuCursor++;
+        if (menuCursor >= MENU_ITEMS_COUNT) menuCursor = 0;
+      }
+      if (selectPressed) {
+        // Handle Menu Actions
+        if (menuCursor == 3) { 
+          // Action: Calibration
+          vTaskSuspend(sensorTaskHandle); // Critical: Block I2C on Core 0
+          performCalibration();
+          saveCalibration();
+          vTaskResume(sensorTaskHandle);
+          currentState = STATE_LIVE_VIEW; // Return to live view after calib
+        } 
+        else if (menuCursor == 4) {
+          // Action: Exit Menu
+          currentState = STATE_LIVE_VIEW;
         }
+        // Future: Implement actions for SD Info, Display Mode, etc.
       }
     }
 
-    // Pull data from the Queue
+    // === PHASE 3: Pull Data from Queue & SD Logging ===
     if (xQueueReceive(dataQueue, &receivedFrame, pdMS_TO_TICKS(10)) == pdPASS) {
       
-      // === PHASE 3 SD CARD WRITING ===
       if (logFile) {
         logFile.write((uint8_t*)&receivedFrame, sizeof(LogFrame));
       }
       
-      unsigned long currentMillis = millis();
-
       if (currentMillis - lastFlushMillis > 5000) { 
-        if (logFile) {
-          logFile.sync();
-        }
-        lastFlushMillis = currentMillis; 
+        if (logFile) logFile.sync();
+        lastFlushMillis = currentMillis;
       }
       
+      // === PHASE 4: Graphics Rendering ===
+      // Note: Display updates ONLY when we have fresh data to show
       if (currentMillis - lastDisplayMillis > update_rate_oled) {
-        // Print to Serial for MATLAB visualization
-        Serial.print(receivedFrame.q[0], 6); Serial.print(",");
-        Serial.print(receivedFrame.q[1], 6); Serial.print(",");
-        Serial.print(receivedFrame.q[2], 6); Serial.print(",");
-        Serial.println(receivedFrame.q[3], 6);
-        
-        // Update OLED
         u8g2.clearBuffer();
-        char buf[32];
-        snprintf(buf, sizeof(buf), "Qw: %.3f", receivedFrame.q[0]);
-        u8g2.drawStr(0, 7, buf);
-        snprintf(buf, sizeof(buf), "Qx: %.3f", receivedFrame.q[1]);
-        u8g2.drawStr(0, 15, buf);
-        snprintf(buf, sizeof(buf), "Qy: %.3f", receivedFrame.q[2]);
-        u8g2.drawStr(64, 7, buf);
-        snprintf(buf, sizeof(buf), "Qz: %.3f", receivedFrame.q[3]);
-        u8g2.drawStr(64, 15, buf);
-        u8g2.sendBuffer();
         
+        if (currentState == STATE_LIVE_VIEW) {
+          char buf[32];
+          snprintf(buf, sizeof(buf), "Qw: %.2f", receivedFrame.q[0]);
+          u8g2.drawStr(0, 7, buf);
+          snprintf(buf, sizeof(buf), "Qx: %.2f", receivedFrame.q[1]);
+          u8g2.drawStr(0, 15, buf);
+          snprintf(buf, sizeof(buf), "Qy: %.2f", receivedFrame.q[2]);
+          u8g2.drawStr(64, 7, buf);
+          snprintf(buf, sizeof(buf), "Qz: %.2f", receivedFrame.q[3]);
+          u8g2.drawStr(64, 15, buf);
+          
+          // Show Temperature (Hardware Vitals in Live View)
+          snprintf(buf, sizeof(buf), "T: %.1fC", mpu.getTemperature());
+          u8g2.drawStr(0, 28, buf);
+        } 
+        else if (currentState == STATE_MENU) {
+          // Render Menu
+          u8g2.drawStr(0, 8, "--- MENU ---");
+          u8g2.drawStr(10, 20, menuItems[menuCursor]);
+          // Draw simple cursor
+          u8g2.drawStr(0, 20, ">");
+        }
+        
+        u8g2.sendBuffer();
         lastDisplayMillis = currentMillis;
       }
     }
@@ -244,7 +298,11 @@ void setup()
   Wire1.begin(I2C_OLED_SDA, I2C_OLED_SCL);
   Wire1.setClock(400000);
 	
-  pinMode(BUTTON_PIN, INPUT_PULLUP); // Button with internal pull-up (active-low)
+  // Initialize Buttons with internal pull-ups
+  pinMode(BTN_SELECT_PIN, INPUT_PULLUP);
+  pinMode(BTN_UP_PIN, INPUT_PULLUP);
+  pinMode(BTN_DOWN_PIN, INPUT_PULLUP);
+  pinMode(BTN_TAG_PIN, INPUT_PULLUP);
   
   // Initialize OLED
   u8g2.begin();
