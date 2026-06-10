@@ -114,7 +114,8 @@ typedef struct {
 enum UIState {
     STATE_LIVE_VIEW,
     STATE_MENU,
-    STATE_SUBMENU_MSG // A generic state to show temporary messages
+    STATE_SUBMENU_MSG,  // A generic state to show temporary messages
+    STATE_SUBMENU_SD_INFO    // Updated to match internal loggingTask state naming
 };
 volatile UIState currentState = STATE_LIVE_VIEW;
 
@@ -127,7 +128,8 @@ const char* menuItems[MENU_ITEMS_COUNT] = {
     "5.Exit Menu"
 };
 int8_t menuCursor = 0; // Tracks selected menu item
-char subMenuMsg[20] = ""; // To hold temporary messages for submenus
+char subMenuMsg[20] = ""; 
+
 
 // Inter-Core Communication Flags
 volatile bool tag_event_triggered = false;
@@ -197,6 +199,10 @@ void loggingTask(void *pvParameters) {
   // Flag for instant UI rendering
   bool force_update_ui = false;
   
+  // Storage variables for SD calculations (Calculated only once)
+  uint32_t sd_free_mb = 0;
+  float sd_remain_hours = 0.0;
+
   for(;;) {
     unsigned long currentMillis = millis();
 
@@ -248,10 +254,35 @@ void loggingTask(void *pvParameters) {
       
       if (selectTriggered) {
         // Handle Menu Actions
-        if (menuCursor == 0 || menuCursor == 1 || menuCursor == 2) {
-            // Future Sub-menus Placeholder
+        if (menuCursor == 0 || menuCursor == 1) {
+            // Future Sub-menus Placeholder (Display Mode & Step Feedback)
             snprintf(subMenuMsg, sizeof(subMenuMsg), "Under Construct!");
             currentState = STATE_SUBMENU_MSG;
+            force_update_ui = true;
+        }
+        else if (menuCursor == 2) {
+            // Action: SD Card Info
+            u8g2.clearBuffer();
+            u8g2.drawStr(10, 20, "Calculating...");
+            u8g2.sendBuffer();
+            
+            // Heavy SPI calculation: Done ONLY ONCE upon entry!
+            if (sd.card()->errorCode() == 0) { // Check if SD is actually healthy
+                uint32_t freeClusters = sd.vol()->freeClusterCount();
+                uint32_t sectorsPerCluster = sd.vol()->sectorsPerCluster();
+                
+                // 1 Sector = 512 Bytes. 2048 Sectors = 1 Megabyte
+                sd_free_mb = (freeClusters * sectorsPerCluster) / 2048; 
+                
+                // Logging Rate: ~5.6 KB/s = ~20.16 MB/Hour
+                sd_remain_hours = (float)sd_free_mb / 20.16;
+            } else {
+                sd_free_mb = 0;
+                sd_remain_hours = 0.0;
+            }
+            
+            currentState = STATE_SUBMENU_SD_INFO;
+            force_update_ui = true;
         }
         else if (menuCursor == 3) { 
           // Action: Calibration
@@ -264,13 +295,16 @@ void loggingTask(void *pvParameters) {
         else if (menuCursor == 4) {
           // Action: Exit Menu
           currentState = STATE_LIVE_VIEW;
+          force_update_ui = true;
         }
       }
     }
-    else if (currentState == STATE_SUBMENU_MSG) {
-        // Pressing SELECT in a message screen returns to Menu
+    // Handle returning to Menu from Sub-menus
+    else if (currentState == STATE_SUBMENU_MSG || currentState == STATE_SUBMENU_SD_INFO) {
+        // Pressing SELECT in any submenu returns to Menu
         if (selectTriggered) {
             currentState = STATE_MENU;
+            force_update_ui = true;
         }
     }
 
@@ -312,6 +346,16 @@ void loggingTask(void *pvParameters) {
         else if (currentState == STATE_SUBMENU_MSG) {
           u8g2.drawStr(5, 15, subMenuMsg);
           u8g2.drawStr(5, 28, "[Select] to Back");
+        }
+        else if (currentState == STATE_SUBMENU_SD_INFO) {
+          char buf[32];
+          snprintf(buf, sizeof(buf), "Free: %lu MB", sd_free_mb);
+          u8g2.drawStr(0, 10, buf);
+          
+          snprintf(buf, sizeof(buf), "Time: %.1f Hrs", sd_remain_hours);
+          u8g2.drawStr(0, 20, buf);
+          
+          u8g2.drawStr(0, 30, "> [Select] to Back");
         }
         
         u8g2.sendBuffer();
