@@ -260,3 +260,115 @@ To ensure the reliability of the Dead Reckoning system during periods of GPS sig
 * **Clock Limitation:** The SPI clock frequency is strictly capped at **10 MHz** to guarantee signal integrity over physical wires.
 * **Bandwidth Validation:** 100Hz data logging requires approximately **10 KB/s** of bandwidth. A 10 MHz SPI clock provides practical write speeds of over **200 KB/s**, leaving a massive 95% safety margin to prevent RTOS queue bottlenecks.
 * **Library Selection:** The `SdFat` library (version 1.1.4 for API compatibility) will be utilized for low-level memory block access, accurate file system operations, and long-term FAT32 stability.
+
+the result of testind DIY adaptor is like this:
+
+```
+Jul 29 2019 12:21:46
+
+rst:0x1 (POWERON_RESET),boot:0x13 (SPI_FAST_FLASH_BOOT)
+configsip: 0, SPIWP:0xee
+clk_drv:0x00,q_drv:0x00,d_drv:0x00,cs0_drv:0x00,hd_drv:0x00,wp_drv:0x00
+mode:DIO, clock div:1
+load:0x3fff0030,len:4980
+load:0x40078000,len:16612
+load:0x40080400,len:3480
+entry 0x400805b4
+
+--- HIGH-PRECISION SPI SWEEP (1MHz Steps) ---
+Freq(MHz) | Result | Speed(KB/s)
+------------------------------------
+1 MHz    | PASSED | 93.57 KB/s
+2 MHz    | PASSED | 175.34 KB/s
+3 MHz    | PASSED | 226.35 KB/s
+4 MHz    | PASSED | 278.56 KB/s
+5 MHz    | PASSED | 365.19 KB/s
+6 MHz    | PASSED | 399.38 KB/s
+7 MHz    | PASSED | 440.62 KB/s
+8 MHz    | PASSED | 465.03 KB/s
+9 MHz    | PASSED | 532.22 KB/s
+10 MHz    | PASSED | 555.31 KB/s
+11 MHz    | PASSED | 554.71 KB/s
+12 MHz    | PASSED | 568.26 KB/s
+13 MHz    | PASSED | 608.08 KB/s
+14 MHz    | PASSED | 638.40 KB/s
+15 MHz    | PASSED | 638.40 KB/s
+16 MHz    | PASSED | 709.14 KB/s
+17 MHz    | PASSED | 709.14 KB/s
+18 MHz    | PASSED | 709.14 KB/s
+19 MHz    | PASSED | 709.14 KB/s
+20 MHz    | PASSED | 797.51 KB/s
+21 MHz    | PASSED | 791.34 KB/s
+22 MHz    | PASSED | 797.51 KB/s
+23 MHz    | PASSED | 797.51 KB/s
+24 MHz    | PASSED | 797.51 KB/s
+25 MHz    | PASSED | 727.27 KB/s
+26 MHz    | PASSED | 797.51 KB/s
+27 MHz    | FAILED | N/A
+--- LIMIT REACHED. SYSTEM UNSTABLE ABOVE THIS FREQ. ---
+--- SWEEP FINISHED ---
+
+
+```
+
+---
+
+## 10. High-Speed Binary Logging & Offline Data Pipeline
+
+### 4.1 Hardware Pinout Overhaul (Collision Avoidance)
+
+To prevent hardware bus collisions between the high-speed SD card and the MPU9250 sensor, the SPI pins were migrated to the dedicated hardware FSPI bus of the ESP32-S3. 
+
+- **MPU9250 (I2C):** GPIO 4 (SDA), GPIO 5 (SCL)
+- **SD Card (FSPI):** GPIO 10 (CS), GPIO 11 (MOSI), GPIO 12 (SCK), GPIO 13 (MISO)
+- **OLED (Software I2C):** GPIO 6 (SDA), GPIO 7 (SCL)
+
+### 4.2 Binary Data Structure (`LogFrame`)
+
+To maximize write speeds and prevent string conversion overhead, data is structured into a precise 48-byte C-struct:
+
+- `uint32_t timestamp` (4 bytes)
+- `float q[4]` (16 bytes) - Quaternions
+- `float accel[3]` (12 bytes) - Linear Acceleration
+- `double gps_lat`, `gps_lng` (16 bytes) - Auxiliary GPS data
+
+### 4.3 Storage Strategy & File Generation
+
+The system utilizes the `SdFat` library running on Core 1 at a locked SPI frequency of 20 MHz. The system generates three distinct binary files during operations:
+
+1. `SWEEP.BIN`: Used for finding the maximum stable SPI frequency (failed at 27MHz, stabilized at 20MHz).
+2. `STRESS.BIN`: Used for burst-writing 16KB buffers to test bandwidth capabilities.
+3. `DR_LOG.BIN`: The primary vault containing the 100Hz continuous 48-byte `LogFrame` data.
+
+### 4.4 Navigation Strategy Shift: Offline ZUPT
+
+A critical architectural decision was made to **abandon real-time double integration on the ESP32**. Due to MEMS bias instability, live double integration leads to exponential quadratic drift. Instead, the project shifted to an **Offline Pedestrian Dead Reckoning (PDR)** approach using the **Zero Velocity Update (ZUPT)** technique via MATLAB/Python scripts.
+
+### Phase 4 Summary Table
+
+| Milestone / Task          | Status    | Detail / Specification                                           |
+|:------------------------- |:---------:|:---------------------------------------------------------------- |
+| **I2C/SPI Pin Isolation** | Completed | MPU on GPIO 4/5, SD on FSPI 10-13, OLED on GPIO 6/7.             |
+| **Binary Data Struct**    | Completed | 48-byte `LogFrame` structure optimized for RAM alignment.        |
+| **SD Storage Pipeline**   | Completed | `SdFat` library integration, writing `DR_LOG.BIN` continuously.  |
+| **Data Parsing Script**   | Completed | MATLAB/NumPy script developed to instantly parse 48-byte frames. |
+| **Navigation Algorithm**  | Shifted   | Moved from live MCU integration to Offline ZUPT modeling.        |
+
+---
+
+### Challenges & Solutions (Phase 4)
+
+- **Challenge:** System crashing/freezing when accessing the MPU9250 and SD Card simultaneously.
+  
+  - **Solution:** Moved SD card to pins 10-13 (FSPI) and kept MPU on pins 4-5. 
+  - **Educational Depth:** In ESP32-S3, sharing pins or internal bus matrices for high-speed SPI (20MHz) and delicate I2C logic causes interrupt starvation. Physical bus isolation is mandatory for stability in RTOS environments.
+
+- **Challenge:** `Serial.print()` to the SD card (saving as plain text) was too slow and caused data loss at 100Hz.
+  
+  - **Solution:** Switched to binary block writing (`logFile.write`) of a raw 48-byte structure.
+  - **Educational Depth:** Converting floating-point numbers to ASCII text is extremely CPU-intensive. Binary writing pushes raw zeroes and ones directly from RAM to the physical memory sectors, bypassing CPU calculation bottlenecks.
+
+- **Challenge:** Double integration of accelerometer data for displacement caused kilometers of error within minutes.
+  
+  - **Solution:** Delayed integration to the post-processing phase using the ZUPT algorithm in MATLAB.
+  - **Educational Depth:** MEMS sensors have inherent white noise. In double integration ($Error = \frac{1}{2} a_{error} t^2$), the error grows quadratically. ZUPT relies on the physical constraint of a foot hitting the ground to force the velocity back to absolute zero, thus killing the accumulated drift.
