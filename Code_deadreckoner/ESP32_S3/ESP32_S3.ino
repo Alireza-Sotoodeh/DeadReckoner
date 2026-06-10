@@ -97,7 +97,7 @@ U8G2_SSD1306_128X32_UNIVISION_F_SW_I2C u8g2(U8G2_R0, /* clock=*/ I2C_OLED_SCL, /
 #define font_8_pixel u8g2_font_helvB08_tf
 #define font_5_pixel u8g2_font_spleen5x8_me
 #define update_rate_oled 1500
-
+#define OLED_SLEEP_TIMEOUT_MS 20000                       // Time in milliseconds before OLED sleeps
 /*//////////////////////////// RTOS Data Structures ////////////////////////////*/
 
 // Binary structure to hold one frame of sensor data safely (49 Bytes)
@@ -199,40 +199,71 @@ void loggingTask(void *pvParameters) {
   // Flag for instant UI rendering
   bool force_update_ui = false;
   
-  // Storage variables for SD calculations (Calculated only once)
+  // Storage variables for SD calculations
   uint32_t sd_free_mb = 0;
   float sd_remain_hours = 0.0;
 
+  // === NEW: Power Management Variables ===
+  bool is_oled_sleeping = false;
+  bool auto_off_enabled = true; // Default: OLED sleeps after 20s
+  unsigned long last_interaction_millis = millis();
+  
   for(;;) {
     unsigned long currentMillis = millis();
 
     // === PHASE 1: Button Edge Detection & Debouncing ===
-    // Scan buttons every 50ms (faster response, but still debounced)
     bool selectTriggered = false, upTriggered = false, downTriggered = false;
     
     if (currentMillis - lastBtnCheckMillis > 50) {
       
-      // TAG Button
+      // TAG Button (Independent of OLED Sleep state)
       if (digitalRead(BTN_TAG_PIN) == LOW) {
-        if (!tagWasPressed) { tag_event_triggered = true; tagWasPressed = true; }
+        if (!tagWasPressed) { 
+            tag_event_triggered = true; 
+            tagWasPressed = true; 
+            last_interaction_millis = currentMillis; 
+        }
       } else { tagWasPressed = false; }
 
       // SELECT Button
       if (digitalRead(BTN_SELECT_PIN) == LOW) {
-        if (!selectWasPressed) { selectTriggered = true; force_update_ui = true; selectWasPressed = true; }
+        if (!selectWasPressed) { 
+            selectTriggered = true; force_update_ui = true; selectWasPressed = true; 
+            last_interaction_millis = currentMillis; 
+        }
       } else { selectWasPressed = false; }
 
       // UP Button
       if (digitalRead(BTN_UP_PIN) == LOW) {
-        if (!upWasPressed) { upTriggered = true; force_update_ui = true; upWasPressed = true; }
+        if (!upWasPressed) { 
+            upTriggered = true; force_update_ui = true; upWasPressed = true; 
+            last_interaction_millis = currentMillis; 
+        }
       } else { upWasPressed = false; }
 
       // DOWN Button
       if (digitalRead(BTN_DOWN_PIN) == LOW) {
-        if (!downWasPressed) { downTriggered = true; force_update_ui = true; downWasPressed = true; }
+        if (!downWasPressed) { 
+            downTriggered = true; force_update_ui = true; downWasPressed = true; 
+            last_interaction_millis = currentMillis; 
+        }
       } else { downWasPressed = false; }
 
       lastBtnCheckMillis = currentMillis;
+    }
+
+    // === INTERCEPTOR: The First-Press Trap Solver ===
+    if (is_oled_sleeping && (selectTriggered || upTriggered || downTriggered)) {
+        // WAKE UP SEQUENCE
+        is_oled_sleeping = false;
+        u8g2.setPowerSave(0); // Hardware wake-up command
+        currentState = STATE_LIVE_VIEW; // Return to Home Principle
+        force_update_ui = true;
+        
+        // CONSUME the button presses so they don't leak into Phase 2 (Menu)
+        selectTriggered = false;
+        upTriggered = false;
+        downTriggered = false;
     }
 
     // === PHASE 2: UI State Machine ===
@@ -254,8 +285,20 @@ void loggingTask(void *pvParameters) {
       
       if (selectTriggered) {
         // Handle Menu Actions
-        if (menuCursor == 0 || menuCursor == 1) {
-            // Future Sub-menus Placeholder (Display Mode & Step Feedback)
+        if (menuCursor == 0) {
+            // Action: Toggle Display Mode
+            auto_off_enabled = !auto_off_enabled;
+            if (auto_off_enabled) {
+                snprintf(subMenuMsg, sizeof(subMenuMsg), "Auto-Off: %ds", OLED_SLEEP_TIMEOUT_MS / 1000);
+            } else {
+                snprintf(subMenuMsg, sizeof(subMenuMsg), "Always ON");
+            }
+            currentState = STATE_SUBMENU_MSG;
+            force_update_ui = true;
+            last_interaction_millis = currentMillis; // Reset timer just in case
+        }
+        else if (menuCursor == 1) {
+            // Future: Step Feedback Placeholder
             snprintf(subMenuMsg, sizeof(subMenuMsg), "Under Construct!");
             currentState = STATE_SUBMENU_MSG;
             force_update_ui = true;
@@ -266,15 +309,10 @@ void loggingTask(void *pvParameters) {
             u8g2.drawStr(10, 20, "Calculating...");
             u8g2.sendBuffer();
             
-            // Heavy SPI calculation: Done ONLY ONCE upon entry!
-            if (sd.card()->errorCode() == 0) { // Check if SD is actually healthy
+            if (sd.card()->errorCode() == 0) { 
                 uint32_t freeClusters = sd.vol()->freeClusterCount();
                 uint32_t sectorsPerCluster = sd.vol()->sectorsPerCluster();
-                
-                // 1 Sector = 512 Bytes. 2048 Sectors = 1 Megabyte
-                sd_free_mb = (freeClusters * sectorsPerCluster) / 2048; 
-                
-                // Logging Rate: ~5.6 KB/s = ~20.16 MB/Hour
+                sd_free_mb = (freeClusters * sectorsPerCluster) / 2048;
                 sd_remain_hours = (float)sd_free_mb / 20.16;
             } else {
                 sd_free_mb = 0;
@@ -299,9 +337,7 @@ void loggingTask(void *pvParameters) {
         }
       }
     }
-    // Handle returning to Menu from Sub-menus
     else if (currentState == STATE_SUBMENU_MSG || currentState == STATE_SUBMENU_SD_INFO) {
-        // Pressing SELECT in any submenu returns to Menu
         if (selectTriggered) {
             currentState = STATE_MENU;
             force_update_ui = true;
@@ -318,48 +354,56 @@ void loggingTask(void *pvParameters) {
         lastFlushMillis = currentMillis;
       }
       
+      // === POWER MANAGEMENT TRIGGER ===
+      // Check if it's time to go to sleep (some time seconds of inactivity)
+      if (auto_off_enabled && !is_oled_sleeping && (currentMillis - last_interaction_millis > OLED_SLEEP_TIMEOUT_MS)) {
+          is_oled_sleeping = true;
+          u8g2.setPowerSave(1); // Hardware sleep command
+          currentState = STATE_LIVE_VIEW; // Reset state for when it wakes up
+      }
+
       // === PHASE 4: Graphics Rendering ===
-      // Render if time has passed OR if user pressed a button (force update)
-      if ((currentMillis - lastDisplayMillis > update_rate_oled) || force_update_ui) {
-        force_update_ui = false; // Reset the flag immediately
-        u8g2.clearBuffer();
-        
-        if (currentState == STATE_LIVE_VIEW) {
-          char buf[32];
-          snprintf(buf, sizeof(buf), "Qw: %.2f", receivedFrame.q[0]);
-          u8g2.drawStr(0, 7, buf);
-          snprintf(buf, sizeof(buf), "Qx: %.2f", receivedFrame.q[1]);
-          u8g2.drawStr(0, 15, buf);
-          snprintf(buf, sizeof(buf), "Qy: %.2f", receivedFrame.q[2]);
-          u8g2.drawStr(64, 7, buf);
-          snprintf(buf, sizeof(buf), "Qz: %.2f", receivedFrame.q[3]);
-          u8g2.drawStr(64, 15, buf);
-          
-          snprintf(buf, sizeof(buf), "T: %.1fC", mpu.getTemperature());
-          u8g2.drawStr(0, 28, buf);
-        } 
-        else if (currentState == STATE_MENU) {
-          u8g2.drawStr(0, 8, "--- MENU ---");
-          u8g2.drawStr(10, 20, menuItems[menuCursor]);
-          u8g2.drawStr(0, 20, ">"); // Cursor
-        }
-        else if (currentState == STATE_SUBMENU_MSG) {
-          u8g2.drawStr(5, 15, subMenuMsg);
-          u8g2.drawStr(5, 28, "[Select] to Back");
-        }
-        else if (currentState == STATE_SUBMENU_SD_INFO) {
-          char buf[32];
-          snprintf(buf, sizeof(buf), "Free: %lu MB", sd_free_mb);
-          u8g2.drawStr(0, 10, buf);
-          
-          snprintf(buf, sizeof(buf), "Time: %.1f Hrs", sd_remain_hours);
-          u8g2.drawStr(0, 20, buf);
-          
-          u8g2.drawStr(0, 30, "> [Select] to Back");
-        }
-        
-        u8g2.sendBuffer();
-        lastDisplayMillis = currentMillis;
+      // Render ONLY if the OLED is awake
+      if (!is_oled_sleeping) {
+          if ((currentMillis - lastDisplayMillis > update_rate_oled) || force_update_ui) {
+            force_update_ui = false;
+            u8g2.clearBuffer();
+            
+            if (currentState == STATE_LIVE_VIEW) {
+              char buf[32];
+              snprintf(buf, sizeof(buf), "Qw: %.2f", receivedFrame.q[0]);
+              u8g2.drawStr(0, 7, buf);
+              snprintf(buf, sizeof(buf), "Qx: %.2f", receivedFrame.q[1]);
+              u8g2.drawStr(0, 15, buf);
+              snprintf(buf, sizeof(buf), "Qy: %.2f", receivedFrame.q[2]);
+              u8g2.drawStr(64, 7, buf);
+              snprintf(buf, sizeof(buf), "Qz: %.2f", receivedFrame.q[3]);
+              u8g2.drawStr(64, 15, buf);
+              
+              snprintf(buf, sizeof(buf), "T: %.1fC", mpu.getTemperature());
+              u8g2.drawStr(0, 28, buf);
+            } 
+            else if (currentState == STATE_MENU) {
+              u8g2.drawStr(0, 8, "--- MENU ---");
+              u8g2.drawStr(10, 20, menuItems[menuCursor]);
+              u8g2.drawStr(0, 20, ">");
+            }
+            else if (currentState == STATE_SUBMENU_MSG) {
+              u8g2.drawStr(5, 15, subMenuMsg);
+              u8g2.drawStr(5, 28, "[Select] to Back");
+            }
+            else if (currentState == STATE_SUBMENU_SD_INFO) {
+              char buf[32];
+              snprintf(buf, sizeof(buf), "Free: %lu MB", sd_free_mb);
+              u8g2.drawStr(0, 10, buf);
+              snprintf(buf, sizeof(buf), "Time: %.1f Hrs", sd_remain_hours);
+              u8g2.drawStr(0, 20, buf);
+              u8g2.drawStr(0, 30, "> [Select] to Back");
+            }
+            
+            u8g2.sendBuffer();
+            lastDisplayMillis = currentMillis;
+          }
       }
     }
   }
