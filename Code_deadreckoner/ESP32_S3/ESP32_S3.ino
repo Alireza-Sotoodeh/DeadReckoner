@@ -147,6 +147,7 @@ char subMenuMsg[20] = "";
 
 // Inter-Core Communication Flags
 volatile bool tag_event_triggered = false;
+volatile bool mpu_critical_error = false;
 // FreeRTOS Handles
 QueueHandle_t dataQueue;
 TaskHandle_t sensorTaskHandle;
@@ -165,8 +166,17 @@ void loadCalibration();
 // Core 0 Task: Strictly for high-speed sensor reading and mathematical fusion
 void sensorTask(void *pvParameters) {
   LogFrame frame;
+  unsigned long last_mpu_data_time = millis(); // Track last successful read
+
   for(;;) {
+    // If a critical error was flagged, halt sensor reading to save CPU
+    if (mpu_critical_error) {
+        vTaskDelay(pdMS_TO_TICKS(100));
+        continue; 
+    }
+
     if (mpu.update()) {
+      last_mpu_data_time = millis(); // Reset timeout counter
       frame.timestamp = millis();
       frame.q[0] = mpu.getQuaternionW();
       frame.q[1] = mpu.getQuaternionX();
@@ -177,6 +187,7 @@ void sensorTask(void *pvParameters) {
       frame.accel[2] = mpu.getLinearAccZ();
       frame.gps_lat = 0.0; // Ready for S6MV2 GPS module
       frame.gps_lng = 0.0;
+      
       // Thread-safe check for Waypoint Tagging
       if (tag_event_triggered) {
           frame.event_flag = 1;
@@ -184,8 +195,14 @@ void sensorTask(void *pvParameters) {
       } else {
           frame.event_flag = 0;
       }
+      
       // Send to queue without blocking. If queue is full, frame drops (keeps real-time integrity)
       xQueueSend(dataQueue, &frame, 0);
+    } else {
+      // DETECT SENSOR DISCONNECTION: No new data for 500ms
+      if (millis() - last_mpu_data_time > 500) {
+          mpu_critical_error = true;
+      }
     }
     // Yield to scheduler to avoid Watchdog timeout
     vTaskDelay(pdMS_TO_TICKS(5));
@@ -228,6 +245,32 @@ void loggingTask(void *pvParameters) {
   bool is_led_on = false;
   
   for(;;) {
+    // === INTERCEPTOR: CRITICAL MPU DISCONNECT ERROR ===
+    if (mpu_critical_error) {
+        // 1. Safely close the SD log file to prevent data corruption
+        if (logFile) {
+            logFile.sync();
+            logFile.close(); 
+        }
+        
+        // 2. Force wake OLED and display absolute error
+        is_oled_sleeping = false;
+        u8g2.setPowerSave(0); 
+        u8g2.clearBuffer();
+        u8g2.drawStr(5, 15, "CRITICAL ERROR!");
+        u8g2.drawStr(0, 28, "MPU DISCONNECTED");
+        u8g2.sendBuffer();
+
+        // 3. Infinite SOS Trap Loop (100ms ON / 50ms OFF)
+        while(true) {
+            digitalWrite(LED_RED_PIN, HIGH);
+            digitalWrite(BUZZER_PIN, HIGH);
+            vTaskDelay(pdMS_TO_TICKS(100)); // Non-blocking RTOS delay
+            digitalWrite(LED_RED_PIN, LOW);
+            digitalWrite(BUZZER_PIN, LOW);
+            vTaskDelay(pdMS_TO_TICKS(50));
+        }
+    }
     unsigned long currentMillis = millis();
     // === PHASE 0: Non-Blocking Hardware Notifications ===
     if (is_buzzer_on && (currentMillis >= buzzer_turn_off_time)) {
@@ -711,6 +754,11 @@ void setup()
   } 
   
   // === Dynamic Sequential Logging Architecture ===
+  // Render "Scanning SD..." while the ESP computes existing files
+  u8g2.clearBuffer();
+  u8g2.drawStr((u8g2.getDisplayWidth() - u8g2.getStrWidth("Scanning SD...")) / 2, 20, "Scanning SD...");
+  u8g2.sendBuffer();
+
   char filename[20] = "DR_LOG_001.BIN";
   int fileNum = 1;
 
@@ -729,6 +777,18 @@ void setup()
   if (logFile) {
     Serial.print("Success: Opened new log file -> ");
     Serial.println(filename);
+    
+    // Render dynamic SD statistics before mission starts
+    u8g2.clearBuffer();
+    char scanBuf[25];
+    snprintf(scanBuf, sizeof(scanBuf), "Found: %d Logs", fileNum - 1);
+    u8g2.drawStr((u8g2.getDisplayWidth() - u8g2.getStrWidth(scanBuf)) / 2, 12, scanBuf);
+    
+    snprintf(scanBuf, sizeof(scanBuf), "Next: LOG_%03d", fileNum);
+    u8g2.drawStr((u8g2.getDisplayWidth() - u8g2.getStrWidth(scanBuf)) / 2, 28, scanBuf);
+    u8g2.sendBuffer();
+    delay(2000); // 2-second delay to let the user read the info
+    
   } else {
     Serial.println("CRITICAL ERROR: Failed to create sequential log file!");
   }
@@ -744,13 +804,23 @@ void setup()
   setting.accel_dlpf_cfg = ACCEL_DLPF_CFG::MPU9250_Accelerometer_DLPF_cutoff;
 
   while (!mpu.setup(MPU9250_IMU_ADDRESS, setting)) {
-    Serial.println("MPU connection failed. Retrying in 5 seconds...");
+    Serial.println("CRITICAL: MPU connection failed. Check Wiring!");
     u8g2.clearBuffer();
-    u8g2.drawStr(20, 15, "MPU9250 Failed!");
-    u8g2.drawStr(20, 28, "Retrying...");
+    u8g2.drawStr(15, 15, "MPU9250 Failed!");
+    u8g2.drawStr(20, 28, "Check Wiring");
     u8g2.sendBuffer();
-    delay(5000); 
-  }							
+    
+    // Fast SOS pattern for Boot-time MPU Error
+    for(int i = 0; i < 15; i++) {
+        digitalWrite(LED_RED_PIN, HIGH);
+        digitalWrite(BUZZER_PIN, HIGH);
+        delay(100);
+        digitalWrite(LED_RED_PIN, LOW);
+        digitalWrite(BUZZER_PIN, LOW);
+        delay(50);
+    }
+    delay(1000); // Brief pause before retrying
+  }						
   mpu.setMagneticDeclination(MAGNETIC_DECLINATION); 
   mpu.selectFilter(QuatFilterSel::MPU9250_filter_algorithm); 
   mpu.setFilterIterations(MPU9250_filter_iterations);
@@ -758,16 +828,9 @@ void setup()
   EEPROM.begin(128);
   // Load calibration from EEPROM on startup
   Serial.println("Loading calibration from EEPROM...");
-  u8g2.clearBuffer();
-  u8g2.drawStr(25, 20, "Loading calibration");
-  u8g2.drawStr(35, 30, "from EEPROM");
-  u8g2.sendBuffer();
+
   loadCalibration();
   print_calibration();
-  u8g2.clearBuffer();
-  u8g2.drawStr(25, 15, "Press Button");
-  u8g2.drawStr(35, 25, "to Calibrate");
-  u8g2.sendBuffer();
   u8g2.setFont(font_5_pixel);
   // Create queue capable of buffering 300 frames (~3 seconds of data at 100Hz)
   dataQueue = xQueueCreate(300, sizeof(LogFrame));
