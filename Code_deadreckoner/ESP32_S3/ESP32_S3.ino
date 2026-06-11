@@ -215,6 +215,7 @@ void loggingTask(void *pvParameters) {
   // Storage variables for SD calculations
   uint32_t sd_free_mb = 0;
   float sd_remain_hours = 0.0;
+  float sd_total_gb = 0.0;
   // === Power Management Variables ===
   bool is_oled_sleeping = false;
   bool auto_off_enabled = true; // Default: OLED sleeps after 20s
@@ -347,9 +348,12 @@ void loggingTask(void *pvParameters) {
             
             if (sd.card()->errorCode() == 0) { 
                 uint32_t freeClusters = sd.vol()->freeClusterCount();
+                uint32_t totalClusters = sd.vol()->clusterCount();
                 uint32_t sectorsPerCluster = sd.vol()->sectorsPerCluster();
                 sd_free_mb = (freeClusters * sectorsPerCluster) / 2048;
                 sd_remain_hours = (float)sd_free_mb / 20.16;
+                uint32_t sd_total_mb = (totalClusters * sectorsPerCluster) / 2048;
+                sd_total_gb = (float)sd_total_mb / 1024.0; 
                 // Count binary logs safely
                 totalFilesCount = 0;
                 char checkBuf[20];
@@ -597,7 +601,7 @@ void loggingTask(void *pvParameters) {
             else if (currentState == STATE_SUBMENU_SD_INFO) {
               // Construct the 7 lines array in memory dynamically
               char lines[7][32];
-              snprintf(lines[0], 32, "1.Total: 16.0 GB"); 
+              snprintf(lines[0], 32, "1.Total: %.1f GB", sd_total_gb); 
               snprintf(lines[1], 32, "2.Free: %lu MB", sd_free_mb);
               snprintf(lines[2], 32, "3.Time: %.1f Hrs", sd_remain_hours);
               snprintf(lines[3], 32, "4.Files Count: %u", totalFilesCount);
