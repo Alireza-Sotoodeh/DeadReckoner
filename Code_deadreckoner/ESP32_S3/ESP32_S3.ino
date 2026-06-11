@@ -1,5 +1,5 @@
-// Last Edit: 2026-06-11 18:50:00  
-// Reason for Last Edit: Patched trailing standalone brace, fully integrated dynamic 7-item scrolling SD menu with absolute redirection and feedback.
+// Last Edit: 2026-06-11 22:10:00  
+// Reason for Last Edit: Implemented MPU9250 dynamic recovery with Wire.setTimeout and non-blocking I2C bus reset.
 // Author: Alireza Sotoodeh
 
 /*
@@ -163,16 +163,56 @@ void saveCalibration();
 void loadCalibration();
 /*//////////////////////////// FreeRTOS Tasks ////////////////////////////*/
 
-// Core 0 Task: Strictly for high-speed sensor reading and mathematical fusion
+// =========================================================================
+// DYNAMIC RECOVERY PROTOCOL
+// =========================================================================
+void attemptMPURecovery() {
+    // 1. Hardware-level I2C Bus Reset
+    Wire.end();
+    Wire.begin(I2C_MPU_SDA, I2C_MPU_SCL);
+    Wire.setClock(400000);
+    Wire.setTimeout(50);
+
+    // 2. Re-initialize MPU Settings
+    MPU9250Setting setting;
+    setting.accel_fs_sel = ACCEL_FS_SEL::MPU9250_Accelerometer_Rang;
+    setting.gyro_fs_sel = GYRO_FS_SEL::MPU9250_Gyroscope_Rang;
+    setting.mag_output_bits = MAG_OUTPUT_BITS::MPU9250_Magnetometer_resolution; 
+    setting.fifo_sample_rate = FIFO_SAMPLE_RATE::MPU9250_fifo_sample_rate; 
+    setting.gyro_fchoice = MPU9250_Gyroscope_filter_choice;
+    setting.gyro_dlpf_cfg = GYRO_DLPF_CFG::MPU9250_Gyroscope_DLPF_cutoff;
+    setting.accel_fchoice = MPU9250_Accelerometer_filter_choice;
+    setting.accel_dlpf_cfg = ACCEL_DLPF_CFG::MPU9250_Accelerometer_DLPF_cutoff;
+
+    // 3. Attempt Connection & Apply Filters
+    if (mpu.setup(MPU9250_IMU_ADDRESS, setting)) {
+        mpu.setMagneticDeclination(MAGNETIC_DECLINATION); 
+        mpu.selectFilter(QuatFilterSel::MPU9250_filter_algorithm); 
+        mpu.setFilterIterations(MPU9250_filter_iterations);
+        
+        loadCalibration(); // Re-apply EEPROM values
+        mpu_critical_error = false; // Flag system as recovered
+    }
+}
+
+// =========================================================================
+// Core 0 Task
+// Strictly for high-speed sensor reading and mathematical fusion
+// =========================================================================
 void sensorTask(void *pvParameters) {
   LogFrame frame;
   unsigned long last_mpu_data_time = millis(); // Track last successful read
+  unsigned long last_recovery_attempt = 0;     // NEW: Tracks recovery intervals
 
   for(;;) {
-    // If a critical error was flagged, halt sensor reading to save CPU
+    // If a critical error was flagged, attempt recovery every 2 seconds
     if (mpu_critical_error) {
+        if (millis() - last_recovery_attempt > 2000) {
+            last_recovery_attempt = millis();
+            attemptMPURecovery();
+        }
         vTaskDelay(pdMS_TO_TICKS(100));
-        continue; 
+        continue; // Skip sensor reading until recovered
     }
 
     if (mpu.update()) {
@@ -209,7 +249,10 @@ void sensorTask(void *pvParameters) {
   }
 }
 
-// Core 1 Task: For OLED, Buttons, and heavy Flash/SD writing
+// =========================================================================
+// Core 1 Task
+// For OLED, Buttons, and heavy Flash/SD writing
+// =========================================================================
 void loggingTask(void *pvParameters) {
   LogFrame receivedFrame;
   unsigned long lastDisplayMillis = 0;
@@ -243,35 +286,71 @@ void loggingTask(void *pvParameters) {
   unsigned long led_turn_off_time = 0;
   bool is_buzzer_on = false;
   bool is_led_on = false;
+  bool error_handled = false; 
   
   for(;;) {
+    unsigned long currentMillis = millis();
+
     // === INTERCEPTOR: CRITICAL MPU DISCONNECT ERROR ===
     if (mpu_critical_error) {
-        // 1. Safely close the SD log file to prevent data corruption
-        if (logFile) {
-            logFile.sync();
-            logFile.close(); 
+        if (!error_handled) {
+            // Safely close the SD log file to prevent data corruption
+            if (logFile) { logFile.sync(); logFile.close(); }
+            
+            // Force wake OLED
+            is_oled_sleeping = false;
+            u8g2.setPowerSave(0); 
+            u8g2.clearBuffer();
+            u8g2.drawStr(5, 15, "CRITICAL ERROR!");
+            u8g2.drawStr(0, 28, "MPU DISCONNECTED");
+            u8g2.sendBuffer();
+            
+            error_handled = true;
         }
         
-        // 2. Force wake OLED and display absolute error
-        is_oled_sleeping = false;
-        u8g2.setPowerSave(0); 
-        u8g2.clearBuffer();
-        u8g2.drawStr(5, 15, "CRITICAL ERROR!");
-        u8g2.drawStr(0, 28, "MPU DISCONNECTED");
-        u8g2.sendBuffer();
-
-        // 3. Infinite SOS Trap Loop (100ms ON / 50ms OFF)
-        while(true) {
+        // Non-blocking SOS Pattern (100ms ON, 100ms OFF)
+        if ((currentMillis / 100) % 2 == 0) {
             digitalWrite(LED_RED_PIN, HIGH);
-            digitalWrite(BUZZER_PIN, HIGH);
-            vTaskDelay(pdMS_TO_TICKS(100)); // Non-blocking RTOS delay
+            if (!is_muted) digitalWrite(BUZZER_PIN, HIGH);
+        } else {
             digitalWrite(LED_RED_PIN, LOW);
             digitalWrite(BUZZER_PIN, LOW);
-            vTaskDelay(pdMS_TO_TICKS(50));
         }
+        
+        vTaskDelay(pdMS_TO_TICKS(20)); // Yield to scheduler
+        continue; // BYPASS THE REST OF THE LOOP!
+        
+    } else if (error_handled) {
+        // === DYNAMIC RECOVERY TRIGGERED ===
+        error_handled = false;
+        digitalWrite(LED_RED_PIN, LOW);
+        digitalWrite(BUZZER_PIN, LOW);
+        
+        // Clear stale/corrupt data from the queue before resuming
+        xQueueReset(dataQueue);
+        
+        // Create a new sequential log file to resume mission safely
+        char filename[20] = "DR_LOG_001.BIN";
+        int fileNum = 1;
+        while (sd.exists(filename)) {
+            fileNum++;
+            snprintf(filename, sizeof(filename), "DR_LOG_%03d.BIN", fileNum);
+        }
+        logFile = sd.open(filename, FILE_WRITE);
+        
+        // Feedback to User
+        u8g2.clearBuffer();
+        u8g2.drawStr(10, 15, "MPU RECOVERED!");
+        u8g2.drawStr(5, 28, "Resuming Log...");
+        u8g2.sendBuffer();
+        vTaskDelay(pdMS_TO_TICKS(1500)); // Show message briefly
+        
+        // Reset UI State to live tracking
+        force_update_ui = true;
+        currentState = STATE_LIVE_VIEW;
+        last_interaction_millis = currentMillis;
     }
-    unsigned long currentMillis = millis();
+    
     // === PHASE 0: Non-Blocking Hardware Notifications ===
     if (is_buzzer_on && (currentMillis >= buzzer_turn_off_time)) {
         digitalWrite(BUZZER_PIN, LOW);
@@ -702,7 +781,8 @@ void setup()
   // Initialize Hardware I2C for MPU9250 with explicit pins for ESP32-S3
   Wire.begin(I2C_MPU_SDA, I2C_MPU_SCL); 
   Wire.setClock(400000); // Boost I2C to 400kHz for maximum IMU read speed
-	
+	Wire.setTimeout(50); //  Prevents Hardware I2C Bus Hang if wire is pulled
+
   // Initialize Buttons with internal pull-ups
   pinMode(BTN_SELECT_PIN, INPUT_PULLUP);
   pinMode(BTN_UP_PIN, INPUT_PULLUP);
@@ -828,7 +908,6 @@ void setup()
   EEPROM.begin(128);
   // Load calibration from EEPROM on startup
   Serial.println("Loading calibration from EEPROM...");
-
   loadCalibration();
   print_calibration();
   u8g2.setFont(font_5_pixel);
