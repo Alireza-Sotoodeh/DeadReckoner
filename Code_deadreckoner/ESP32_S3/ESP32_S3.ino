@@ -108,7 +108,7 @@ U8G2_SSD1306_128X32_UNIVISION_F_SW_I2C u8g2(U8G2_R0, /* clock=*/ I2C_OLED_SCL, /
 #define OLED_SLEEP_TIMEOUT_MS 20000                       // defualt Time in milliseconds before OLED sleeps
 
 // Notification Timings
-#define ALARM_BEEP_MS 150       // Duration of error beeps during  failure      
+#define ALARM_SD_BEEP_MS 100    // Duration of error beeps during Sd card failure      
 #define TAG_BEEP_MS 50          // Duration of short beep for Waypoint TAG
 #define TAG_BLINK_MS 100        // Duration of Green LED flash for TAG
 #define Recheck_SD_MS 3000      // Wait time before retrying SD initialization
@@ -130,7 +130,8 @@ enum UIState {
     STATE_LIVE_VIEW,
     STATE_MENU,
     STATE_SUBMENU_MSG,  // A generic state to show temporary messages
-    STATE_SUBMENU_SD_INFO    // Updated to match internal loggingTask state naming
+    STATE_SUBMENU_SD_INFO,    // Updated to match internal loggingTask state naming
+    STATE_SUBMENU_DISPLAY
 };
 volatile UIState currentState = STATE_LIVE_VIEW;
 
@@ -204,7 +205,7 @@ void loggingTask(void *pvParameters) {
   unsigned long lastDisplayMillis = 0;
   unsigned long lastFlushMillis = 0;
   unsigned long lastBtnCheckMillis = 0; 
-
+  int8_t displayCursor = 0; // Tracks selection inside Display Mode submenu
   
   // State tracking variables for Edge Detection
   bool selectWasPressed = false;
@@ -331,16 +332,10 @@ void loggingTask(void *pvParameters) {
       if (selectTriggered) {
         // Handle Menu Actions
         if (menuCursor == 0) {
-            // Action: Toggle Display Mode
-            auto_off_enabled = !auto_off_enabled;
-            if (auto_off_enabled) {
-                snprintf(subMenuMsg, sizeof(subMenuMsg), "Auto-Off: %ds", OLED_SLEEP_TIMEOUT_MS / 1000);
-            } else {
-                snprintf(subMenuMsg, sizeof(subMenuMsg), "Always ON");
-            }
-            currentState = STATE_SUBMENU_MSG;
+            // Action: Enter Display Mode Submenu instead of toggling instantly
+            currentState = STATE_SUBMENU_DISPLAY;
+            displayCursor = auto_off_enabled ? 1 : 0; 
             force_update_ui = true;
-            last_interaction_millis = currentMillis; // Reset timer just in case
         }
         else if (menuCursor == 1) {
             // Action: Toggle Mute Sounds
@@ -393,6 +388,26 @@ void loggingTask(void *pvParameters) {
             currentState = STATE_MENU;
             force_update_ui = true;
         }
+    }
+    else if (currentState == STATE_SUBMENU_DISPLAY) {
+      // Navigation: Because we only have 2 items, any UP or DOWN toggles between 0 and 1
+      if (upTriggered || downTriggered) {
+        displayCursor = (displayCursor == 0) ? 1 : 0;
+        force_update_ui = true;
+      }
+      
+      // Selection Action
+      if (selectTriggered) {
+        if (displayCursor == 0) {
+          auto_off_enabled = false; // Always ON
+        } else {
+          auto_off_enabled = true;  // Auto Off 20s
+        }
+        
+        currentState = STATE_LIVE_VIEW; // بازگشت مستقیم به صفحه اصلی طبق خواست شما
+        force_update_ui = true;
+        last_interaction_millis = currentMillis; // ریست کردن تایمر برای جلوگیری از خاموش شدن آنی صفحه
+      }
     }
 
     // === PHASE 3: Pull Data from Queue & SD Logging ===
@@ -451,6 +466,14 @@ void loggingTask(void *pvParameters) {
               u8g2.drawStr(0, 20, buf);
               u8g2.drawStr(0, 30, "> [Select] to Back");
             }
+            else if (currentState == STATE_SUBMENU_DISPLAY) {
+              u8g2.drawStr(0, 8, "Disp Mode:");
+              u8g2.drawStr(15, 20, "Always ON");
+              u8g2.drawStr(15, 30, "Auto Off 20s");
+              
+              // Draw the cursor dynamically based on selection
+              u8g2.drawStr(3, (displayCursor == 0) ? 20 : 30, ">");
+            }
             
             u8g2.sendBuffer();
             lastDisplayMillis = currentMillis;
@@ -468,10 +491,6 @@ void setup()
   // Initialize Hardware I2C for MPU9250 with explicit pins for ESP32-S3
 	Wire.begin(I2C_MPU_SDA, I2C_MPU_SCL); 
   Wire.setClock(400000); // Boost I2C to 400kHz for maximum IMU read speed
-
-  // Initialize Secondary Hardware I2C (Wire1) specifically for OLED
-  Wire1.begin(I2C_OLED_SDA, I2C_OLED_SCL);
-  Wire1.setClock(400000);
 	
   // Initialize Buttons with internal pull-ups
   pinMode(BTN_SELECT_PIN, INPUT_PULLUP);
@@ -518,9 +537,9 @@ void setup()
     digitalWrite(LED_RED_PIN, HIGH); 
     for(int i = 0; i < 2; i++) {
       digitalWrite(BUZZER_PIN, HIGH);
-      delay(100);
+      delay(ALARM_SD_BEEP_MS);
       digitalWrite(BUZZER_PIN, LOW);
-      delay(100);
+      delay(ALARM_SD_BEEP_MS);
     }
 
     delay(Recheck_SD_MS);
