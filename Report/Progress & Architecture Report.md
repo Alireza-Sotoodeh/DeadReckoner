@@ -307,8 +307,6 @@ Freq(MHz) | Result | Speed(KB/s)
 27 MHz    | FAILED | N/A
 --- LIMIT REACHED. SYSTEM UNSTABLE ABOVE THIS FREQ. ---
 --- SWEEP FINISHED ---
-
-
 ```
 
 ---
@@ -372,3 +370,36 @@ A critical architectural decision was made to **abandon real-time double integra
   
   - **Solution:** Delayed integration to the post-processing phase using the ZUPT algorithm in MATLAB.
   - **Educational Depth:** MEMS sensors have inherent white noise. In double integration ($Error = \frac{1}{2} a_{error} t^2$), the error grows quadratically. ZUPT relies on the physical constraint of a foot hitting the ground to force the velocity back to absolute zero, thus killing the accumulated drift.
+
+---
+
+## 11. Advanced UI & Defensive UX
+
+To ensure system reliability in high-stress field operations, the legacy toggle-based menus were completely redesigned into a state-machine-driven interactive interface.
+
+* **Interactive Navigation & State Machine:** The UI now features cursor-driven (`>`) submenus. To minimize operational downtime, any selection made within the configuration menus instantly redirects the system back to the primary 'Live View'.
+* **Advanced SD Manager (Dynamic Scrolling):** Due to the physical limitations of the 128x32 OLED (displaying only 3 text lines), a *Scrolling Window Matrix* was implemented. The 7-item menu dynamically computes and displays:
+  * Total hardware storage capacity (GB)
+  * Free storage space (MB)
+  * Estimated continuous recording time remaining (Hours)
+  * Total count of valid binary log files currently on the disk
+* **Defensive UX (Confirmation Traps):** Destructive actions, such as executing a format or closing an active log to create a new one, are now protected by two-stage confirmation traps (`YES` / `> NO`). The cursor defaults to `NO` to prevent accidental data loss.
+
+## 12. Advanced File System & Hardware Watchdogs
+
+### 12.1. Auto-Sequential Logging & Smart Delete
+
+The storage pipeline was heavily upgraded to prevent accidental data overwrites across multiple power cycles.
+
+* **Deprecation of Diagnostic Files:** The `SWEEP.BIN` and `STRESS.BIN` files, originally used for SPI bandwidth testing and diagnostics, have been fully deprecated. 
+* **Auto-Sequential Indexing:** The static `DR_LOG.BIN` approach was replaced. Upon boot-up, the MCU scans the FAT32 root directory, tallies the existing files, and automatically generates the next sequential file (e.g., `DR_LOG_001.BIN`, `DR_LOG_002.BIN`).
+* **Smart Delete Protocol:** Instead of executing a dangerous partition-level format, the system's "Clear All Logs" function intelligently scans for and removes only files matching the `DR_LOG_xxx.BIN` nomenclature, leaving other potential user files on the SD card intact.
+* **Boot-up Scan Report:** A transient boot screen (`-- SD Scanned --`) was added to provide immediate situational awareness, reporting the total number of previously logged files and the index of the newly created file.
+
+### 12.2. Aerospace-Grade Hardware Watchdogs
+
+To prevent "silent failures" where the device appears to be logging but the sensor is physically disconnected:
+
+* **Runtime MPU Watchdog:** A dedicated tracking timer in Core 0 (Sensor Task) monitors the I2C stream. If data acquisition ceases for >1000ms (e.g., a severed wire), a crash flag is raised.
+* **Emergency SOS Trap:** Upon detecting a hardware crash, Core 1 immediately flushes and safely closes the active SD log to prevent memory corruption. The OLED displays a `Cable Disconnected` error, and the system enters an infinite SOS loop (3 rapid buzzer beeps synchronized with a red LED strobe).
+* **I2C Bus Timeout:** Configured `Wire.setTimeOut(50)` to prevent the ESP32-S3's internal clock from freezing if the physical I2C lines are abruptly pulled low.
