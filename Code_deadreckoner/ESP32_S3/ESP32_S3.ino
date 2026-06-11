@@ -1,11 +1,11 @@
-// Last Edit: 2026-06-11 14:15:00  
-// Reason for Last Edit: Updated wiring diagram to reflect the 3-pin Common Cathode LED (Red/Green) and confirmed Active Buzzer integration on GPIO 15.
+// Last Edit: 2026-06-11 17:21:00  
+// Reason for Last Edit: Transformed Mute Sounds into a fully interactive submenu matching the Display Mode architecture with live-view redirect.
 // Author: Alireza Sotoodeh
 
 /*
  * =========================================================================
  * PROJECT: DeadReckoner
- * VERSION: 1.6 (Interactive UI + Stealth Mode + CC LED & Active Buzzer)
+ * VERSION: 1.8 (Consistent Interactive UI + Stealth Mode + CC LED & Active Buzzer)
  * * WIRING DIAGRAM
  * -------------------------------------------------------------------------
  * Component Pin | MCU Pin       | Note / Hardware Reasoning
@@ -72,7 +72,7 @@
 #define SD_MISO_PIN 13
 #define SPI_FREQ_MHZ 20 // Optimal speed derived from hardware sweep
 
-//MpU9205
+// MPU9250
 #define MPU9250_IMU_ADDRESS 0x68 												// Specifies the I2C slave address of the MPU9250:0x68 GND / 0x69 High
 #define MAGNETIC_DECLINATION 3.4	 											// angle between magnetic north and true north
 #define INTERVAL_MS_PRINT 50 														// Sets the minimum time interval between printing sensor data.
@@ -85,7 +85,7 @@
 MPU9250 mpu; // handler: allowing access to all library methods
 unsigned long lastPrintMillis = 0; // Tracks the timestamp (from millis()) of the last time sensor data was printed to Serial
 
-//MPU9250 setting
+// MPU9250 setting
 #define MPU9250_Accelerometer_Rang  A2G 								//select: A2G, A4G, A8G, A16G
 #define MPU9250_Gyroscope_Rang  G500DPS 								//select: G250DPS, G500DPS, G1000DPS, G2000DPS
 #define MPU9250_Magnetometer_resolution  M16BITS 				//select: M14BITS, M16BITS
@@ -97,18 +97,17 @@ unsigned long lastPrintMillis = 0; // Tracks the timestamp (from millis()) of th
 #define MPU9250_filter_algorithm	MADGWICK 							//select: MADGWICK, MAHONY, NONE
 #define MPU9250_filter_iterations	10										//select: 1-50 higher better but may slow down
 
-// OLED setup (0.91-inch SSD1306, 128x32, Software I2C)
-// Reverted to SW_I2C to resolve library conflicts on ESP32-S3 secondary buses. Safe on Core 1.
-U8G2_SSD1306_128X32_UNIVISION_F_SW_I2C u8g2(U8G2_R0, /* clock=*/ I2C_OLED_SCL, /* data=*/ I2C_OLED_SDA, /* reset=*/ U8X8_PIN_NONE); // Software I2C on custom ESP32-S3 pins to avoid bus congestion
+// OLED setup (0.91-inch SSD1306, 128x32, Software I2C) Safe on Core 1.
+U8G2_SSD1306_128X32_UNIVISION_F_SW_I2C u8g2(U8G2_R0, /* clock=*/ I2C_OLED_SCL, /* data=*/ I2C_OLED_SDA, /* reset=*/ U8X8_PIN_NONE);
 
 #define font_10_pixel u8g2_font_t0_15b_me
 #define font_8_pixel u8g2_font_helvB08_tf
 #define font_5_pixel u8g2_font_spleen5x8_me
 #define update_rate_oled 1500
-#define OLED_SLEEP_TIMEOUT_MS 20000                       // defualt Time in milliseconds before OLED sleeps
+#define OLED_SLEEP_TIMEOUT_MS 20000                       // default Time in milliseconds before OLED sleeps
 
 // Notification Timings
-#define ALARM_SD_BEEP_MS 100    // Duration of error beeps during Sd card failure      
+#define ALARM_BEEP_MS 100       // Duration of error beeps during SD failure      
 #define TAG_BEEP_MS 50          // Duration of short beep for Waypoint TAG
 #define TAG_BLINK_MS 100        // Duration of Green LED flash for TAG
 #define Recheck_SD_MS 3000      // Wait time before retrying SD initialization
@@ -122,16 +121,17 @@ typedef struct {
     float accel[3];
     double gps_lat;
     double gps_lng;
-    uint8_t event_flag; // NEW: 1 if TAG button was pressed, 0 otherwise
+    uint8_t event_flag; // 1 if TAG button was pressed, 0 otherwise
 } LogFrame;
 
 // UI State Machine Definitions
 enum UIState {
     STATE_LIVE_VIEW,
     STATE_MENU,
-    STATE_SUBMENU_MSG,  // A generic state to show temporary messages
-    STATE_SUBMENU_SD_INFO,    // Updated to match internal loggingTask state naming
-    STATE_SUBMENU_DISPLAY
+    STATE_SUBMENU_MSG,  
+    STATE_SUBMENU_SD_INFO,    
+    STATE_SUBMENU_DISPLAY,
+    STATE_SUBMENU_MUTE      
 };
 volatile UIState currentState = STATE_LIVE_VIEW;
 
@@ -145,7 +145,6 @@ const char* menuItems[MENU_ITEMS_COUNT] = {
 };
 int8_t menuCursor = 0; // Tracks selected menu item
 char subMenuMsg[20] = ""; 
-
 
 // Inter-Core Communication Flags
 volatile bool tag_event_triggered = false;
@@ -172,7 +171,6 @@ void sensorTask(void *pvParameters) {
   LogFrame frame;
   for(;;) {
     if (mpu.update()) {
-      // Pack the struct with highest precision possible
       frame.timestamp = millis();
       frame.q[0] = mpu.getQuaternionW();
       frame.q[1] = mpu.getQuaternionX();
@@ -206,6 +204,7 @@ void loggingTask(void *pvParameters) {
   unsigned long lastFlushMillis = 0;
   unsigned long lastBtnCheckMillis = 0; 
   int8_t displayCursor = 0; // Tracks selection inside Display Mode submenu
+  int8_t muteCursor = 0;    // Tracks selection inside Mute Sounds submenu
   
   // State tracking variables for Edge Detection
   bool selectWasPressed = false;
@@ -219,7 +218,7 @@ void loggingTask(void *pvParameters) {
   // Storage variables for SD calculations
   uint32_t sd_free_mb = 0;
   float sd_remain_hours = 0.0;
-
+  
   // === Power Management Variables ===
   bool is_oled_sleeping = false;
   bool auto_off_enabled = true; // Default: OLED sleeps after 20s
@@ -247,13 +246,12 @@ void loggingTask(void *pvParameters) {
 
     // === PHASE 1: Button Edge Detection & Debouncing ===
     bool selectTriggered = false, upTriggered = false, downTriggered = false;
-    
     if (currentMillis - lastBtnCheckMillis > 50) {
       
       // TAG Button (Independent of OLED Sleep state)
       if (digitalRead(BTN_TAG_PIN) == LOW) {
         if (!tagWasPressed) { 
-            tag_event_triggered = true; 
+            tag_event_triggered = true;
             tagWasPressed = true; 
             last_interaction_millis = currentMillis; 
             
@@ -261,20 +259,21 @@ void loggingTask(void *pvParameters) {
             if (!is_muted) { 
                 digitalWrite(BUZZER_PIN, HIGH);
                 is_buzzer_on = true;
-                buzzer_turn_off_time = currentMillis + TAG_BEEP_MS; // 50ms Beep
+                buzzer_turn_off_time = currentMillis + TAG_BEEP_MS; 
             }
             
             // Green LED always flashes for TAG, even in stealth mode
             digitalWrite(LED_GREEN_PIN, HIGH);
             is_led_on = true;
-            led_turn_off_time = currentMillis + TAG_BLINK_MS; // 100ms LED Flash
+            led_turn_off_time = currentMillis + TAG_BLINK_MS; 
         }
       } else { tagWasPressed = false; }
 
       // SELECT Button
       if (digitalRead(BTN_SELECT_PIN) == LOW) {
         if (!selectWasPressed) { 
-            selectTriggered = true; force_update_ui = true; selectWasPressed = true; 
+            selectTriggered = true;
+            force_update_ui = true; selectWasPressed = true; 
             last_interaction_millis = currentMillis; 
         }
       } else { selectWasPressed = false; }
@@ -282,7 +281,8 @@ void loggingTask(void *pvParameters) {
       // UP Button
       if (digitalRead(BTN_UP_PIN) == LOW) {
         if (!upWasPressed) { 
-            upTriggered = true; force_update_ui = true; upWasPressed = true; 
+            upTriggered = true;
+            force_update_ui = true; upWasPressed = true; 
             last_interaction_millis = currentMillis; 
         }
       } else { upWasPressed = false; }
@@ -290,7 +290,8 @@ void loggingTask(void *pvParameters) {
       // DOWN Button
       if (digitalRead(BTN_DOWN_PIN) == LOW) {
         if (!downWasPressed) { 
-            downTriggered = true; force_update_ui = true; downWasPressed = true; 
+            downTriggered = true;
+            force_update_ui = true; downWasPressed = true; 
             last_interaction_millis = currentMillis; 
         }
       } else { downWasPressed = false; }
@@ -336,18 +337,14 @@ void loggingTask(void *pvParameters) {
             currentState = STATE_SUBMENU_DISPLAY;
             displayCursor = auto_off_enabled ? 1 : 0; 
             force_update_ui = true;
+            last_interaction_millis = currentMillis;
         }
         else if (menuCursor == 1) {
-            // Action: Toggle Mute Sounds
-            is_muted = !is_muted;
-            if (is_muted) {
-                snprintf(subMenuMsg, sizeof(subMenuMsg), "Sounds: MUTED");
-            } else {
-                snprintf(subMenuMsg, sizeof(subMenuMsg), "Sounds: ON");
-            }
-            currentState = STATE_SUBMENU_MSG;
+            // Action: Enter Mute Sounds Submenu instead of toggling instantly
+            currentState = STATE_SUBMENU_MUTE;
+            muteCursor = is_muted ? 1 : 0; // Focus on current system state
             force_update_ui = true;
-            last_interaction_millis = currentMillis; // Reset timer just in case
+            last_interaction_millis = currentMillis; 
         }
         else if (menuCursor == 2) {
             // Action: SD Card Info
@@ -390,13 +387,11 @@ void loggingTask(void *pvParameters) {
         }
     }
     else if (currentState == STATE_SUBMENU_DISPLAY) {
-      // Navigation: Because we only have 2 items, any UP or DOWN toggles between 0 and 1
       if (upTriggered || downTriggered) {
         displayCursor = (displayCursor == 0) ? 1 : 0;
         force_update_ui = true;
       }
       
-      // Selection Action
       if (selectTriggered) {
         if (displayCursor == 0) {
           auto_off_enabled = false; // Always ON
@@ -404,9 +399,29 @@ void loggingTask(void *pvParameters) {
           auto_off_enabled = true;  // Auto Off 20s
         }
         
-        currentState = STATE_LIVE_VIEW; // بازگشت مستقیم به صفحه اصلی طبق خواست شما
+        currentState = STATE_LIVE_VIEW; // Direct redirect to Home
         force_update_ui = true;
-        last_interaction_millis = currentMillis; // ریست کردن تایمر برای جلوگیری از خاموش شدن آنی صفحه
+        last_interaction_millis = currentMillis; 
+      }
+    }
+    else if (currentState == STATE_SUBMENU_MUTE) {
+      // Navigation inside Mute Menu
+      if (upTriggered || downTriggered) {
+        muteCursor = (muteCursor == 0) ? 1 : 0;
+        force_update_ui = true;
+      }
+      
+      // Selection inside Mute Menu
+      if (selectTriggered) {
+        if (muteCursor == 0) {
+          is_muted = false; // Sounds: ON
+        } else {
+          is_muted = true;  // Sounds: MUTED
+        }
+        
+        currentState = STATE_LIVE_VIEW; // Direct redirect to Home
+        force_update_ui = true;
+        last_interaction_millis = currentMillis; 
       }
     }
 
@@ -421,15 +436,13 @@ void loggingTask(void *pvParameters) {
       }
       
       // === POWER MANAGEMENT TRIGGER ===
-      // Check if it's time to go to sleep (some time seconds of inactivity)
       if (auto_off_enabled && !is_oled_sleeping && (currentMillis - last_interaction_millis > OLED_SLEEP_TIMEOUT_MS)) {
           is_oled_sleeping = true;
           u8g2.setPowerSave(1); // Hardware sleep command
-          currentState = STATE_LIVE_VIEW; // Reset state for when it wakes up
+          currentState = STATE_LIVE_VIEW;
       }
 
       // === PHASE 4: Graphics Rendering ===
-      // Render ONLY if the OLED is awake
       if (!is_oled_sleeping) {
           if ((currentMillis - lastDisplayMillis > update_rate_oled) || force_update_ui) {
             force_update_ui = false;
@@ -445,7 +458,6 @@ void loggingTask(void *pvParameters) {
               u8g2.drawStr(64, 7, buf);
               snprintf(buf, sizeof(buf), "Qz: %.2f", receivedFrame.q[3]);
               u8g2.drawStr(64, 15, buf);
-              
               snprintf(buf, sizeof(buf), "T: %.1fC", mpu.getTemperature());
               u8g2.drawStr(0, 28, buf);
             } 
@@ -470,9 +482,13 @@ void loggingTask(void *pvParameters) {
               u8g2.drawStr(0, 8, "Disp Mode:");
               u8g2.drawStr(15, 20, "Always ON");
               u8g2.drawStr(15, 30, "Auto Off 20s");
-              
-              // Draw the cursor dynamically based on selection
               u8g2.drawStr(3, (displayCursor == 0) ? 20 : 30, ">");
+            }
+            else if (currentState == STATE_SUBMENU_MUTE) {
+              u8g2.drawStr(0, 8, "Sound Opt:");
+              u8g2.drawStr(15, 20, "Sounds: ON");
+              u8g2.drawStr(15, 30, "Sounds: MUTED");
+              u8g2.drawStr(3, (muteCursor == 0) ? 20 : 30, ">");
             }
             
             u8g2.sendBuffer();
@@ -486,10 +502,10 @@ void loggingTask(void *pvParameters) {
 /*////////////////////////////setup////////////////////////////*/
 void setup() 
 { 
-	Serial.begin(bud_rate);
-	
+  Serial.begin(bud_rate);
+  
   // Initialize Hardware I2C for MPU9250 with explicit pins for ESP32-S3
-	Wire.begin(I2C_MPU_SDA, I2C_MPU_SCL); 
+  Wire.begin(I2C_MPU_SDA, I2C_MPU_SCL); 
   Wire.setClock(400000); // Boost I2C to 400kHz for maximum IMU read speed
 	
   // Initialize Buttons with internal pull-ups
@@ -497,7 +513,7 @@ void setup()
   pinMode(BTN_UP_PIN, INPUT_PULLUP);
   pinMode(BTN_DOWN_PIN, INPUT_PULLUP);
   pinMode(BTN_TAG_PIN, INPUT_PULLUP);
-  
+
   // Initialize OLED
   u8g2.begin();
   u8g2.clearBuffer();
@@ -505,9 +521,9 @@ void setup()
   u8g2.drawStr(15, 25, "<< Boot up >>");
   u8g2.sendBuffer();
   delay(1000);
-  u8g2.setFont(font_8_pixel); 
+  u8g2.setFont(font_8_pixel);
 
-  // Initialize Notification Hardware (Standard LED & Buzzer)
+  // Initialize Notification Hardware (Standard LED & Buzzer) FIRST!
   pinMode(BUZZER_PIN, OUTPUT);
   digitalWrite(BUZZER_PIN, LOW);
   pinMode(LED_RED_PIN, OUTPUT);
@@ -526,43 +542,39 @@ void setup()
     u8g2.clearBuffer();
     const char* line1 = "SD Card Error!";
     const char* line2 = "Insert/Check SD";
-    // Calculate X coordinates for perfect centering
     int x1 = (u8g2.getDisplayWidth() - u8g2.getStrWidth(line1)) / 2;
     int x2 = (u8g2.getDisplayWidth() - u8g2.getStrWidth(line2)) / 2;
     u8g2.drawStr(x1, 12, line1);
     u8g2.drawStr(x2, 28, line2);
     u8g2.sendBuffer();
 
-    // Hardware Alarm: Red LED + Beeps     
-    digitalWrite(LED_RED_PIN, HIGH); 
+    // Hardware Alarm: Red LED + Beeps using global parameter
+    digitalWrite(LED_RED_PIN, HIGH);
     for(int i = 0; i < 2; i++) {
       digitalWrite(BUZZER_PIN, HIGH);
-      delay(ALARM_SD_BEEP_MS);
+      delay(ALARM_BEEP_MS);
       digitalWrite(BUZZER_PIN, LOW);
-      delay(ALARM_SD_BEEP_MS);
+      delay(ALARM_BEEP_MS);
     }
-
+    
     delay(Recheck_SD_MS);
+    digitalWrite(LED_RED_PIN, LOW); // Reset LED state for next check cycle
   } 
-  digitalWrite(LED_RED_PIN, LOW); // Turn off red LED
-  // If we break out of the while loop, the SD card is successfully mounted!
+  
   Serial.println("SD Card Mounted Successfully.");
   // Open binary log file
   logFile = sd.open("DR_LOG.BIN", FILE_WRITE);
 
-	MPU9250Setting setting;
-	// Initialize MPU9250 
-	// Sample rate must be at least 2x DLPF rate 
-	setting.accel_fs_sel = ACCEL_FS_SEL::MPU9250_Accelerometer_Rang;
+  MPU9250Setting setting;
+  setting.accel_fs_sel = ACCEL_FS_SEL::MPU9250_Accelerometer_Rang;
   setting.gyro_fs_sel = GYRO_FS_SEL::MPU9250_Gyroscope_Rang;
-	setting.mag_output_bits = MAG_OUTPUT_BITS::MPU9250_Magnetometer_resolution; 
-	setting.fifo_sample_rate = FIFO_SAMPLE_RATE::MPU9250_fifo_sample_rate; 
-	setting.gyro_fchoice = MPU9250_Gyroscope_filter_choice; 
-	setting.gyro_dlpf_cfg = GYRO_DLPF_CFG::MPU9250_Gyroscope_DLPF_cutoff; 
-	setting.accel_fchoice = MPU9250_Accelerometer_filter_choice;
+  setting.mag_output_bits = MAG_OUTPUT_BITS::MPU9250_Magnetometer_resolution; 
+  setting.fifo_sample_rate = FIFO_SAMPLE_RATE::MPU9250_fifo_sample_rate; 
+  setting.gyro_fchoice = MPU9250_Gyroscope_filter_choice; 
+  setting.gyro_dlpf_cfg = GYRO_DLPF_CFG::MPU9250_Gyroscope_DLPF_cutoff; 
+  setting.accel_fchoice = MPU9250_Accelerometer_filter_choice;
   setting.accel_dlpf_cfg = ACCEL_DLPF_CFG::MPU9250_Accelerometer_DLPF_cutoff;
-  
-  //start to setup the MPU based on setting and address
+
   while (!mpu.setup(MPU9250_IMU_ADDRESS, setting)) {
     Serial.println("MPU connection failed. Retrying in 5 seconds...");
     u8g2.clearBuffer();
@@ -571,12 +583,12 @@ void setup()
     u8g2.sendBuffer();
     delay(5000); 
   }							
-	mpu.setMagneticDeclination(MAGNETIC_DECLINATION); 
+  mpu.setMagneticDeclination(MAGNETIC_DECLINATION); 
 	mpu.selectFilter(QuatFilterSel::MPU9250_filter_algorithm); 
 	mpu.setFilterIterations(MPU9250_filter_iterations);
   
-  // Initialize EEPROM for ESP32
-  EEPROM.begin(128); // Allocate 128 bytes for EEPROM wrapper
+  // Initialize EEPROM for ESP32 (Allocate 128 bytes)
+  EEPROM.begin(128);
 
   // Load calibration from EEPROM on startup
   Serial.println("Loading calibration from EEPROM...");
@@ -597,7 +609,6 @@ void setup()
   
   // Pin Sensor Task to Core 0 (Highest Priority)
   xTaskCreatePinnedToCore(sensorTask, "SensorTask", 4096, NULL, 2, &sensorTaskHandle, 0);
-  
   // Pin Logging Task to Core 1
   xTaskCreatePinnedToCore(loggingTask, "LoggingTask", 8192, NULL, 1, &loggingTaskHandle, 1);
 } 
@@ -605,8 +616,7 @@ void setup()
 /*////////////////////////////loop////////////////////////////*/
 void loop() 
 { 
-  // Main loop is intentionally left empty.
-  // FreeRTOS tasks now manage the entire system architecture.
+  // Main loop is intentionally left empty. FreeRTOS tasks now manage the entire system architecture.
   vTaskDelete(NULL);
 }
 
@@ -646,7 +656,8 @@ void print_calibration() {
   Serial.print(mpu.getMagBiasY()); Serial.print(", ");
   Serial.println(mpu.getMagBiasZ());
   Serial.println("mag scale []: ");
-  Serial.print(mpu.getMagScaleX()); Serial.print(", ");
+  Serial.print(mpu.getMagScaleX());
+  Serial.print(", ");
   Serial.print(mpu.getMagScaleY()); Serial.print(", ");
   Serial.println(mpu.getMagScaleZ());
   
@@ -684,8 +695,6 @@ void saveCalibration() {
 }
 
 void loadCalibration() {
-  // Since setter methods are unavailable, we only read and verify calibration data
-  // UPDATE: Applying values using library setters to ensure Madgwick filter runs accurately
   int addr = 0;
   float accBiasX, accBiasY, accBiasZ;
   float gyroBiasX, gyroBiasY, gyroBiasZ;
@@ -705,13 +714,11 @@ void loadCalibration() {
   EEPROM.get(addr, magScaleY); addr += sizeof(float);
   EEPROM.get(addr, magScaleZ); addr += sizeof(float);
 
-  // Apply the loaded biases to the MPU object
   mpu.setAccBias(accBiasX, accBiasY, accBiasZ);
   mpu.setGyroBias(gyroBiasX, gyroBiasY, gyroBiasZ);
   mpu.setMagBias(magBiasX, magBiasY, magBiasZ);
   mpu.setMagScale(magScaleX, magScaleY, magScaleZ);
   
-  // Print loaded values for verification
   Serial.println("Loaded calibration values from EEPROM:");
   Serial.print("Acc Bias X: "); Serial.println(accBiasX);
   Serial.print("Acc Bias Y: "); Serial.println(accBiasY);
@@ -725,6 +732,5 @@ void loadCalibration() {
   Serial.print("Mag Scale X: "); Serial.println(magScaleX);
   Serial.print("Mag Scale Y: "); Serial.println(magScaleY);
   Serial.print("Mag Scale Z: "); Serial.println(magScaleZ);
-  
   Serial.println("STATUS: Calibration successfully applied to internal filter.");
 }
