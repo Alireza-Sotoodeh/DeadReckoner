@@ -1,42 +1,45 @@
-// Last Edit: 2026-06-10 15:25:00
-// Reason for Last Edit: Migrated to Dual-State UI, added 4-button navigation, non-blocking debouncing, and Tag/Waypoint system.
+// Last Edit: 2026-06-11 14:15:00  
+// Reason for Last Edit: Updated wiring diagram to reflect the 3-pin Common Cathode LED (Red/Green) and confirmed Active Buzzer integration on GPIO 15.
 // Author: Alireza Sotoodeh
 
 /*
  * =========================================================================
- * PROJECT: Signal-Free Offline Tracking System
- * VERSION: 1.4 (Interactive UI + Waypoint Tagging)
+ * PROJECT: DeadReckoner
+ * VERSION: 1.6 (Interactive UI + Stealth Mode + CC LED & Active Buzzer)
  * * WIRING DIAGRAM
  * -------------------------------------------------------------------------
- * Component        | ESP32-S3 Pin          | Note / Reasoning
+ * Component Pin | MCU Pin       | Note / Hardware Reasoning
  * -------------------------------------------------------------------------
- * MPU9250 VCC      | 3.3V                  | MPU9250 is 3.3V tolerant logic
- * MPU9250 GND      | GND                   | Common ground
- * MPU9250 SCL      | GPIO 5                | Hardware I2C (Wire) Clock (Requires external 4.7k pull-up to 3.3V)
- * MPU9250 SDA      | GPIO 4                | Hardware I2C (Wire) Data (Requires external 4.7k pull-up to 3.3V)
- * MPU9250 AD0      | GND                   | Sets I2C Address to 0x68
- * MPU9250 NCS      | 3.3V                  | Chip Select: HIGH forces I2C Mode
- * MPU9250 FSYNC    | GND                   | Frame Sync: Not used, tied to GND to prevent noise
- * MPU9250 INT      | NC (Not Connected)    | Interrupt: Not used, polling via mpu.update()
- * MPU9250 ECL      | NC (Not Connected)    | Aux I2C Clock: Not used
- * MPU9250 EDA      | NC (Not Connected)    | Aux I2C Data: Not used
+ * MPU9250 VCC   | 3.3V          | Clean 3.3V power rail
+ * MPU9250 GND   | GND           | Common system ground
+ * MPU9250 SCL   | GPIO 5        | Hardware I2C (Wire) Clock (Requires external 4.7k pull-up)
+ * MPU9250 SDA   | GPIO 4        | Hardware I2C (Wire) Data (Requires external 4.7k pull-up)
+ * MPU9250 AD0   | GND           | Forces I2C Address to 0x68
+ * MPU9250 NCS   | 3.3V          | SPI disable, forces I2C mode
+ * MPU9250 FSYNC | GND           | Tied to GND to prevent floating noise
  * -------------------------------------------------------------------------
- * OLED VCC         | 3.3V                  | 
- * OLED GND         | GND                   | Common ground
- * OLED SCL         | GPIO 7                | Software I2C
- * OLED SDA         | GPIO 6                | Software I2C
+ * OLED VCC      | 3.3V          | 0.91-inch SSD1306 Power
+ * OLED GND      | GND           | Common system ground
+ * OLED SCL      | GPIO 7        | Software I2C (U8g2 Bit-bang on Core 1)
+ * OLED SDA      | GPIO 6        | Software I2C (U8g2 Bit-bang on Core 1)
  * -------------------------------------------------------------------------
- * SD Adapter 3V3   | 3.3V                  | DIRECT 3.3V ONLY (No onboard regulator)
- * SD Adapter GND   | GND                   | Common Ground
- * SD Adapter CS    | GPIO 10               | FSPI CS0
- * SD Adapter MOSI  | GPIO 11               | FSPI MOSI
- * SD Adapter SCK   | GPIO 12               | FSPI SCK
- * SD Adapter MISO  | GPIO 13               | FSPI MISO
+ * SD Card 3V3   | 3.3V          | DIRECT 3.3V ONLY (Bypassing 5V regulators)
+ * SD Card GND   | GND           | Common system ground
+ * SD Card CS    | GPIO 10       | FSPI CS0 (High-speed line)
+ * SD Card MOSI  | GPIO 11       | FSPI MOSI
+ * SD Card SCK   | GPIO 12       | FSPI SCK (Running at 20MHz)
+ * SD Card MISO  | GPIO 13       | FSPI MISO
  * -------------------------------------------------------------------------
- * BTN SELECT       | GPIO 1                | Menu Enter/Open (Active-Low)
- * BTN UP           | GPIO 2                | Menu Navigation (Active-Low)
- * BTN DOWN         | GPIO 8                | Menu Navigation (Active-Low)
- * BTN TAG          | GPIO 9                | Waypoint Event Trigger (Active-Low)
+ * BTN SELECT    | GPIO 1        | Menu Enter/Toggle (Active-Low, Internal Pull-up)
+ * BTN UP        | GPIO 2        | Menu Navigation (Active-Low, Internal Pull-up)
+ * BTN DOWN      | GPIO 8        | Menu Navigation (Active-Low, Internal Pull-up)
+ * BTN TAG       | GPIO 9        | Waypoint Marker (Active-Low, Internal Pull-up)
+ * -------------------------------------------------------------------------
+ * BUZZER (+)    | GPIO 21       | Active Buzzer (Driven via digitalWrite HIGH, use 100-ohm series resistor)
+ * BUZZER (-)    | GND           | Common ground return
+ * LED RED       | GPIO 17       | Critical Error Warning (Requires 220~330 ohm series resistor)
+ * LED GREEN     | GPIO 18       | TAG Event Indicator (Requires 220~330 ohm series resistor)
+ * LED CATHODE   | GND           | Center long pin of the 3-pin Common Cathode LED
  * =========================================================================
  */
  
@@ -74,6 +77,11 @@
 #define MAGNETIC_DECLINATION 3.4	 											// angle between magnetic north and true north
 #define INTERVAL_MS_PRINT 50 														// Sets the minimum time interval between printing sensor data.
 
+// Notification Pins
+#define BUZZER_PIN 21
+#define LED_RED_PIN 17    // Connect via 330-ohm resistor! (Common Cathode)
+#define LED_GREEN_PIN 18  // Connect via 330-ohm resistor! (Common Cathode)
+
 MPU9250 mpu; // handler: allowing access to all library methods
 unsigned long lastPrintMillis = 0; // Tracks the timestamp (from millis()) of the last time sensor data was printed to Serial
 
@@ -97,7 +105,14 @@ U8G2_SSD1306_128X32_UNIVISION_F_SW_I2C u8g2(U8G2_R0, /* clock=*/ I2C_OLED_SCL, /
 #define font_8_pixel u8g2_font_helvB08_tf
 #define font_5_pixel u8g2_font_spleen5x8_me
 #define update_rate_oled 1500
-#define OLED_SLEEP_TIMEOUT_MS 20000                       // Time in milliseconds before OLED sleeps
+#define OLED_SLEEP_TIMEOUT_MS 20000                       // defualt Time in milliseconds before OLED sleeps
+
+// Notification Timings
+#define ALARM_BEEP_MS 150       // Duration of error beeps during  failure      
+#define TAG_BEEP_MS 50          // Duration of short beep for Waypoint TAG
+#define TAG_BLINK_MS 100        // Duration of Green LED flash for TAG
+#define Recheck_SD_MS 3000      // Wait time before retrying SD initialization
+
 /*//////////////////////////// RTOS Data Structures ////////////////////////////*/
 
 // Binary structure to hold one frame of sensor data safely (49 Bytes)
@@ -122,7 +137,7 @@ volatile UIState currentState = STATE_LIVE_VIEW;
 #define MENU_ITEMS_COUNT 5
 const char* menuItems[MENU_ITEMS_COUNT] = {
     "1.Display Mode",
-    "2.Step Feedback",
+    "2.Mute Sounds",
     "3.SD Card Info",
     "4.Calibration",
     "5.Exit Menu"
@@ -189,6 +204,7 @@ void loggingTask(void *pvParameters) {
   unsigned long lastDisplayMillis = 0;
   unsigned long lastFlushMillis = 0;
   unsigned long lastBtnCheckMillis = 0; 
+
   
   // State tracking variables for Edge Detection
   bool selectWasPressed = false;
@@ -203,13 +219,30 @@ void loggingTask(void *pvParameters) {
   uint32_t sd_free_mb = 0;
   float sd_remain_hours = 0.0;
 
-  // === NEW: Power Management Variables ===
+  // === Power Management Variables ===
   bool is_oled_sleeping = false;
   bool auto_off_enabled = true; // Default: OLED sleeps after 20s
   unsigned long last_interaction_millis = millis();
   
+  // === Sound & Notification Management Variables ===
+  bool is_muted = false; // Default: Sounds are ON
+  unsigned long buzzer_turn_off_time = 0;
+  unsigned long led_turn_off_time = 0;
+  bool is_buzzer_on = false;
+  bool is_led_on = false;
+  
   for(;;) {
     unsigned long currentMillis = millis();
+
+    // === PHASE 0: Non-Blocking Hardware Notifications ===
+    if (is_buzzer_on && (currentMillis >= buzzer_turn_off_time)) {
+        digitalWrite(BUZZER_PIN, LOW);
+        is_buzzer_on = false;
+    }
+    if (is_led_on && (currentMillis >= led_turn_off_time)) {
+        digitalWrite(LED_GREEN_PIN, LOW); // Turn off Green LED
+        is_led_on = false;
+    }
 
     // === PHASE 1: Button Edge Detection & Debouncing ===
     bool selectTriggered = false, upTriggered = false, downTriggered = false;
@@ -222,6 +255,18 @@ void loggingTask(void *pvParameters) {
             tag_event_triggered = true; 
             tagWasPressed = true; 
             last_interaction_millis = currentMillis; 
+            
+            // Trigger Fast Feedback (Non-Blocking)
+            if (!is_muted) { 
+                digitalWrite(BUZZER_PIN, HIGH);
+                is_buzzer_on = true;
+                buzzer_turn_off_time = currentMillis + TAG_BEEP_MS; // 50ms Beep
+            }
+            
+            // Green LED always flashes for TAG, even in stealth mode
+            digitalWrite(LED_GREEN_PIN, HIGH);
+            is_led_on = true;
+            led_turn_off_time = currentMillis + TAG_BLINK_MS; // 100ms LED Flash
         }
       } else { tagWasPressed = false; }
 
@@ -298,10 +343,16 @@ void loggingTask(void *pvParameters) {
             last_interaction_millis = currentMillis; // Reset timer just in case
         }
         else if (menuCursor == 1) {
-            // Future: Step Feedback Placeholder
-            snprintf(subMenuMsg, sizeof(subMenuMsg), "Under Construct!");
+            // Action: Toggle Mute Sounds
+            is_muted = !is_muted;
+            if (is_muted) {
+                snprintf(subMenuMsg, sizeof(subMenuMsg), "Sounds: MUTED");
+            } else {
+                snprintf(subMenuMsg, sizeof(subMenuMsg), "Sounds: ON");
+            }
             currentState = STATE_SUBMENU_MSG;
             force_update_ui = true;
+            last_interaction_millis = currentMillis; // Reset timer just in case
         }
         else if (menuCursor == 2) {
             // Action: SD Card Info
@@ -437,19 +488,48 @@ void setup()
   delay(1000);
   u8g2.setFont(font_8_pixel); 
 
-  // Initialize SD Card
+  // Initialize Notification Hardware (Standard LED & Buzzer)
+  pinMode(BUZZER_PIN, OUTPUT);
+  digitalWrite(BUZZER_PIN, LOW);
+  pinMode(LED_RED_PIN, OUTPUT);
+  digitalWrite(LED_RED_PIN, LOW);
+  pinMode(LED_GREEN_PIN, OUTPUT);
+  digitalWrite(LED_GREEN_PIN, LOW);
+
+  // Initialize SD Card with Critical Error Feedback (Blocking Loop)
   SPI.begin(SD_SCK_PIN, SD_MISO_PIN, SD_MOSI_PIN, SD_CS_PIN);
-  if (!sd.begin(SD_CS_PIN, SD_SCK_MHZ(SPI_FREQ_MHZ))) {
-    Serial.println("SD Card Mount Failed!");
+  
+  // Trap the system here indefinitely until the SD card is successfully mounted
+  while (!sd.begin(SD_CS_PIN, SD_SCK_MHZ(SPI_FREQ_MHZ))) {
+    Serial.println("CRITICAL: SD Card Mount Failed! Waiting for SD...");
+
+    // Render Error Message on OLED (Center-Aligned)
     u8g2.clearBuffer();
-    u8g2.drawStr(10, 20, "SD Card Error!");
+    const char* line1 = "SD Card Error!";
+    const char* line2 = "Insert/Check SD";
+    // Calculate X coordinates for perfect centering
+    int x1 = (u8g2.getDisplayWidth() - u8g2.getStrWidth(line1)) / 2;
+    int x2 = (u8g2.getDisplayWidth() - u8g2.getStrWidth(line2)) / 2;
+    u8g2.drawStr(x1, 12, line1);
+    u8g2.drawStr(x2, 28, line2);
     u8g2.sendBuffer();
-    delay(3000);
-  } else {
-    Serial.println("SD Card Mounted Successfully.");
-    // Open binary log file
-    logFile = sd.open("DR_LOG.BIN", FILE_WRITE);
-  }
+
+    // Hardware Alarm: Red LED + Beeps     
+    digitalWrite(LED_RED_PIN, HIGH); 
+    for(int i = 0; i < 2; i++) {
+      digitalWrite(BUZZER_PIN, HIGH);
+      delay(100);
+      digitalWrite(BUZZER_PIN, LOW);
+      delay(100);
+    }
+
+    delay(Recheck_SD_MS);
+  } 
+  digitalWrite(LED_RED_PIN, LOW); // Turn off red LED
+  // If we break out of the while loop, the SD card is successfully mounted!
+  Serial.println("SD Card Mounted Successfully.");
+  // Open binary log file
+  logFile = sd.open("DR_LOG.BIN", FILE_WRITE);
 
 	MPU9250Setting setting;
 	// Initialize MPU9250 
