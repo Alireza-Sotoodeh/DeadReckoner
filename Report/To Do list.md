@@ -13,8 +13,8 @@ update: 2026-06-12
 - [ ] live view update menu (make it better)
   
   - [ ] dose i have to be worry about battery icon?
-    
-    
+
+- [ ]  safe shut down
 
 ---
 
