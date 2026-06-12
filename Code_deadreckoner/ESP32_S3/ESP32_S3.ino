@@ -1,5 +1,5 @@
-// Last Edit: 2026-06-12 16:05:00
-// Reason for Last Edit: Implemented SD Card Dynamic Runtime Recovery and shifted unsafe Flash pins to secure GPIOs.
+// Last Edit: 2026-06-12 19:05:00
+// Reason for Last Edit: Implemented Union structure for memory optimization and prepared PSRAM integration.
 // Author: Alireza Sotoodeh
 
 /*
@@ -49,6 +49,7 @@
 #include <Wire.h>    // I2C library
 #include <SPI.h>     // SPI library for SD Card
 #include <SdFat.h>   // SdFat library for high-speed logging
+#include "esp_heap_caps.h" // Required for explicit PSRAM memory allocation
 
 /*////////////////////////////defines////////////////////////////*/
 
@@ -117,15 +118,28 @@ unsigned long lastPrintMillis = 0;
 
 /*//////////////////////////// RTOS Data Structures ////////////////////////////*/
 
-// Binary structure to hold one frame of sensor data safely (49 Bytes)
+#pragma pack(push, 1) // Force absolute 1-byte alignment for all enclosed structures
+// Optimized Binary structure using Union (Guaranteed Exactly 33 Bytes)
 typedef struct {
-    uint32_t frame_seq;
-    float q[4];
-    float accel[3];
-    double gps_lat;
-    double gps_lng;
-    uint8_t event_flag; // 1 if TAG button was pressed, 0 otherwise, 0xAA if it is a Gap Recovery Frame
+    uint32_t frame_seq;       // 4 Bytes: Sequential index
+    uint8_t event_flag;       // 1 Byte: 0=IMU, 1=TAG, 0xAA=SD_GAP, 0xBB=GPS
+    
+    // Memory Overlap: Total size strictly 28 Bytes
+    union {
+        struct {
+            float q[4];
+            float accel[3];
+        } imu;
+        
+        struct {
+            double lat;
+            double lng;
+        } gps;
+    } payload;
+    
 } LogFrame;
+#pragma pack(pop) // Restore default compiler alignment
+
 // UI State Machine Definitions
 enum UIState {
     STATE_LIVE_VIEW,
@@ -155,8 +169,12 @@ volatile bool tag_event_triggered = false;
 volatile bool mpu_critical_error = false;
 volatile bool sd_critical_error = false;
 char current_log_filename[20] = "DR_LOG_001.BIN"; //Tracks the active file to resume appending after failure
-// FreeRTOS Handles
+
+// FreeRTOS Handles & PSRAM Queue
 QueueHandle_t dataQueue;
+#define QUEUE_LENGTH 50000 // 50,000 frames = ~8.3 Minutes of Buffer at 100Hz!
+uint8_t *queueBuffer;      // Pointer to hold the massive 1.6MB buffer in PSRAM
+StaticQueue_t *queueStruct;// Pointer to hold the Queue control structure in internal RAM
 TaskHandle_t sensorTaskHandle;
 TaskHandle_t loggingTaskHandle;
 
@@ -205,6 +223,9 @@ void attemptMPURecovery() {
 // =========================================================================
 // SD CARD DYNAMIC RECOVERY PROTOCOL
 // =========================================================================
+// =========================================================================
+// SD CARD DYNAMIC RECOVERY PROTOCOL
+// =========================================================================
 bool attemptSDRecovery() {
     logFile.close();
     SPI.end();
@@ -212,7 +233,17 @@ bool attemptSDRecovery() {
     SPI.begin(SD_SCK_PIN, SD_MISO_PIN, SD_MOSI_PIN, SD_CS_PIN);
     
     if (sd.begin(SD_CS_PIN, SD_SCK_MHZ(SPI_FREQ_MHZ))) {
-        // Re-open the EXACT SAME file to append data, instead of creating a new one
+        // INDUSTRIAL FIX: NEVER append to a hardware-corrupted binary file!
+        // Generate a uniquely prefixed file name (REC_) to easily identify post-crash recovered sessions.
+        char filename[20] = "REC_001.BIN";
+        int fileNum = 1;
+        while (sd.exists(filename)) {
+            fileNum++;
+            if (fileNum > 999) break;
+            snprintf(filename, sizeof(filename), "REC_%03d.BIN", fileNum);
+        }
+        strcpy(current_log_filename, filename); // Update global tracker
+        
         logFile = sd.open(current_log_filename, FILE_WRITE);
         if (logFile) {
             sd_critical_error = false; 
@@ -246,23 +277,23 @@ void sensorTask(void *pvParameters) {
 
     if (mpu.update()) {
       last_mpu_data_time = millis(); // Reset timeout counter
-      frame.frame_seq = global_frame_counter++;
-      frame.q[0] = mpu.getQuaternionW();
-      frame.q[1] = mpu.getQuaternionX();
-      frame.q[2] = mpu.getQuaternionY();
-      frame.q[3] = mpu.getQuaternionZ();
-      frame.accel[0] = mpu.getLinearAccX();
-      frame.accel[1] = mpu.getLinearAccY();
-      frame.accel[2] = mpu.getLinearAccZ();
-      frame.gps_lat = 0.0; // Ready for S6MV2 GPS module
-      frame.gps_lng = 0.0;
+      
+      frame.frame_seq = global_frame_counter++; 
+      frame.event_flag = 0; // Default: 0 marks standard high-speed IMU packet
+      
+      // Updated syntax to target the optimized overlapping payload union
+      frame.payload.imu.q[0] = mpu.getQuaternionW();
+      frame.payload.imu.q[1] = mpu.getQuaternionX();
+      frame.payload.imu.q[2] = mpu.getQuaternionY();
+      frame.payload.imu.q[3] = mpu.getQuaternionZ();
+      frame.payload.imu.accel[0] = mpu.getLinearAccX();
+      frame.payload.imu.accel[1] = mpu.getLinearAccY();
+      frame.payload.imu.accel[2] = mpu.getLinearAccZ();
       
       // Thread-safe check for Waypoint Tagging
       if (tag_event_triggered) {
-          frame.event_flag = 1;
+          frame.event_flag = 1; // 1 marks user button interaction event
           tag_event_triggered = false; // Reset the flag after recording
-      } else {
-          frame.event_flag = 0;
       }
       
       // Send to queue without blocking. If queue is full, frame drops (keeps real-time integrity)
@@ -335,11 +366,9 @@ void loggingTask(void *pvParameters) {
             if (attemptSDRecovery()) {
                 LogFrame gapFrame;
                 gapFrame.frame_seq = 0xFFFFFFFF;    
-                memset(gapFrame.q, 0, sizeof(gapFrame.q));
-                memset(gapFrame.accel, 0, sizeof(gapFrame.accel));
-                gapFrame.gps_lat = 0.0;
-                gapFrame.gps_lng = 0.0;
-                gapFrame.event_flag = 0xAA;         
+                // Clear the internal union payload using the correct sub-struct reference
+                memset(gapFrame.payload.imu.q, 0, sizeof(gapFrame.payload.imu.q));
+                memset(gapFrame.payload.imu.accel, 0, sizeof(gapFrame.payload.imu.accel));        
                 
                 logFile.write((uint8_t*)&gapFrame, sizeof(LogFrame));
                 logFile.sync();
@@ -794,16 +823,18 @@ void loggingTask(void *pvParameters) {
             
             if (currentState == STATE_LIVE_VIEW) {
               char buf[32];
-              snprintf(buf, sizeof(buf), "Qw: %.2f", receivedFrame.q[0]);
-              u8g2.drawStr(0, 7, buf);
-              snprintf(buf, sizeof(buf), "Qx: %.2f", receivedFrame.q[1]);
-              u8g2.drawStr(0, 15, buf);
-              snprintf(buf, sizeof(buf), "Qy: %.2f", receivedFrame.q[2]);
-              u8g2.drawStr(64, 7, buf);
-              snprintf(buf, sizeof(buf), "Qz: %.2f", receivedFrame.q[3]);
-              u8g2.drawStr(64, 15, buf);
-              snprintf(buf, sizeof(buf), "T: %.1fC", mpu.getTemperature());
-              u8g2.drawStr(0, 28, buf);
+              // Fixed Syntax & Compressed Layout for 128x32 OLED (Two-Column Grid Optimization)
+              // Row 1 (Y=8): Quaternions W & X
+              snprintf(buf, sizeof(buf), "Qw:%.2f", receivedFrame.payload.imu.q[0]); u8g2.drawStr(0, 8, buf);
+              snprintf(buf, sizeof(buf), "Qx:%.2f", receivedFrame.payload.imu.q[1]); u8g2.drawStr(64, 8, buf);
+              
+              // Row 2 (Y=19): Quaternions Y & Z
+              snprintf(buf, sizeof(buf), "Qy:%.2f", receivedFrame.payload.imu.q[2]); u8g2.drawStr(0, 19, buf);
+              snprintf(buf, sizeof(buf), "Qz:%.2f", receivedFrame.payload.imu.q[3]); u8g2.drawStr(64, 19, buf);
+              
+              // Row 3 (Y=31): System Frame Sequence Counter & Non-blocking MPU Temperature
+              snprintf(buf, sizeof(buf), "Seq:%lu", receivedFrame.frame_seq); u8g2.drawStr(0, 31, buf);
+              snprintf(buf, sizeof(buf), "T:%.1fC", mpu.getTemperature()); u8g2.drawStr(76, 31, buf);
             } 
             else if (currentState == STATE_MENU) {
               u8g2.drawStr(0, 8, "--- MENU ---");
@@ -1004,8 +1035,27 @@ void setup()
   loadCalibration();
   print_calibration();
   u8g2.setFont(font_5_pixel);
-  // Create queue capable of buffering 300 frames (~3 seconds of data at 100Hz)
-  dataQueue = xQueueCreate(300, sizeof(LogFrame));
+  // =========================================================================
+  // PSRAM ALLOCATION & QUEUE CREATION
+  // =========================================================================
+  // 1. Allocate the 1.6MB data buffer strictly in the external PSRAM
+  queueBuffer = (uint8_t *)heap_caps_malloc(QUEUE_LENGTH * sizeof(LogFrame), MALLOC_CAP_SPIRAM);
+  
+  // 2. Allocate the Queue Manager struct strictly in internal 8-bit RAM (for scheduler speed)
+  queueStruct = (StaticQueue_t *)heap_caps_malloc(sizeof(StaticQueue_t), MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
+
+  if (queueBuffer == NULL || queueStruct == NULL) {
+      Serial.println("CRITICAL: Failed to allocate PSRAM for Queue! System Halted.");
+      u8g2.clearBuffer();
+      u8g2.drawStr(10, 15, "PSRAM ERROR!");
+      u8g2.sendBuffer();
+      while(1); // Trap the system here if PSRAM is defective or disabled in Arduino settings
+  }
+
+  // 3. Create the Static Queue using the allocated memory
+  dataQueue = xQueueCreateStatic(QUEUE_LENGTH, sizeof(LogFrame), queueBuffer, queueStruct);
+  Serial.println("SUCCESS: 50,000-Frame Buffer allocated in PSRAM.");
+  
   // Pin Sensor Task to Core 0 (Highest Priority)
   xTaskCreatePinnedToCore(sensorTask, "SensorTask", 4096, NULL, 2, &sensorTaskHandle, 0);
   // Pin Logging Task to Core 1
