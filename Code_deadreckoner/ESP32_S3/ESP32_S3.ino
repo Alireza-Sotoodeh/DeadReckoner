@@ -1,5 +1,5 @@
-// Last Edit: 2026-06-11 22:10:00  
-// Reason for Last Edit: Implemented MPU9250 dynamic recovery with Wire.setTimeout and non-blocking I2C bus reset.
+// Last Edit: 2026-06-12 16:05:00
+// Reason for Last Edit: Implemented SD Card Dynamic Runtime Recovery and shifted unsafe Flash pins to secure GPIOs.
 // Author: Alireza Sotoodeh
 
 /*
@@ -25,7 +25,7 @@
  * -------------------------------------------------------------------------
  * SD Card 3V3   | 3.3V          | DIRECT 3.3V ONLY (Bypassing 5V regulators)
  * SD Card GND   | GND           | Common system ground
- * SD Card CS    | GPIO 10       | FSPI CS0 (High-speed line)
+ * SD Card CS    | GPIO 15       | FSPI CS0 (High-speed line)
  * SD Card MOSI  | GPIO 11       | FSPI MOSI
  * SD Card SCK   | GPIO 12       | FSPI SCK (Running at 20MHz)
  * SD Card MISO  | GPIO 13       | FSPI MISO
@@ -33,12 +33,11 @@
  * BTN SELECT    | GPIO 1        | Menu Enter/Toggle (Active-Low, Internal Pull-up)
  * BTN UP        | GPIO 2        | Menu Navigation (Active-Low, Internal Pull-up)
  * BTN DOWN      | GPIO 8        | Menu Navigation (Active-Low, Internal Pull-up)
- * BTN TAG       | GPIO 9        | Waypoint Marker (Active-Low, Internal Pull-up)
+ * BTN TAG       | GPIO 14       | Waypoint Marker (Active-Low, Internal Pull-up)
  * -------------------------------------------------------------------------
- * BUZZER (+)    | GPIO 21       | Active Buzzer (Driven via digitalWrite HIGH, use 100-ohm series resistor)
- * BUZZER (-)    | GND           | Common ground return
- * LED RED       | GPIO 17       | Critical Error Warning (Requires 220~330 ohm series resistor)
- * LED GREEN     | GPIO 18       | TAG Event Indicator (Requires 220~330 ohm series resistor)
+ * BUZZER (+)    | GPIO 21       | Active Buzzer (use 100-ohm series resistor)
+ * LED RED       | GPIO 17       | Requires 220~330 ohm series resistor
+ * LED GREEN     | GPIO 18       | Requires 220~330 ohm series resistor
  * LED CATHODE   | GND           | Center long pin of the 3-pin Common Cathode LED
  * =========================================================================
  */
@@ -52,74 +51,80 @@
 #include <SdFat.h>   // SdFat library for high-speed logging
 
 /*////////////////////////////defines////////////////////////////*/
-#define bud_rate 115200
 
-// UI and Button Pins (Active-Low, Internal Pull-up)
-#define BTN_SELECT_PIN 1
-#define BTN_UP_PIN 2
-#define BTN_DOWN_PIN 8
-#define BTN_TAG_PIN 9
+// =========================================================================
+// pin definition
+// =========================================================================
+  // Button Pins 
+  #define BTN_SELECT_PIN 1
+  #define BTN_UP_PIN 2
+  #define BTN_DOWN_PIN 8
+  #define BTN_TAG_PIN 14
+  // MPU9250
+  #define I2C_MPU_SDA 4
+  #define I2C_MPU_SCL 5
+  // 0.91 inch OLED
+  #define I2C_OLED_SDA 6
+  #define I2C_OLED_SCL 7
+  // DIY SD Card 
+  #define SD_CS_PIN 15
+  #define SD_MOSI_PIN 11
+  #define SD_SCK_PIN 12
+  #define SD_MISO_PIN 13
+  // Notification Pins
+  #define BUZZER_PIN 21
+  #define LED_RED_PIN 17                                  
+  #define LED_GREEN_PIN 18                                
+// =========================================================================
+// setting definition
+// =========================================================================
+  // serial print
+  #define bud_rate 115200
+  // DIY SD card
+  #define SPI_FREQ_MHZ 20                                 // max is 26MHZ
+  #define Attempt_Runtime_SD_recovery_MS 3000
+  #define Recheck_SD_beforeBoot_MS 3000                                // Wait time before retrying SD initialization
+  // MPU9250 setting
+  MPU9250 mpu; // handler: allowing access to all library methods
+  #define MPU9250_IMU_ADDRESS 0x68 												// Specifies the I2C slave address of the MPU9250:0x68 GND / 0x69 High
+  #define MAGNETIC_DECLINATION 3.4	 											// angle between magnetic north and true north (should be fix for diffrent city)
+  #define MPU9250_Accelerometer_Rang  A2G 								//select: A2G, A4G, A8G, A16G
+  #define MPU9250_Gyroscope_Rang  G500DPS 								//select: G250DPS, G500DPS, G1000DPS, G2000DPS
+  #define MPU9250_Magnetometer_resolution  M16BITS 				//select: M14BITS, M16BITS
+  #define MPU9250_fifo_sample_rate  SMPL_1000HZ 					//select: SMPL_1000HZ, SMPL_500HZ, SMPL_333HZ, SMPL_250HZ, SMPL_200HZ, SMPL_167HZ, SMPL_143HZ, SMPL_125HZ
+  #define MPU9250_Gyroscope_filter_choice  0x01						//select: 0x00: Enables DLPF with 8kHz sample rate|0x01: Enables DLPF with 1kHz sample rate|0x02 or 0x03: Bypasses DLPF
+  #define MPU9250_Gyroscope_DLPF_cutoff  DLPF_5HZ 				//select: DLPF_250HZ, DLPF_184HZ, DLPF_92HZ, DLPF_41HZ, DLPF_20HZ, DLPF_10HZ, DLPF_5HZ, DLPF_3600HZ
+  #define MPU9250_Accelerometer_filter_choice  0x01				//select: 0x01 Enable, 0x00 bypass
+  #define MPU9250_Accelerometer_DLPF_cutoff  DLPF_5HZ 		//select: DLPF_218HZ_0, DLPF_218HZ_1, DLPF_99HZ, DLPF_45HZ, DLPF_21HZ, DLPF_10HZ, DLPF_5HZ, DLPF_420HZ
+  #define MPU9250_filter_algorithm	MADGWICK 							//select: MADGWICK, MAHONY, NONE
+  #define MPU9250_filter_iterations	10										//select: 1-50 higher better but may slow down
+  #define attempt_recovery_MPU9250_MS 2000
+  // OLED 
+  U8G2_SSD1306_128X32_UNIVISION_F_SW_I2C u8g2(U8G2_R0, /* clock=*/ I2C_OLED_SCL, /* data=*/ I2C_OLED_SDA, /* reset=*/ U8X8_PIN_NONE);
+  #define font_10_pixel u8g2_font_t0_15b_me
+  #define font_8_pixel u8g2_font_helvB08_tf
+  #define font_5_pixel u8g2_font_spleen5x8_me
+  #define update_rate_oled 1500
+  #define OLED_SLEEP_TIMEOUT_MS 20000                       // default Time in milliseconds before OLED sleeps
+  // Notification Timings
+  #define ALARM_BEEP_MS 100                                 // Duration of error beeps during SD failure      
+  #define TAG_BEEP_MS 50                                    // Duration of short beep for Waypoint TAG
+  #define TAG_BLINK_MS 100                                  // Duration of Green LED flash for TAG
+  
 
-#define I2C_MPU_SDA 4
-#define I2C_MPU_SCL 5
-#define I2C_OLED_SDA 6
-#define I2C_OLED_SCL 7
-
-// SPI Pins for SD Card (ESP32-S3 specific to avoid GPIO 5 collision)
-#define SD_CS_PIN 10
-#define SD_MOSI_PIN 11
-#define SD_SCK_PIN 12
-#define SD_MISO_PIN 13
-#define SPI_FREQ_MHZ 20 // Optimal speed derived from hardware sweep
-
-// MPU9250
-#define MPU9250_IMU_ADDRESS 0x68 												// Specifies the I2C slave address of the MPU9250:0x68 GND / 0x69 High
-#define MAGNETIC_DECLINATION 3.4	 											// angle between magnetic north and true north
-#define INTERVAL_MS_PRINT 50 														// Sets the minimum time interval between printing sensor data.
-// Notification Pins
-#define BUZZER_PIN 21
-#define LED_RED_PIN 17    // Connect via 330-ohm resistor! (Common Cathode)
-#define LED_GREEN_PIN 18  // Connect via 330-ohm resistor! (Common Cathode)
-
-MPU9250 mpu; // handler: allowing access to all library methods
-unsigned long lastPrintMillis = 0; // Tracks the timestamp (from millis()) of the last time sensor data was printed to Serial
-
-// MPU9250 setting
-#define MPU9250_Accelerometer_Rang  A2G 								//select: A2G, A4G, A8G, A16G
-#define MPU9250_Gyroscope_Rang  G500DPS 								//select: G250DPS, G500DPS, G1000DPS, G2000DPS
-#define MPU9250_Magnetometer_resolution  M16BITS 				//select: M14BITS, M16BITS
-#define MPU9250_fifo_sample_rate  SMPL_1000HZ 					//select: SMPL_1000HZ, SMPL_500HZ, SMPL_333HZ, SMPL_250HZ, SMPL_200HZ, SMPL_167HZ, SMPL_143HZ, SMPL_125HZ
-#define MPU9250_Gyroscope_filter_choice  0x01						//select: 0x00: Enables DLPF with 8kHz sample rate|0x01: Enables DLPF with 1kHz sample rate|0x02 or 0x03: Bypasses DLPF
-#define MPU9250_Gyroscope_DLPF_cutoff  DLPF_5HZ 				//select: DLPF_250HZ, DLPF_184HZ, DLPF_92HZ, DLPF_41HZ, DLPF_20HZ, DLPF_10HZ, DLPF_5HZ, DLPF_3600HZ
-#define MPU9250_Accelerometer_filter_choice  0x01				//select: 0x01 Enable, 0x00 bypass
-#define MPU9250_Accelerometer_DLPF_cutoff  DLPF_5HZ 		//select: DLPF_218HZ_0, DLPF_218HZ_1, DLPF_99HZ, DLPF_45HZ, DLPF_21HZ, DLPF_10HZ, DLPF_5HZ, DLPF_420HZ
-#define MPU9250_filter_algorithm	MADGWICK 							//select: MADGWICK, MAHONY, NONE
-#define MPU9250_filter_iterations	10										//select: 1-50 higher better but may slow down
-
-// OLED setup (0.91-inch SSD1306, 128x32, Software I2C) Safe on Core 1.
-U8G2_SSD1306_128X32_UNIVISION_F_SW_I2C u8g2(U8G2_R0, /* clock=*/ I2C_OLED_SCL, /* data=*/ I2C_OLED_SDA, /* reset=*/ U8X8_PIN_NONE);
-#define font_10_pixel u8g2_font_t0_15b_me
-#define font_8_pixel u8g2_font_helvB08_tf
-#define font_5_pixel u8g2_font_spleen5x8_me
-#define update_rate_oled 1500
-#define OLED_SLEEP_TIMEOUT_MS 20000                       // default Time in milliseconds before OLED sleeps
-
-// Notification Timings
-#define ALARM_BEEP_MS 100       // Duration of error beeps during SD failure      
-#define TAG_BEEP_MS 50          // Duration of short beep for Waypoint TAG
-#define TAG_BLINK_MS 100        // Duration of Green LED flash for TAG
-#define Recheck_SD_MS 3000      // Wait time before retrying SD initialization
+// Tracks the timestamp (from millis()) of the last time sensor data was printed to Serial
+unsigned long lastPrintMillis = 0; 
 
 /*//////////////////////////// RTOS Data Structures ////////////////////////////*/
 
 // Binary structure to hold one frame of sensor data safely (49 Bytes)
 typedef struct {
-    uint32_t timestamp;
+    uint32_t frame_seq;
     float q[4];
     float accel[3];
     double gps_lat;
     double gps_lng;
-    uint8_t event_flag; // 1 if TAG button was pressed, 0 otherwise
+    uint8_t event_flag; // 1 if TAG button was pressed, 0 otherwise, 0xAA if it is a Gap Recovery Frame
 } LogFrame;
 // UI State Machine Definitions
 enum UIState {
@@ -148,6 +153,8 @@ char subMenuMsg[20] = "";
 // Inter-Core Communication Flags
 volatile bool tag_event_triggered = false;
 volatile bool mpu_critical_error = false;
+volatile bool sd_critical_error = false;
+char current_log_filename[20] = "DR_LOG_001.BIN"; //Tracks the active file to resume appending after failure
 // FreeRTOS Handles
 QueueHandle_t dataQueue;
 TaskHandle_t sensorTaskHandle;
@@ -196,28 +203,50 @@ void attemptMPURecovery() {
 }
 
 // =========================================================================
+// SD CARD DYNAMIC RECOVERY PROTOCOL
+// =========================================================================
+bool attemptSDRecovery() {
+    logFile.close();
+    SPI.end();
+    
+    SPI.begin(SD_SCK_PIN, SD_MISO_PIN, SD_MOSI_PIN, SD_CS_PIN);
+    
+    if (sd.begin(SD_CS_PIN, SD_SCK_MHZ(SPI_FREQ_MHZ))) {
+        // Re-open the EXACT SAME file to append data, instead of creating a new one
+        logFile = sd.open(current_log_filename, FILE_WRITE);
+        if (logFile) {
+            sd_critical_error = false; 
+            return true;
+        }
+    }
+    return false; 
+}
+
+// =========================================================================
 // Core 0 Task
 // Strictly for high-speed sensor reading and mathematical fusion
 // =========================================================================
 void sensorTask(void *pvParameters) {
   LogFrame frame;
-  unsigned long last_mpu_data_time = millis(); // Track last successful read
-  unsigned long last_recovery_attempt = 0;     // NEW: Tracks recovery intervals
+  uint32_t global_frame_counter = 0;            //frame counter
+  unsigned long last_mpu_data_time = millis();  // Track last successful read
+  unsigned long last_recovery_attempt = 0;      // Tracks MPU9250 recovery intervals
+  unsigned long last_sd_recovery_attempt = 0;   // Tracks recovery intervals for SD Card
 
   for(;;) {
-    // If a critical error was flagged, attempt recovery every 2 seconds
+    // === INTERCEPTOR: CRITICAL MPU DISCONNECT ERROR ===
     if (mpu_critical_error) {
-        if (millis() - last_recovery_attempt > 2000) {
+        if (millis() - last_recovery_attempt > attempt_recovery_MPU9250_MS) {
             last_recovery_attempt = millis();
             attemptMPURecovery();
         }
-        vTaskDelay(pdMS_TO_TICKS(100));
+        vTaskDelay(pdMS_TO_TICKS(10));
         continue; // Skip sensor reading until recovered
     }
 
     if (mpu.update()) {
       last_mpu_data_time = millis(); // Reset timeout counter
-      frame.timestamp = millis();
+      frame.frame_seq = global_frame_counter++;
       frame.q[0] = mpu.getQuaternionW();
       frame.q[1] = mpu.getQuaternionX();
       frame.q[2] = mpu.getQuaternionY();
@@ -287,9 +316,60 @@ void loggingTask(void *pvParameters) {
   bool is_buzzer_on = false;
   bool is_led_on = false;
   bool error_handled = false; 
-  
+  unsigned long last_sd_recovery_attempt = 0;
+
   for(;;) {
     unsigned long currentMillis = millis();
+
+    // === INTERCEPTOR: RUNTIME SD CARD FAILURE RECOVERY ===
+    if (sd_critical_error) {
+        if (currentMillis - last_sd_recovery_attempt > 3000) {
+            last_sd_recovery_attempt = currentMillis;
+            is_oled_sleeping = false;
+            u8g2.setPowerSave(0); 
+            u8g2.clearBuffer();
+            u8g2.drawStr(5, 12, "SD CARD ERR!");
+            u8g2.drawStr(0, 26, "RETRIES ACTIVE...");
+            u8g2.sendBuffer();
+            
+            if (attemptSDRecovery()) {
+                LogFrame gapFrame;
+                gapFrame.frame_seq = 0xFFFFFFFF;    
+                memset(gapFrame.q, 0, sizeof(gapFrame.q));
+                memset(gapFrame.accel, 0, sizeof(gapFrame.accel));
+                gapFrame.gps_lat = 0.0;
+                gapFrame.gps_lng = 0.0;
+                gapFrame.event_flag = 0xAA;         
+                
+                logFile.write((uint8_t*)&gapFrame, sizeof(LogFrame));
+                logFile.sync();
+
+                // Clean hardware states explicitly
+                digitalWrite(LED_RED_PIN, LOW); // Force OFF Red LED
+                digitalWrite(LED_GREEN_PIN, HIGH);
+                if (!is_muted) digitalWrite(BUZZER_PIN, HIGH);
+                vTaskDelay(pdMS_TO_TICKS(150));
+                digitalWrite(LED_GREEN_PIN, LOW);
+                digitalWrite(BUZZER_PIN, LOW); // Force OFF Buzzer
+                
+                force_update_ui = true;
+                last_interaction_millis = currentMillis;
+                continue; // CRITICAL: Escape the error block immediately so Red LED doesn't latch ON!
+            }
+        }
+        
+        // Clean, rhythmic SOS pattern (100ms ON every 1000ms)
+        if ((currentMillis % 1000) < 100) {
+            digitalWrite(LED_RED_PIN, HIGH);
+            if (!is_muted) digitalWrite(BUZZER_PIN, HIGH);
+        } else {
+            digitalWrite(LED_RED_PIN, LOW);
+            digitalWrite(BUZZER_PIN, LOW);
+        }
+        
+        vTaskDelay(pdMS_TO_TICKS(30));
+        continue; 
+    }
 
     // === INTERCEPTOR: CRITICAL MPU DISCONNECT ERROR ===
     if (mpu_critical_error) {
@@ -619,7 +699,8 @@ void loggingTask(void *pvParameters) {
             fileNum++;
             snprintf(filename, sizeof(filename), "DR_LOG_%03d.BIN", fileNum);
           }
-          logFile = sd.open(filename, FILE_WRITE);
+          strcpy(current_log_filename, filename); 
+          logFile = sd.open(current_log_filename, FILE_WRITE);
           // Render instant feedback to the user on screen
           u8g2.clearBuffer();
           char flashBuf[25];
@@ -662,7 +743,8 @@ void loggingTask(void *pvParameters) {
               sd.remove(delFilename);
             }
           }
-          logFile = sd.open("DR_LOG_001.BIN", FILE_WRITE);
+          strcpy(current_log_filename, "DR_LOG_001.BIN"); 
+          logFile = sd.open(current_log_filename, FILE_WRITE);
           u8g2.clearBuffer();
           u8g2.drawStr((u8g2.getDisplayWidth() - u8g2.getStrWidth("All Logs Cleared!")) / 2, 20, "All Logs Cleared!");
           u8g2.sendBuffer();
@@ -678,10 +760,22 @@ void loggingTask(void *pvParameters) {
     // === PHASE 3: Pull Data from Queue & SD Logging ===
     if (xQueueReceive(dataQueue, &receivedFrame, pdMS_TO_TICKS(10)) == pdPASS) {
       if (logFile) {
-        logFile.write((uint8_t*)&receivedFrame, sizeof(LogFrame));
+        size_t bytesWritten = logFile.write((uint8_t*)&receivedFrame, sizeof(LogFrame));
+        
+        // Error Detection: If bytes written do not match the expected struct size, hardware link is broken
+        if (bytesWritten != sizeof(LogFrame)) {
+            sd_critical_error = true; // Trigger immediate dynamic recovery interceptor
+        }
+      } else {
+          sd_critical_error = true; // File pointer lost, enter error mode
       }
+      
       if (currentMillis - lastFlushMillis > 5000) { 
-        if (logFile) logFile.sync();
+        if (logFile) {
+            if (!logFile.sync()) {
+                sd_critical_error = true; // Sync failure means card was pulled out
+            }
+        }
         lastFlushMillis = currentMillis;
       }
       
@@ -828,9 +922,8 @@ void setup()
       digitalWrite(BUZZER_PIN, LOW);
       delay(ALARM_BEEP_MS);
     }
-    
-    delay(Recheck_SD_MS);
-    digitalWrite(LED_RED_PIN, LOW); // Reset LED state for next check cycle
+    delay(Recheck_SD_beforeBoot_MS);
+    digitalWrite(LED_RED_PIN, LOW); 
   } 
   
   // === Dynamic Sequential Logging Architecture ===
@@ -851,9 +944,9 @@ void setup()
     }
     snprintf(filename, sizeof(filename), "DR_LOG_%03d.BIN", fileNum);
   }
+  strcpy(current_log_filename, filename); 
+  logFile = sd.open(current_log_filename, FILE_WRITE);
 
-  // Open/Create the new unique sequential file
-  logFile = sd.open(filename, FILE_WRITE);
   if (logFile) {
     Serial.print("Success: Opened new log file -> ");
     Serial.println(filename);
