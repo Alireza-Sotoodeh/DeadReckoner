@@ -1,180 +1,156 @@
-# 🧭 Navigation with STM32 (Without GPS)
+# DeadReckoner
 
-A real-time embedded navigation system using the **STM32** and **MPU-based IMUs** to estimate orientation and position in the absence of GPS. Future modules include **WiFi**, **Bluetooth**, and **microSD logging**.
+A real-time, offline dead-reckoning and data-logging system built around the **ESP32-S3 N16R8**, the **MPU9250 IMU**, and a **binary SD-card logging pipeline**.
 
----
-
-## 📚 Table of Contents
-- [📌 Description](#-description)
-- [🧩 Hardware Modules](#-hardware-modules)
-- [✅ To-Do List](#-to-do-list)
-- [💡 Questions to Consider](#-questions-to-consider)
-- [📦 MPU6500 Overview](#-mpu6500-overview)
-- [📦 MPU9250 Overview](#-mpu9250-overview)
-- [⚖️ IMU Module Comparison](#️-imu-module-comparison)
-- [🛠️ MPU Configuration & Filtering](#-mpu-configuration--filtering)
-- [🔍 Choosing the Right Filter](#-choosing-the-right-filter)
-- [🐞 Current Issues](#-current-issues)
-- [📚 Libraries Used](#-libraries-used)
-- [🪪 License](#-license)
+The project started as a small IMU prototype and evolved into a multi-core embedded platform for high-rate sensing, safe storage, fault handling, and offline analysis.
 
 ---
 
-## 📌 Description
+## Overview
 
-This project aims to implement GPS-less navigation by tracking orientation and movement using an **MPU IMU**. The STM32 serves as the main controller, collecting and processing motion data, with output planned over **UART**, and future logging and transmission via **SD card**, **Bluetooth**, and **WiFi**.
+DeadReckoner is designed to record high-frequency inertial data without relying on live GPS.  
+The final architecture separates sensing, logging, user feedback, and recovery logic so the system can keep operating reliably in field conditions.
 
----
+### Core goals
 
-## 🧩 Hardware Modules
-
-| Module       | Function                          | Notes                  |
-|--------------|-----------------------------------|------------------------|
-| MPU6500      | 6-axis Accel & Gyro               | SPI & I2C              |
-| MPU9250      | 9-axis (Accel, Gyro, Magneto)     | SPI & I2C              |
-| HC-05        | Bluetooth                         | UART, ~10m range       |
-| ESP-01S      | WiFi (ESP8266)                    | UART                   |
-| microSD      | Data Logging                      | SPI                    |
-| GY-GPS6MV2   | GPS Module                        | UART, ~2.5m accuracy   |
-
+- High-rate IMU acquisition with minimal blocking
+- Binary logging to SD card with deterministic frame size
+- Safe shutdown and recovery during hardware faults
+- Offline analysis of quaternion and acceleration data
+- GNSS-ready data structure for future integration
 
 ---
 
-## ✅ To-Do List
+## Hardware Stack
 
-### Hardware Setup
-
-- [x] Setup MPU6500
-- [x] Setup MPU9250
-- [x] Add 3D animation to show orientation
-- [x] Compare 3-axis modules
-- [ ] SD card logging
-- [ ] GPS
-- [ ] HC-05 Bluetooth
-- [ ] BMP280
-
-### to do for increase accuracy
-
-- [ ] Use a Kalman Filter or Extended Kalman Filter (EKF) (e.g. TinyEKF)
-- [ ] RTIMULib for MPU9250 (is it better?) 
-- [ ] Incorporate BMP280 for Altitude Accuracy
-- [ ] Use GY-GPS6MV2 for Initial Position and Occasional Fixes
-- [ ] Dead Reckoning
-- [ ] Z
----
-
-## 💡 Questions to Consider
-
-- [ ] Should the initial coordinate come from GPS or mobile app?
-- [ ] Why are both WiFi and Bluetooth needed?
-- [ ] Is a display necessary for debugging/output?
-- [ ] Should Falcon filter be used for MPU calibration?
-- [ ] What should be the specific role of the SD card?
-- [ ] Is MPU9250 better than MPU6500?
-- [x] Which filter is better: Kalman or Madgwick? → ✅ **Madgwick**
+| Module                         | Role                      | Notes                                       |
+| ------------------------------ | ------------------------- | ------------------------------------------- |
+| **ESP32-S3 N16R8**             | Main controller           | Dual-core MCU with 16MB Flash and 8MB PSRAM |
+| **MPU9250**                    | Primary IMU               | 9-axis sensing for orientation estimation   |
+| **OLED 0.91-inch**             | Runtime display           | Used for status, menus, and fault messages  |
+| **SD Card (3.3V DIY adapter)** | Storage                   | Finalized for stable SPI logging            |
+| **EEPROM**                     | Calibration storage       | Stores sensor bias values                   |
+| **S6MV2 GNSS**                 | Future positioning module | Reserved in the logging structure           |
 
 ---
 
-## 📦 MPU6500 Overview
+## System Architecture
 
-### Recommended Configuration
+```mermaid
+flowchart LR
+  IMU[MPU9250] --> T0[sensorTaskCore 0]
+  T0 --> Q[xQueueLogFrame buffer]
+  Q --> T1[loggingTaskCore 1]
+  T1 --> SD[Binary SD Log]
+  T0 --> OLED[OLED Status Display]
+  T1 --> OLED
+  T1 --> FAULT[Fault / Recovery Handler]
+  SD --> OFF[Offline AnalysisMATLAB]
+```
 
-- **Sample Rate**: ≥200 Hz
-- **Accel Range**: ±2g to ±8g
-- **Gyro Range**: ±500–1000°/s
-- **DLPF**: 20–98 Hz
-- **DMP Mode**: Use for quaternion output
-- **Interrupts**: For responsive readouts
+### Key design choices
 
-| Mode | Description |
-|------|-------------|
-| Basic | Raw accel/gyro only |
-| DMP | Quaternion, low CPU load |
-| FIFO | For burst data collection |
-
----
-
-## 📦 MPU9250 Overview
-
-The MPU9250 is an upgraded version of the MPU6500, integrating a **3-axis magnetometer (AK8963)** for absolute heading.
-
-### Benefits
-
-- 9 DoF: Accel + Gyro + Mag
-- Suitable for full orientation tracking (yaw without drift)
-- Still supports DMP mode (though limited for mag data)
-- SPI/I2C interface
-
-### Configuration
-
-- **Magnetometer** sampling via AUX I2C pass-through or bypass
-- Compatible with Madgwick filter (requires `beta` tuning)
+- **Core 0** is dedicated to sensor acquisition and real-time fusion.
+- **Core 1** handles blocking storage work and file management.
+- A fixed-size **48-byte `LogFrame`** is used to keep the logging format stable.
+- The system uses **binary writes** instead of `Serial.print()` to avoid CPU overhead.
+- Faults are handled explicitly so the log file is closed safely before shutdown.
 
 ---
 
-## ⚖️ IMU Module Comparison
+## Highlights
 
-| Module   | Accel/Gyro | Magnetometer | Interface | Notes |
-|----------|------------|--------------|-----------|-------|
-| **MPU9250** | ✅ Yes     | ✅ Yes       | I2C/SPI   | Best overall, 9-axis, ideal for dead-reckoning |
-| MPU6500  | ✅ Yes     | ❌ No        | I2C/SPI   | Lightweight, no heading info |
-| GY521    | ✅ Yes     | ❌ No        | I2C       | Uses MPU6050, basic, lacks DMP/mag |
-| GY25     | ❌ No      | ✅ Yes       | UART      | Magnetometer-only, not sufficient alone |
-| HW-123   | ✅ Yes     | ❌ No        | I2C       | Generic MPU6050 board |
-
-### ✅ **Best Choice: MPU9250**
-
-The **MPU9250** offers full 9-axis sensing with good SPI support and works well with Madgwick filtering, making it ideal for GPS-less inertial navigation.
+- Dual-core FreeRTOS architecture
+- Queue-based producer-consumer data flow
+- EEPROM-backed calibration loading
+- Separate I2C paths for IMU and OLED
+- SD card boot scan and sequential file naming
+- MPU disconnect detection and emergency shutdown
+- MATLAB binary reader for offline plotting and validation
 
 ---
 
-## 🛠️ MPU Configuration & Filtering
+## Development Status
 
-| DLPF Setting | Accel (Hz) | Gyro (Hz) | Notes         |
-|--------------|------------|-----------|---------------|
-| DLPF_0       | 260        | 256       | Fast, noisy   |
-| DLPF_2       | 94         | 98        | Balanced      |
-| DLPF_4       | 21         | 20        | Clean motion  |
-| DLPF_6       | 5          | 5         | Very stable   |
-
----
-
-## 🔍 Choosing the Right Filter
-
-### ✅ Madgwick Filter
-- Low CPU load
-- Effective for orientation
-- Works with or without magnetometer
-- Tunable gain (`beta`)
-
-### ❌ Kalman Filter
-- Needs absolute reference (GPS, magnetometer)
-- Complex math and tuning
-- High CPU load on STM32
+| Subsystem                  | Status      |
+| -------------------------- | ----------- |
+| ESP32-S3 migration         | Complete    |
+| RTOS task separation       | Complete    |
+| Calibration persistence    | Complete    |
+| I2C optimization           | Complete    |
+| SD card logging            | Complete    |
+| Binary file format         | Complete    |
+| Fault detection & recovery | Complete    |
+| OLED menu and diagnostics  | Complete    |
+| Offline analysis tools     | Complete    |
+| GPS integration            | In progress |
 
 ---
 
-## 🐞 Current Issues
+## Development Roadmap
 
-- Dead reckoning drift over time
-- Need better sensor fusion + drift compensation
-- DMP mode not fully explored for MPU9250
-- Error codes and fault reporting need refining
+| Phase    | Status   | Summary                                       |
+| -------- | -------- | --------------------------------------------- |
+| Phase 0  | Complete | Legacy prototype and sensor research          |
+| Phase 1  | Complete | ESP32-S3 migration and hardware redesign      |
+| Phase 2  | Complete | RTOS and multi-core architecture              |
+| Phase 3  | Complete | Calibration fixes and I2C optimization        |
+| Phase 4  | Complete | Hardware validation and performance testing   |
+| Phase 5  | Complete | SD card storage architecture                  |
+| Phase 6  | Complete | Binary logging framework                      |
+| Phase 7  | Complete | Fault detection, recovery, and mission safety |
+| Phase 8  | Complete | User interface and operational monitoring     |
+| Phase 9  | Complete | Data analysis and validation toolchain        |
+| Phase 10 | Planned  | GPS integration and time synchronization      |
 
 ---
 
-## 📚 Libraries Used
+## Validation and Analysis
 
-- [MPU6500 Driver (libdriver)](https://github.com/libdriver/mpu6500)
-- [Madgwick Filter](https://github.com/xioTechnologies/Fusion)
+The system was tested through several hardware and motion experiments:
+
+- Static drift measurement
+- Dynamic return-to-zero testing
+- Vibration rejection testing
+- SD card write-speed benchmarking
+- Long-duration binary log validation
+
+Offline inspection is performed through MATLAB scripts that decode the 48-byte binary frames and plot orientation and acceleration trends.
 
 ---
 
-## 🪪 License
+## Repository Structure
+
+```text
+Code_deadreckoner/
+├── ESP32_S3/
+├── nodeMUC8266/
+├── Matlab/
+└── ...
+Diagram_deadreckoner/
+├── SD card adaptors-3.jpg
+├── SD card adaptors-4.png
+├── Li-ion-battery-discharge-voltage-curve.png
+└── Lipo_VS_LIIon.png
+Test- Sanity Check/
+└── ...
+```
+
+---
+
+## Related Files
+
+- `Report.md` — full architecture and progress report
+- `Progress.md` — engineering timeline extracted from commit history
+- MATLAB binary reader scripts for offline log visualization
+
+---
+
+## License
 
 **All rights reserved.**
 
-This source code is the intellectual property of **Alireza Sotoodeh**.  
-No part of this code may be copied, modified, distributed, or used without express written permission.
+This repository is the intellectual property of **Alireza Sotoodeh**.  
+No part of the code may be copied, modified, distributed, or used without express written permission.
 
-© 2025 Alireza Sotoodeh
+© 2026 Alireza Sotoodeh
