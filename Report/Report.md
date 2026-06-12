@@ -95,63 +95,44 @@ Before finalizing the software architecture, it is crucial to document the exact
 
 ---
 
-## 6. Software Architecture & Development Phases(toDo List)
-
-These phases follow a strict dependency sequence. Each phase acts as a prerequisite for the next.
-
-#### Phase 1: Hardware Migration & RTOS Architecture [COMPLETED]
-
-- [x] **Pin Porting:** Update hardware pin definitions to match the `ESP32-S3 N16R8` IO MUX matrix. (my hardware was `ESP8266 NodeMCU`)
-- [x] **FreeRTOS Implementation:** Decouple system logic into `sensorTask` (Core 0, high-frequency) and `loggingTask` (Core 1, low-frequency).
-- [x] **Race Condition Mitigation:** Implement Producer-Consumer pattern using a 48-byte binary `LogFrame` struct and a thread-safe `xQueue` buffer.
-
-#### Phase 2: Calibration Fixes & I2C Optimization [COMPLETED]
-
-- [x] **I2C Acceleration:** Boost hardware I2C bus clock to 400kHz (Fast Mode) to prevent IMU read bottlenecks.
-- [x] **Bus Collision Prevention:** Utilize `vTaskSuspend` and `vTaskResume` to freeze Core 0 during Core 1's blocking EEPROM routines.
-- [x] **EEPROM Load Bug Fix:** Implement manual deduction of loaded EEPROM bias values from raw sensor readings.
-- [x] **I2C Bus Separation:** Transition the OLED display to the secondary hardware I2C bus (`Wire1`).
-
-#### Phase 3: Hardware Validation & Storage Selection [COMPLETED]
-
-- [x] **MPU9250 Sanity Check**
-- [x] **0.91 inch oled Sanity Check**
-- [x] **Storage Medium Selection:** Finalize DIY SD Adapter directly connected to the ESP32 on the pure 3.3V logic rail. (Cap SPI frequency at 10 MHz to guarantee signal integrity over physical wires.)
-
-#### Phase 4: Binary Logging Implementation [PENDING]
-
-- [ ] **Binary Block Writing:** Replace string-based `Serial.print` operations with high-speed binary block writes (`file.write()`).
-- [ ] **Fail-Safe Strategy:** Code a periodic `file.flush()` routine to secure data integrity against sudden power loss.
-
-#### Phase 5: GPS Integration & Data Synchronization [PENDING]
-
-- [ ] **Hardware UART Initialization:** Configure the secondary serial port (UART1/2) strictly for the S6MV2 GNSS module.
-- [ ] **Data Injection:** Parse and inject double-precision coordinates (`gps_lat`, `gps_lng`) into the `LogFrame` queue.
-- [ ] **Time Synchronization Algorithm:** Develop temporal interpolation to align 1Hz GPS data with the 100Hz IMU stream.
-
----
-
-###### 7. Firmware Flashing Configuration (`ESP32-S3 N16R8`)
+## 6. Firmware Flashing Configuration (`ESP32-S3 N16R8`)
 
 *Comprehensive Arduino IDE settings required to utilize the full 16MB Flash and 8MB PSRAM, ensuring stable FreeRTOS execution and maximum data logging capacity.*
 
 - **Board:** ESP32S3 Dev Module
+
 - **USB CDC On Boot:** Disabled
+
 - **CPU Frequency:** 240MHz (WiFi)
+
 - **Core Debug Level:** None
+
 - **USB DFU On Boot:** Disabled
+
 - **Erase All Flash Before Sketch Upload:** Disabled
+
 - **Events Run On:** Core 1
+
 - **Flash Mode:** QIO 80MHz
+
 - **Flash Size:** 16MB (128Mb)
+
 - **JTAG Adapter:** Disabled
+
 - **Arduino Runs On:** Core 1
+
 - **USB Firmware MSC On Boot:** Disabled
+
 - **Partition Scheme:** 16M Flash (e.g., 3MB APP/9.9MB FATFS) *[CRITICAL: Must not be 4MB default]*
+
 - **PSRAM:** OPI PSRAM
+
 - **Upload Mode:** UART0 / Hardware CDC
+
 - **Upload Speed:** 921600
+
 - **USB Mode:** Hardware CDC and JTAG
+
 - **Zigbee Mode:** Disabled
 
 ---
