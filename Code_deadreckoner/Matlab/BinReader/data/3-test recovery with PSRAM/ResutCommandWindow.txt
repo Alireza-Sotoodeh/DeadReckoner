@@ -1,0 +1,27 @@
+
+==================================================
+PHASE 1 METADATA EXTRACTION & RELATIONAL CHAINING
+==================================================
+ - Successfully Built Session 1 DR_LOG_001.BIN 
+ - Successfully Built Session 2 REC_001.BIN 
+ - Successfully Built Session 3 REC_002.BIN 
+
+==================================================
+PHASE 2 PAYLOAD DECODING & DIAGNOSTICS
+==================================================
+
+[SESSION 1 STATS] (DR_LOG_001.BIN)
+  - Total Merged Frames 2147
+  - SD Card Recovery Gaps 0
+  - Missing Frames (Queue Drops) 0
+
+[SESSION 2 STATS] (REC_001.BIN)
+  - Total Merged Frames 6157
+  - SD Card Recovery Gaps 0
+  - Missing Frames (Queue Drops) 0
+
+[SESSION 3 STATS] (REC_002.BIN)
+  - Total Merged Frames 4761
+  - SD Card Recovery Gaps 0
+  - Missing Frames (Queue Drops) 0
+ 
