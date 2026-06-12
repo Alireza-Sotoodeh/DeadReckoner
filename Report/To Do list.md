@@ -37,13 +37,13 @@ update: 2026-06-12
   
   - Safe Shutdown (software solution)
 
-- [ ] Queue Overflow
+- [x] Queue Overflow
   
   - use `frame_sequence_number instead` of `timestamp`  in`LogFrame`
 
 - [ ] GPS! (should we consider adding it right now before main tests?)
   
-  - [ ] remove 100HZ writing and fix it for 1HZ (memory usage issue)
+  - [x] remove 100HZ writing and fix it for 1HZ (memory usage issue)
 
 - [ ] do we need **watchdog**?
 
