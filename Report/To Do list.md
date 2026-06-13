@@ -20,12 +20,19 @@ update: 2026-06-12
       
       - [x] use PSRAM and change saving format to save memory (49 to 33 byte)
       - [x] MATLAB code to find and glue back pieces to each other
+        - [x] Need to define variable for better and faster recovery 
+          - [ ]  fix formatting issue for recovery files 
+          - [ ]  SD Info (The FAT Table Freeze) 
+          - [ ] The 32-Bit Overflow for 32 Gigabytes memories
+          - [ ] 
 
 - [ ] MPU9250 Dynamic Recovery
   
   - should have create a file name which stand out and let the user know the MPU problem latter!
   
   - [ ] `mpu_critical_error` during calibration
+  
+  - [ ] The Queue Massacre Race Condition
 
 - [ ] boot menu update
 
