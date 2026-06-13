@@ -170,7 +170,8 @@ char subMenuMsg[20] = "";
 volatile bool tag_event_triggered = false;
 volatile bool mpu_critical_error = false;
 volatile bool sd_critical_error = false;
-volatile bool system_shutdown_requested = false; 
+volatile bool system_shutdown_requested = false;
+ volatile uint32_t global_frame_counter = 0; 
 char current_log_filename[20] = "DR_LOG_001.BIN";
 // Tracks the active file to resume appending after failure
 uint16_t global_log_id = 1;      // X: Main Log/Test Number (e.g., 001)
@@ -257,7 +258,6 @@ bool attemptSDRecovery() {
 // =========================================================================
 void sensorTask(void *pvParameters) {
   LogFrame frame;
-  uint32_t global_frame_counter = 0;            //frame counter
   unsigned long last_mpu_data_time = millis();  // Track last successful read
   unsigned long last_recovery_attempt = 0;      // Tracks MPU9250 recovery intervals
   unsigned long last_sd_recovery_attempt = 0;   // Tracks recovery intervals for SD Card
@@ -806,7 +806,8 @@ void loggingTask(void *pvParameters) {
             global_log_id++;
             if (global_log_id > 999) { global_log_id = 999; break; }
           }
-          global_recovery_id = 1; // Reset recovery counter
+          global_recovery_id = 1;          // Reset recovery counter
+          global_frame_counter = 0;        // Reset frame counter
           strcpy(current_log_filename, filename); 
           logFile = sd.open(current_log_filename, FILE_WRITE);
 
@@ -853,8 +854,9 @@ void loggingTask(void *pvParameters) {
             }
           }
           strcpy(current_log_filename, "DR_LOG_001.BIN");
-          global_log_id = 1;       // Reset X
-          global_recovery_id = 1;  // Reset Y
+          global_log_id = 1;            // Reset X
+          global_recovery_id = 1;       // Reset Y
+          global_frame_counter = 0;     // Reset frame counter
           logFile = sd.open(current_log_filename, FILE_WRITE);
           u8g2.clearBuffer();
           u8g2.drawStr((u8g2.getDisplayWidth() - u8g2.getStrWidth("All Logs Cleared!")) / 2, 20, "All Logs Cleared!");
@@ -1062,7 +1064,8 @@ void setup()
     }
   }
   
-  global_recovery_id = 1; // Reset recovery counter for this new session
+  global_recovery_id = 1;           // Reset recovery counter 
+  global_frame_counter = 0;         // Reset frame counter
   strcpy(current_log_filename, filename); 
   logFile = sd.open(current_log_filename, FILE_WRITE);
 
