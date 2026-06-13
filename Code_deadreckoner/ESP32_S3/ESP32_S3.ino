@@ -112,7 +112,8 @@
   #define ALARM_BEEP_MS 100                                 // Duration of error beeps during SD failure      
   #define TAG_BEEP_MS 50                                    // Duration of short beep for Waypoint TAG
   #define TAG_BLINK_MS 100                                  // Duration of Green LED flash for TAG
-  
+  // buttons 
+  #define Press_to_ShutDown_MS 3000
 
 // Tracks the timestamp (from millis()) of the last time sensor data was printed to Serial
 unsigned long lastPrintMillis = 0; 
@@ -169,6 +170,7 @@ char subMenuMsg[20] = "";
 volatile bool tag_event_triggered = false;
 volatile bool mpu_critical_error = false;
 volatile bool sd_critical_error = false;
+volatile bool system_shutdown_requested = false; 
 char current_log_filename[20] = "DR_LOG_001.BIN";
 // Tracks the active file to resume appending after failure
 uint16_t global_log_id = 1;      // X: Main Log/Test Number (e.g., 001)
@@ -261,6 +263,13 @@ void sensorTask(void *pvParameters) {
   unsigned long last_sd_recovery_attempt = 0;   // Tracks recovery intervals for SD Card
 
   for(;;) {
+
+    // === f shutdown is initiated ===
+    if (system_shutdown_requested) {
+        vTaskDelay(pdMS_TO_TICKS(100));
+        continue;
+    }
+
     // === INTERCEPTOR: CRITICAL MPU DISCONNECT ERROR ===
     if (mpu_critical_error) {
         if (millis() - last_recovery_attempt > attempt_recovery_MPU9250_MS) {
@@ -493,14 +502,75 @@ void loggingTask(void *pvParameters) {
         }
       } else { tagWasPressed = false; }
 
-      // SELECT Button
+      // SELECT Button with Smart Long-Press Detection for Safe Shutdown
       if (digitalRead(BTN_SELECT_PIN) == LOW) {
         if (!selectWasPressed) { 
-            selectTriggered = true;
-            force_update_ui = true; selectWasPressed = true;
-            last_interaction_millis = currentMillis; 
+            // Button was just physically pressed down
+            selectTriggered = false; // Do not trigger instantly on falling edge
+            selectWasPressed = true;
+            last_interaction_millis = currentMillis; // Mark press start time
+        } else {
+            // Button is being continuously HELD down
+            if (currentMillis - last_interaction_millis > Press_to_ShutDown_MS) {
+                // --- CRITICAL SAFE SHUTDOWN PROTOCOL ---
+                system_shutdown_requested = true; // Signals Core 0 to halt data generation
+                
+                // Force wake OLED and notify user
+                is_oled_sleeping = false;
+                u8g2.setPowerSave(0); 
+                u8g2.clearBuffer();
+                u8g2.setFont(font_8_pixel);
+                u8g2.drawStr(5, 12, "SAVING DATA...");
+                u8g2.drawStr(0, 26, "DO NOT UNPLUG!");
+                u8g2.sendBuffer();
+                
+                // FLUSH LAYER: Drain remaining frames from PSRAM Queue directly to SD Card
+                LogFrame flushFrame;
+                uint32_t remainingFrames = uxQueueMessagesWaiting(dataQueue);
+                Serial.print("Shutdown active. Flushing frames to SD: "); Serial.println(remainingFrames);
+                
+                while (xQueueReceive(dataQueue, &flushFrame, 0) == pdPASS) {
+                    if (logFile) {
+                        logFile.write((uint8_t*)&flushFrame, sizeof(LogFrame));
+                    }
+                }
+                
+                // Close file handler safely to lock file allocation tables
+                if (logFile) {
+                    logFile.sync();
+                    logFile.close();
+                }
+                
+                // Final UI Notification
+                u8g2.clearBuffer();
+                const char* offMsg = "SAFE TO POWER OFF";
+                int xOff = (u8g2.getDisplayWidth() - u8g2.getStrWidth(offMsg)) / 2;
+                u8g2.drawStr(xOff, 20, offMsg);
+                u8g2.sendBuffer();
+                
+                // Hardware visual feedback: Solid Green LED signals absolute safety
+                digitalWrite(LED_RED_PIN, LOW);
+                digitalWrite(LED_GREEN_PIN, HIGH);
+                digitalWrite(BUZZER_PIN, LOW);
+                
+                // Optional: Insert Power Latch GPIO clear command here to cut battery physically
+                // digitalWrite(POWER_LATCH_PIN, LOW);
+                
+                while(1) {
+                    vTaskDelay(pdMS_TO_TICKS(1000)); // Lock system safely forever
+                }
+            }
         }
-      } else { selectWasPressed = false; }
+      } else { 
+        if (selectWasPressed) {
+            // Button was RELEASED. Verify if it was a valid short press (< 1 second)
+            if (currentMillis - last_interaction_millis < 1000) {
+                selectTriggered = true;
+                force_update_ui = true;
+            }
+        }
+        selectWasPressed = false;
+      }
 
       // UP Button
       if (digitalRead(BTN_UP_PIN) == LOW) {
