@@ -49,7 +49,7 @@ for k = 1:length(binFiles)
     
     % GARBAGE FILTER: Detect impossible sequence jumps caused by abrupt power loss on the SD card
     jumps = diff(valid_seqs);
-    bad_jump_idx = find(jumps > 50000 | jumps < 0, 1, 'first'); 
+    bad_jump_idx = find(jumps > 500 | jumps < 0, 1, 'first'); 
     if ~isempty(bad_jump_idx)
         valid_seqs = valid_seqs(1:bad_jump_idx); % Slice off the corrupted tail
     end
