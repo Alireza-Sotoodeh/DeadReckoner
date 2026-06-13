@@ -847,12 +847,28 @@ void loggingTask(void *pvParameters) {
           
           if (logFile) logFile.close();
           char delFilename[20];
+          
+          // CRITICAL FIX: Enhanced sweeping protocol to remove BOTH Parent logs and Orphaned recovery fragments
           for (int i = 1; i <= 999; i++) {
+            // 1. Delete the Parent Log File
             snprintf(delFilename, sizeof(delFilename), "DR_LOG_%03d.BIN", i);
             if (sd.exists(delFilename)) {
               sd.remove(delFilename);
             }
+            
+            // 2. Nested Sweep: Sequentially search and destroy all child recovery chunks [i][j].BIN
+            int j = 1;
+            while (true) {
+              snprintf(delFilename, sizeof(delFilename), "%03d%03d.BIN", i, j);
+              if (sd.exists(delFilename)) {
+                sd.remove(delFilename);
+                j++; // Increment to check the next sequential crash fragment
+              } else {
+                break; // No more recovery fragments exist for this specific log session
+              }
+            }
           }
+          
           strcpy(current_log_filename, "DR_LOG_001.BIN");
           global_log_id = 1;            // Reset X
           global_recovery_id = 1;       // Reset Y
