@@ -648,8 +648,9 @@ void loggingTask(void *pvParameters) {
                 uint32_t sectorsPerCluster = sd.vol()->sectorsPerCluster();
                 
                 // CRITICAL FIX: Cast to 64-bit unsigned integer to prevent arithmetic overflow on large SD cards (>32GB)
+                // matches the optimized 33-byte packed frame architecture running at 100Hz.
                 sd_free_mb = (uint32_t)(((uint64_t)freeClusters * sectorsPerCluster) / 2048);
-                sd_remain_hours = (float)sd_free_mb / 20.16; 
+                sd_remain_hours = (float)sd_free_mb / 11.88; 
                 
                 uint32_t sd_total_mb = (uint32_t)(((uint64_t)totalClusters * sectorsPerCluster) / 2048);
                 sd_total_gb = (float)sd_total_mb / 1024.0;
