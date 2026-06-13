@@ -448,9 +448,6 @@ void loggingTask(void *pvParameters) {
         digitalWrite(LED_RED_PIN, LOW);
         digitalWrite(BUZZER_PIN, LOW);
         
-        // Clear stale/corrupt data from the queue before resuming
-        xQueueReset(dataQueue);
-        
         // Create a new sequential log file to resume mission safely
         logFile = sd.open(current_log_filename, FILE_WRITE);
         
