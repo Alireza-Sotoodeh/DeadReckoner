@@ -168,7 +168,10 @@ char subMenuMsg[20] = "";
 volatile bool tag_event_triggered = false;
 volatile bool mpu_critical_error = false;
 volatile bool sd_critical_error = false;
-char current_log_filename[20] = "DR_LOG_001.BIN"; //Tracks the active file to resume appending after failure
+char current_log_filename[20] = "DR_LOG_001.BIN";
+// Tracks the active file to resume appending after failure
+uint16_t global_log_id = 1;      // X: Main Log/Test Number (e.g., 001)
+uint16_t global_recovery_id = 1; // Y: Recovery Instance Number (e.g., 002)
 
 // FreeRTOS Handles & PSRAM Queue
 QueueHandle_t dataQueue;
@@ -223,9 +226,6 @@ void attemptMPURecovery() {
 // =========================================================================
 // SD CARD DYNAMIC RECOVERY PROTOCOL
 // =========================================================================
-// =========================================================================
-// SD CARD DYNAMIC RECOVERY PROTOCOL
-// =========================================================================
 bool attemptSDRecovery() {
     logFile.close();
     SPI.end();
@@ -233,16 +233,11 @@ bool attemptSDRecovery() {
     SPI.begin(SD_SCK_PIN, SD_MISO_PIN, SD_MOSI_PIN, SD_CS_PIN);
     
     if (sd.begin(SD_CS_PIN, SD_SCK_MHZ(SPI_FREQ_MHZ))) {
-        // INDUSTRIAL FIX: NEVER append to a hardware-corrupted binary file!
-        // Generate a uniquely prefixed file name (REC_) to easily identify post-crash recovered sessions.
-        char filename[20] = "REC_001.BIN";
-        int fileNum = 1;
-        while (sd.exists(filename)) {
-            fileNum++;
-            if (fileNum > 999) break;
-            snprintf(filename, sizeof(filename), "REC_%03d.BIN", fileNum);
-        }
-        strcpy(current_log_filename, filename); // Update global tracker
+        // ULTRA-FAST RECOVERY: Direct Name Generation O(1) -> [XXX][YYY].BIN
+        snprintf(current_log_filename, sizeof(current_log_filename), "%03d%03d.BIN", global_log_id, global_recovery_id);
+        
+        // Prepare for the next potential failure in this same session
+        global_recovery_id++; 
         
         logFile = sd.open(current_log_filename, FILE_WRITE);
         if (logFile) {
@@ -366,7 +361,6 @@ void loggingTask(void *pvParameters) {
             if (attemptSDRecovery()) {
                 LogFrame gapFrame;
                 gapFrame.frame_seq = 0xFFFFFFFF;    
-                // Clear the internal union payload using the correct sub-struct reference
                 memset(gapFrame.payload.imu.q, 0, sizeof(gapFrame.payload.imu.q));
                 memset(gapFrame.payload.imu.accel, 0, sizeof(gapFrame.payload.imu.accel));        
                 
@@ -374,16 +368,24 @@ void loggingTask(void *pvParameters) {
                 logFile.sync();
 
                 // Clean hardware states explicitly
-                digitalWrite(LED_RED_PIN, LOW); // Force OFF Red LED
+                digitalWrite(LED_RED_PIN, LOW);
                 digitalWrite(LED_GREEN_PIN, HIGH);
                 if (!is_muted) digitalWrite(BUZZER_PIN, HIGH);
-                vTaskDelay(pdMS_TO_TICKS(150));
+                
+                // NEW UI FEEDBACK: Show the exact [XXX][YYY].BIN filename being created
+                u8g2.clearBuffer();
+                char recBuf[32];
+                snprintf(recBuf, sizeof(recBuf), "Rec Active: %s", current_log_filename);
+                u8g2.drawStr((u8g2.getDisplayWidth() - u8g2.getStrWidth(recBuf)) / 2, 20, recBuf);
+                u8g2.sendBuffer();
+                
+                vTaskDelay(pdMS_TO_TICKS(500)); // Brief pause to let user see the new file name
                 digitalWrite(LED_GREEN_PIN, LOW);
-                digitalWrite(BUZZER_PIN, LOW); // Force OFF Buzzer
+                digitalWrite(BUZZER_PIN, LOW); 
                 
                 force_update_ui = true;
                 last_interaction_millis = currentMillis;
-                continue; // CRITICAL: Escape the error block immediately so Red LED doesn't latch ON!
+                continue; 
             }
         }
         
@@ -439,13 +441,7 @@ void loggingTask(void *pvParameters) {
         xQueueReset(dataQueue);
         
         // Create a new sequential log file to resume mission safely
-        char filename[20] = "DR_LOG_001.BIN";
-        int fileNum = 1;
-        while (sd.exists(filename)) {
-            fileNum++;
-            snprintf(filename, sizeof(filename), "DR_LOG_%03d.BIN", fileNum);
-        }
-        logFile = sd.open(filename, FILE_WRITE);
+        logFile = sd.open(current_log_filename, FILE_WRITE);
         
         // Feedback to User
         u8g2.clearBuffer();
@@ -585,11 +581,16 @@ void loggingTask(void *pvParameters) {
                 sd_remain_hours = (float)sd_free_mb / 20.16;
                 uint32_t sd_total_mb = (totalClusters * sectorsPerCluster) / 2048;
                 sd_total_gb = (float)sd_total_mb / 1024.0; 
-                // Count binary logs safely
+                // Count binary logs safely (Scans both Main Logs and Recovery fragments)
                 totalFilesCount = 0;
                 char checkBuf[20];
                 for (int i = 1; i <= 999; i++) {
+                    // Check for main files
                     snprintf(checkBuf, sizeof(checkBuf), "DR_LOG_%03d.BIN", i);
+                    if (sd.exists(checkBuf)) totalFilesCount++;
+                    
+                    // Check for recovery files from session 1 (Quick layout estimation)
+                    snprintf(checkBuf, sizeof(checkBuf), "%03d001.BIN", i);
                     if (sd.exists(checkBuf)) totalFilesCount++;
                 }
             } else {
@@ -606,9 +607,12 @@ void loggingTask(void *pvParameters) {
           // Action: Calibration
           vTaskSuspend(sensorTaskHandle);
           performCalibration();
+          print_calibration();
           saveCalibration();
+          xQueueReset(dataQueue);
           vTaskResume(sensorTaskHandle);
-          currentState = STATE_LIVE_VIEW; 
+          force_update_ui = true; 
+          currentState = STATE_LIVE_VIEW;
         } 
         else if (menuCursor == 4) {
           // Action: Exit Menu
@@ -722,18 +726,22 @@ void loggingTask(void *pvParameters) {
         } else {
           // Execute Auto-Sequential New File Creation
           if (logFile) logFile.close();
-          char filename[20] = "DR_LOG_001.BIN";
-          int fileNum = 1;
-          while (sd.exists(filename)) {
-            fileNum++;
-            snprintf(filename, sizeof(filename), "DR_LOG_%03d.BIN", fileNum);
+          char filename[20];
+          global_log_id = 1;
+          while (true) {
+            snprintf(filename, sizeof(filename), "DR_LOG_%03d.BIN", global_log_id);
+            if (!sd.exists(filename)) break;
+            global_log_id++;
+            if (global_log_id > 999) { global_log_id = 999; break; }
           }
+          global_recovery_id = 1; // Reset recovery counter
           strcpy(current_log_filename, filename); 
           logFile = sd.open(current_log_filename, FILE_WRITE);
+
           // Render instant feedback to the user on screen
           u8g2.clearBuffer();
           char flashBuf[25];
-          snprintf(flashBuf, sizeof(flashBuf), "Created: LOG_%03d", fileNum);
+          snprintf(flashBuf, sizeof(flashBuf), "Created: LOG_%03d", global_log_id);
           u8g2.drawStr((u8g2.getDisplayWidth() - u8g2.getStrWidth(flashBuf)) / 2, 20, flashBuf);
           u8g2.sendBuffer();
           // Sound effect verification
@@ -772,7 +780,9 @@ void loggingTask(void *pvParameters) {
               sd.remove(delFilename);
             }
           }
-          strcpy(current_log_filename, "DR_LOG_001.BIN"); 
+          strcpy(current_log_filename, "DR_LOG_001.BIN");
+          global_log_id = 1;       // Reset X
+          global_recovery_id = 1;  // Reset Y
           logFile = sd.open(current_log_filename, FILE_WRITE);
           u8g2.clearBuffer();
           u8g2.drawStr((u8g2.getDisplayWidth() - u8g2.getStrWidth("All Logs Cleared!")) / 2, 20, "All Logs Cleared!");
@@ -963,18 +973,21 @@ void setup()
   u8g2.drawStr((u8g2.getDisplayWidth() - u8g2.getStrWidth("Scanning SD...")) / 2, 20, "Scanning SD...");
   u8g2.sendBuffer();
 
-  char filename[20] = "DR_LOG_001.BIN";
-  int fileNum = 1;
-
+  char filename[20];
+  global_log_id = 1;
   // Scan the SD root directory to find the next available sequential number
-  while (sd.exists(filename)) {
-    fileNum++;
-    if (fileNum > 999) {
+  while (true) {
+    snprintf(filename, sizeof(filename), "DR_LOG_%03d.BIN", global_log_id);
+    if (!sd.exists(filename)) break;
+    global_log_id++;
+    if (global_log_id > 999) {
       Serial.println("ERROR: Log file limit reached (999). Overwriting DR_LOG_999.BIN");
+      global_log_id = 999;
       break;
     }
-    snprintf(filename, sizeof(filename), "DR_LOG_%03d.BIN", fileNum);
   }
+  
+  global_recovery_id = 1; // Reset recovery counter for this new session
   strcpy(current_log_filename, filename); 
   logFile = sd.open(current_log_filename, FILE_WRITE);
 
@@ -985,10 +998,10 @@ void setup()
     // Render dynamic SD statistics before mission starts
     u8g2.clearBuffer();
     char scanBuf[25];
-    snprintf(scanBuf, sizeof(scanBuf), "Found: %d Logs", fileNum - 1);
+    snprintf(scanBuf, sizeof(scanBuf), "Found: %d Logs", global_log_id - 1);
     u8g2.drawStr((u8g2.getDisplayWidth() - u8g2.getStrWidth(scanBuf)) / 2, 12, scanBuf);
     
-    snprintf(scanBuf, sizeof(scanBuf), "Next: LOG_%03d", fileNum);
+    snprintf(scanBuf, sizeof(scanBuf), "Next: LOG_%03d", global_log_id);
     u8g2.drawStr((u8g2.getDisplayWidth() - u8g2.getStrWidth(scanBuf)) / 2, 28, scanBuf);
     u8g2.sendBuffer();
     delay(2000); // 2-second delay to let the user read the info
