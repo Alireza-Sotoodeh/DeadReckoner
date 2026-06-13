@@ -649,10 +649,13 @@ void loggingTask(void *pvParameters) {
                 uint32_t freeClusters = sd.vol()->freeClusterCount();
                 uint32_t totalClusters = sd.vol()->clusterCount();
                 uint32_t sectorsPerCluster = sd.vol()->sectorsPerCluster();
-                sd_free_mb = (freeClusters * sectorsPerCluster) / 2048;
-                sd_remain_hours = (float)sd_free_mb / 20.16;
-                uint32_t sd_total_mb = (totalClusters * sectorsPerCluster) / 2048;
-                sd_total_gb = (float)sd_total_mb / 1024.0; 
+                
+                // CRITICAL FIX: Cast to 64-bit unsigned integer to prevent arithmetic overflow on large SD cards (>32GB)
+                sd_free_mb = (uint32_t)(((uint64_t)freeClusters * sectorsPerCluster) / 2048);
+                sd_remain_hours = (float)sd_free_mb / 20.16; 
+                
+                uint32_t sd_total_mb = (uint32_t)(((uint64_t)totalClusters * sectorsPerCluster) / 2048);
+                sd_total_gb = (float)sd_total_mb / 1024.0;
                 // Count binary logs safely (Scans both Main Logs and Recovery fragments)
                 totalFilesCount = 0;
                 char checkBuf[20];
@@ -669,7 +672,6 @@ void loggingTask(void *pvParameters) {
                 sd_free_mb = 0;
                 sd_remain_hours = 0.0; totalFilesCount = 0;
             }
-            
             currentState = STATE_SUBMENU_SD_INFO;
             sdMenuCursor = 0; // Reset scroll cursors
             sdScrollOffset = 0;
@@ -868,7 +870,6 @@ void loggingTask(void *pvParameters) {
               }
             }
           }
-          
           strcpy(current_log_filename, "DR_LOG_001.BIN");
           global_log_id = 1;            // Reset X
           global_recovery_id = 1;       // Reset Y
