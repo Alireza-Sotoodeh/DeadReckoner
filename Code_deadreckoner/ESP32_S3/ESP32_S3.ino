@@ -85,6 +85,7 @@
   #define SPI_FREQ_MHZ 20                                 // max is 26MHZ
   #define Attempt_Runtime_SD_recovery_MS 3000
   #define Recheck_SD_beforeBoot_MS 3000                                // Wait time before retrying SD initialization
+  #define SD_recoverd_signal_MS 50
   // MPU9250 setting
   MPU9250 mpu; // handler: allowing access to all library methods
   #define MPU9250_IMU_ADDRESS 0x68 												// Specifies the I2C slave address of the MPU9250:0x68 GND / 0x69 High
@@ -349,8 +350,21 @@ void loggingTask(void *pvParameters) {
 
     // === INTERCEPTOR: RUNTIME SD CARD FAILURE RECOVERY ===
     if (sd_critical_error) {
-        if (currentMillis - last_sd_recovery_attempt > 3000) {
+        // 1. HARDWARE ALARM LAYER (Absolute Non-Blocking)
+        // Rhythmic SOS pattern: Strict 100ms ON every 1000ms cycle
+        if ((currentMillis % 1000) < 100) {
+            digitalWrite(LED_RED_PIN, HIGH);
+            if (!is_muted) digitalWrite(BUZZER_PIN, HIGH);
+        } else {
+            digitalWrite(LED_RED_PIN, LOW);
+            digitalWrite(BUZZER_PIN, LOW);
+        }
+
+        // 2. SLOW-RATE RECOVERY LAYER (Executes only once every 3000ms)
+        // Prevents the 500ms sd.begin() hardware timeout from starving the alarm rhythm
+        if (currentMillis - last_sd_recovery_attempt > Attempt_Runtime_SD_recovery_MS) {
             last_sd_recovery_attempt = currentMillis;
+            
             is_oled_sleeping = false;
             u8g2.setPowerSave(0); 
             u8g2.clearBuffer();
@@ -366,22 +380,19 @@ void loggingTask(void *pvParameters) {
                 
                 logFile.write((uint8_t*)&gapFrame, sizeof(LogFrame));
                 logFile.sync();
-
-                // Clean hardware states explicitly
+                
+                // Reset hardware signaling to safe operational state
                 digitalWrite(LED_RED_PIN, LOW);
                 digitalWrite(LED_GREEN_PIN, HIGH);
-                if (!is_muted) digitalWrite(BUZZER_PIN, HIGH);
                 
-                // NEW UI FEEDBACK: Show the exact [XXX][YYY].BIN filename being created
                 u8g2.clearBuffer();
                 char recBuf[32];
                 snprintf(recBuf, sizeof(recBuf), "Rec Active: %s", current_log_filename);
                 u8g2.drawStr((u8g2.getDisplayWidth() - u8g2.getStrWidth(recBuf)) / 2, 20, recBuf);
                 u8g2.sendBuffer();
                 
-                vTaskDelay(pdMS_TO_TICKS(500)); // Brief pause to let user see the new file name
+                vTaskDelay(pdMS_TO_TICKS(SD_recoverd_signal_MS)); // Non-blocking FreeRTOS delay for user feedback
                 digitalWrite(LED_GREEN_PIN, LOW);
-                digitalWrite(BUZZER_PIN, LOW); 
                 
                 force_update_ui = true;
                 last_interaction_millis = currentMillis;
@@ -389,17 +400,8 @@ void loggingTask(void *pvParameters) {
             }
         }
         
-        // Clean, rhythmic SOS pattern (100ms ON every 1000ms)
-        if ((currentMillis % 1000) < 100) {
-            digitalWrite(LED_RED_PIN, HIGH);
-            if (!is_muted) digitalWrite(BUZZER_PIN, HIGH);
-        } else {
-            digitalWrite(LED_RED_PIN, LOW);
-            digitalWrite(BUZZER_PIN, LOW);
-        }
-        
-        vTaskDelay(pdMS_TO_TICKS(30));
-        continue; 
+        vTaskDelay(pdMS_TO_TICKS(10)); // Yield execution to prevent watchdog starvation
+        continue; // Force trap within recovery boundary
     }
 
     // === INTERCEPTOR: CRITICAL MPU DISCONNECT ERROR ===
