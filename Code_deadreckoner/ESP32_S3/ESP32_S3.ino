@@ -845,7 +845,10 @@ void loggingTask(void *pvParameters) {
               snprintf(buf, sizeof(buf), "Qz:%.2f", receivedFrame.payload.imu.q[3]); u8g2.drawStr(64, 19, buf);
               
               // Row 3 (Y=31): System Frame Sequence Counter & Non-blocking MPU Temperature
-              snprintf(buf, sizeof(buf), "Seq:%lu", receivedFrame.frame_seq); u8g2.drawStr(0, 31, buf);
+              uint32_t total_secs = receivedFrame.frame_seq / 100; // 100 Hz = 100 frames per second
+              uint32_t mins = total_secs / 60;
+              uint32_t secs = total_secs % 60;
+              snprintf(buf, sizeof(buf), "T:%03lu:%02lu", mins, secs); u8g2.drawStr(0, 31, buf);
               snprintf(buf, sizeof(buf), "T:%.1fC", mpu.getTemperature()); u8g2.drawStr(76, 31, buf);
             } 
             else if (currentState == STATE_MENU) {
