@@ -813,8 +813,15 @@ void loggingTask(void *pvParameters) {
             global_log_id++;
             if (global_log_id > 999) { global_log_id = 999; break; }
           }
-          global_recovery_id = 1;          // Reset recovery counter
-          global_frame_counter = 0;        // Reset frame counter
+          // Reset recovery counter
+          global_recovery_id = 1;
+          // Reset frame counter          
+          global_frame_counter = 0;
+
+          // CRITICAL FIX: Clear and purge any stale sensor frames accumulated in the queue 
+          // during menu interaction, ensuring the new file starts strictly from a sterile buffer state.
+          xQueueReset(dataQueue);
+
           strcpy(current_log_filename, filename); 
           logFile = sd.open(current_log_filename, FILE_WRITE);
 
@@ -876,9 +883,15 @@ void loggingTask(void *pvParameters) {
             }
           }
           strcpy(current_log_filename, "DR_LOG_001.BIN");
-          global_log_id = 1;            // Reset X
-          global_recovery_id = 1;       // Reset Y
-          global_frame_counter = 0;     // Reset frame counter
+          // Reset X
+          global_log_id = 1;
+          // Reset Y            
+          global_recovery_id = 1;
+          // Reset frame counter       
+          global_frame_counter = 0;
+          // CRITICAL FIX: Purge the queue after memory wipe to prevent frames captured 
+          // during formatting from leaking into the new fresh session.
+          xQueueReset(dataQueue);     
           logFile = sd.open(current_log_filename, FILE_WRITE);
           u8g2.clearBuffer();
           u8g2.drawStr((u8g2.getDisplayWidth() - u8g2.getStrWidth("All Logs Cleared!")) / 2, 20, "All Logs Cleared!");
