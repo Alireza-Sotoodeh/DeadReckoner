@@ -115,9 +115,6 @@
   // buttons 
   #define Press_to_ShutDown_MS 3000
 
-// Tracks the timestamp (from millis()) of the last time sensor data was printed to Serial
-unsigned long lastPrintMillis = 0; 
-
 /*//////////////////////////// RTOS Data Structures ////////////////////////////*/
 
 #pragma pack(push, 1) // Force absolute 1-byte alignment for all enclosed structures
@@ -526,9 +523,17 @@ void loggingTask(void *pvParameters) {
                 uint32_t remainingFrames = uxQueueMessagesWaiting(dataQueue);
                 Serial.print("Shutdown active. Flushing frames to SD: "); Serial.println(remainingFrames);
                 
+                uint32_t flushCount = 0; // NEW: Counter to track and feed the Task Watchdog Timer
                 while (xQueueReceive(dataQueue, &flushFrame, 0) == pdPASS) {
                     if (logFile) {
                         logFile.write((uint8_t*)&flushFrame, sizeof(LogFrame));
+                    }
+                    
+                    flushCount++;
+                    // CRITICAL INDUSTRIAL FIX: Yield every 500 frames to feed the RTOS Watchdog.
+                    // Prevents a hard system reset/crash during massive 1.6MB PSRAM buffer flushing.
+                    if (flushCount % 500 == 0) {
+                        vTaskDelay(pdMS_TO_TICKS(5)); 
                     }
                 }
                 
@@ -648,9 +653,11 @@ void loggingTask(void *pvParameters) {
                 uint32_t sectorsPerCluster = sd.vol()->sectorsPerCluster();
                 
                 // CRITICAL FIX: Cast to 64-bit unsigned integer to prevent arithmetic overflow on large SD cards (>32GB)
-                // matches the optimized 33-byte packed frame architecture running at 100Hz.
                 sd_free_mb = (uint32_t)(((uint64_t)freeClusters * sectorsPerCluster) / 2048);
-                sd_remain_hours = (float)sd_free_mb / 11.88; 
+                
+                // CRITICAL FIX: Dynamic bandwidth calculation based on optimized 33-byte frames at 100Hz
+                // 33 Bytes * 100 Hz * 3600 Secs = 11.88 MB per hour
+                sd_remain_hours = (float)sd_free_mb / 11.88;
                 
                 uint32_t sd_total_mb = (uint32_t)(((uint64_t)totalClusters * sectorsPerCluster) / 2048);
                 sd_total_gb = (float)sd_total_mb / 1024.0;
