@@ -216,6 +216,20 @@ typedef struct {
 /*//////////////////////////// FreeRTOS Tasks ////////////////////////////*/
 
 // =========================================================================
+// SENSOR CONFIGURATION HELPER
+// =========================================================================
+void configureMPUSettings(MPU9250Setting& setting) {
+    setting.accel_fs_sel = ACCEL_FS_SEL::MPU9250_Accelerometer_Rang;
+    setting.gyro_fs_sel = GYRO_FS_SEL::MPU9250_Gyroscope_Rang;
+    setting.mag_output_bits = MAG_OUTPUT_BITS::MPU9250_Magnetometer_resolution; 
+    setting.fifo_sample_rate = FIFO_SAMPLE_RATE::MPU9250_fifo_sample_rate; 
+    setting.gyro_fchoice = MPU9250_Gyroscope_filter_choice;
+    setting.gyro_dlpf_cfg = GYRO_DLPF_CFG::MPU9250_Gyroscope_DLPF_cutoff;
+    setting.accel_fchoice = MPU9250_Accelerometer_filter_choice;
+    setting.accel_dlpf_cfg = ACCEL_DLPF_CFG::MPU9250_Accelerometer_DLPF_cutoff;
+}
+
+// =========================================================================
 // DYNAMIC RECOVERY PROTOCOL
 // =========================================================================
 void attemptMPURecovery() {
@@ -227,14 +241,7 @@ void attemptMPURecovery() {
 
     // 2. Re-initialize MPU Settings
     MPU9250Setting setting;
-    setting.accel_fs_sel = ACCEL_FS_SEL::MPU9250_Accelerometer_Rang;
-    setting.gyro_fs_sel = GYRO_FS_SEL::MPU9250_Gyroscope_Rang;
-    setting.mag_output_bits = MAG_OUTPUT_BITS::MPU9250_Magnetometer_resolution; 
-    setting.fifo_sample_rate = FIFO_SAMPLE_RATE::MPU9250_fifo_sample_rate; 
-    setting.gyro_fchoice = MPU9250_Gyroscope_filter_choice;
-    setting.gyro_dlpf_cfg = GYRO_DLPF_CFG::MPU9250_Gyroscope_DLPF_cutoff;
-    setting.accel_fchoice = MPU9250_Accelerometer_filter_choice;
-    setting.accel_dlpf_cfg = ACCEL_DLPF_CFG::MPU9250_Accelerometer_DLPF_cutoff;
+    configureMPUSettings(setting);
 
     // 3. Attempt Connection & Apply Filters
     if (mpu.setup(MPU9250_IMU_ADDRESS, setting)) {
@@ -1177,14 +1184,7 @@ void setup()
   }
 
   MPU9250Setting setting;
-  setting.accel_fs_sel = ACCEL_FS_SEL::MPU9250_Accelerometer_Rang;
-  setting.gyro_fs_sel = GYRO_FS_SEL::MPU9250_Gyroscope_Rang;
-  setting.mag_output_bits = MAG_OUTPUT_BITS::MPU9250_Magnetometer_resolution; 
-  setting.fifo_sample_rate = FIFO_SAMPLE_RATE::MPU9250_fifo_sample_rate; 
-  setting.gyro_fchoice = MPU9250_Gyroscope_filter_choice; 
-  setting.gyro_dlpf_cfg = GYRO_DLPF_CFG::MPU9250_Gyroscope_DLPF_cutoff;
-  setting.accel_fchoice = MPU9250_Accelerometer_filter_choice;
-  setting.accel_dlpf_cfg = ACCEL_DLPF_CFG::MPU9250_Accelerometer_DLPF_cutoff;
+  configureMPUSettings(setting);
 
   while (!mpu.setup(MPU9250_IMU_ADDRESS, setting)) {
     Serial.println("CRITICAL: MPU connection failed. Check Wiring!");
