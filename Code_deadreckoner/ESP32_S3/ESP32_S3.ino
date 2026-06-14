@@ -114,17 +114,24 @@
   #define TAG_BLINK_MS 100                                  
   // buttons 
   #define Press_to_ShutDown_MS 3000
+  // menue 
+  #define MENU_ITEMS_COUNT 5
 // =========================================================================
 // PARAMETRIC BANDWIDTH & MEMORY ENGINE
 // =========================================================================
-#define DATA_FRAME_SIZE            37     
-#define SAMPLING_RATE_HZ           100    
-#define BYTES_PER_SECOND           (DATA_FRAME_SIZE * SAMPLING_RATE_HZ)
-#define BYTES_PER_HOUR             ((uint64_t)BYTES_PER_SECOND * 3600)
-#define MB_PER_HOUR                ((float)BYTES_PER_HOUR / (1024.0 * 1024.0)) 
-#define QUEUE_LENGTH               50000  
-#define PSRAM_BUFFER_SIZE_MB       ((float)(QUEUE_LENGTH * DATA_FRAME_SIZE) / (1024.0 * 1024.0))
+  #define DATA_FRAME_SIZE            37     
+  #define SAMPLING_RATE_HZ           100    
+  #define BYTES_PER_SECOND           (DATA_FRAME_SIZE * SAMPLING_RATE_HZ)
+  #define BYTES_PER_HOUR             ((uint64_t)BYTES_PER_SECOND * 3600)
+  #define MB_PER_HOUR                ((float)BYTES_PER_HOUR / (1024.0 * 1024.0)) 
+  #define QUEUE_LENGTH               50000  
+  #define PSRAM_BUFFER_SIZE_MB       ((float)(QUEUE_LENGTH * DATA_FRAME_SIZE) / (1024.0 * 1024.0))
 
+/*//////////////////////////// Function prototypes ////////////////////////////*/
+void performCalibration();
+void print_calibration();
+void saveCalibration();
+void loadCalibration();
 /*//////////////////////////// RTOS Data Structures ////////////////////////////*/
 
 #pragma pack(push, 1) // Force absolute 1-byte alignment for all enclosed structures
@@ -150,56 +157,51 @@ typedef struct {
 #pragma pack(pop) // Restore default compiler alignment
 
 // UI State Machine Definitions
-enum UIState {
-    STATE_LIVE_VIEW,
-    STATE_MENU,
-    STATE_SUBMENU_MSG,  
-    STATE_SUBMENU_SD_INFO,    
-    STATE_SUBMENU_DISPLAY,
-    STATE_SUBMENU_MUTE,
-    STATE_CONFIRM_FORMAT,
-    STATE_CONFIRM_CREATE_FILE      
-};
-volatile UIState currentState = STATE_LIVE_VIEW;
+  enum UIState {
+      STATE_LIVE_VIEW,
+      STATE_MENU,
+      STATE_SUBMENU_MSG,  
+      STATE_SUBMENU_SD_INFO,    
+      STATE_SUBMENU_DISPLAY,
+      STATE_SUBMENU_MUTE,
+      STATE_CONFIRM_FORMAT,
+      STATE_CONFIRM_CREATE_FILE      
+  };
+  volatile UIState currentState = STATE_LIVE_VIEW;
 
-#define MENU_ITEMS_COUNT 5
-const char* menuItems[MENU_ITEMS_COUNT] = {
-    "1.Display Mode",
-    "2.Mute Sounds",
-    "3.SD Card Info",
-    "4.Calibration",
-    "5.Exit Menu"
-};
-int8_t menuCursor = 0; // Tracks selected menu item
-char subMenuMsg[20] = ""; 
+  const char* menuItems[MENU_ITEMS_COUNT] = {
+      "1.Display Mode",
+      "2.Mute Sounds",
+      "3.SD Card Info",
+      "4.Calibration",
+      "5.Exit Menu"
+  };
+  int8_t menuCursor = 0; // Tracks selected menu item
+  char subMenuMsg[20] = ""; 
 
 // Inter-Core Communication Flags
-volatile bool tag_event_triggered = false;
-volatile bool mpu_critical_error = false;
-volatile bool sd_critical_error = false;
-volatile bool system_shutdown_requested = false;
- volatile uint32_t global_frame_counter = 0; 
-char current_log_filename[20] = "DR_LOG_001.BIN";
+  volatile bool tag_event_triggered = false;
+  volatile bool mpu_critical_error = false;
+  volatile bool sd_critical_error = false;
+  volatile bool system_shutdown_requested = false;
+  volatile uint32_t global_frame_counter = 0;
+
 // Tracks the active file to resume appending after failure
-uint16_t global_log_id = 1;      // X: Main Log/Test Number (e.g., 001)
-uint16_t global_recovery_id = 1; // Y: Recovery Instance Number (e.g., 002)
+  uint16_t global_log_id = 1;      // X: Main Log/Test Number (e.g., 001)
+  uint16_t global_recovery_id = 1; // Y: Recovery Instance Number (e.g., 002)
+  char current_log_filename[20] = "DR_LOG_001.BIN";
 
 // FreeRTOS Handles & PSRAM Queue
-QueueHandle_t dataQueue;
-#define QUEUE_LENGTH 50000 
-uint8_t *queueBuffer;      
-StaticQueue_t *queueStruct;
-TaskHandle_t sensorTaskHandle;
-TaskHandle_t loggingTaskHandle;
+  QueueHandle_t dataQueue;
+  uint8_t *queueBuffer;      
+  StaticQueue_t *queueStruct;
+  TaskHandle_t sensorTaskHandle;
+  TaskHandle_t loggingTaskHandle;
 
 // SD Card Handlers
-SdFat sd;
-File logFile;
-// Function prototypes to avoid scope issues
-void performCalibration();
-void print_calibration();
-void saveCalibration();
-void loadCalibration();
+  SdFat sd;
+  File logFile;
+
 /*//////////////////////////// FreeRTOS Tasks ////////////////////////////*/
 
 // =========================================================================
