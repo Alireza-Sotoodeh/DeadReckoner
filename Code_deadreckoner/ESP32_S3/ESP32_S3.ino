@@ -408,26 +408,30 @@ void loggingTask(void *pvParameters) {
         // Prevents the 500ms sd.begin() hardware timeout from starving the alarm rhythm
         if (currentMillis - last_sd_recovery_attempt > Attempt_Runtime_SD_recovery_MS) {
             last_sd_recovery_attempt = currentMillis;
-            
             is_oled_sleeping = false;
             u8g2.setPowerSave(0); 
             u8g2.clearBuffer();
             u8g2.drawStr(5, 12, "SD CARD ERR!");
             u8g2.drawStr(0, 26, "RETRIES ACTIVE...");
             u8g2.sendBuffer();
-            
+
+            // FIX: Force hardware alarms OFF before entering the blocking SD library function
+            // This prevents the buzzer from screaming continuously if caught in the ON phase
+            digitalWrite(LED_RED_PIN, LOW);
+            digitalWrite(BUZZER_PIN, LOW);
+
             if (attemptSDRecovery()) {
                 LogFrame gapFrame;
                 
                 // Fully clear the entire structure to prevent uninitialized temp/garbage bytes
                 memset(&gapFrame, 0, sizeof(LogFrame));
-
-                // FIX ISSUE: Thread-safe capture and monotonic increment of the sequence counter
+                
+                // Thread-safe capture and monotonic increment of the sequence counter
                 portENTER_CRITICAL(&frameCounterMux);
                 gapFrame.frame_seq = global_frame_counter++;
                 portEXIT_CRITICAL(&frameCounterMux);
                 
-                // Assign identifiers after the memory block is sterile
+                // Capture high-precision 64-bit microsecond hardware timestamp
                 gapFrame.timestamp = esp_timer_get_time();    
                 gapFrame.event_flag = 0xAA;        
                 
@@ -437,6 +441,7 @@ void loggingTask(void *pvParameters) {
                 
                 // Reset hardware signaling to safe operational state
                 digitalWrite(LED_RED_PIN, LOW);
+                digitalWrite(BUZZER_PIN, LOW); 
                 digitalWrite(LED_GREEN_PIN, HIGH);
                 
                 u8g2.clearBuffer();
@@ -445,9 +450,8 @@ void loggingTask(void *pvParameters) {
                 u8g2.drawStr((u8g2.getDisplayWidth() - u8g2.getStrWidth(recBuf)) / 2, 20, recBuf);
                 u8g2.sendBuffer();
                 
-                vTaskDelay(pdMS_TO_TICKS(SD_recoverd_signal_MS)); // Non-blocking FreeRTOS delay for user feedback
+                vTaskDelay(pdMS_TO_TICKS(SD_recoverd_signal_MS));
                 digitalWrite(LED_GREEN_PIN, LOW);
-                
                 force_update_ui = true;
                 last_interaction_millis = currentMillis;
                 continue; 
@@ -876,33 +880,38 @@ void loggingTask(void *pvParameters) {
           currentState = STATE_SUBMENU_SD_INFO;
           force_update_ui = true;
         } else {
-          // Execute Instantaneous O(1) New File Creation without SD card probing loops
-          if (logFile) logFile.close();
+          // 1. Safely sync and close current file to protect FAT table
+          if (logFile) {
+              logFile.sync();
+              logFile.close();
+          }
+          
           char filename[20];
           
+          // 2. Safely increment the file ceiling tracker to guarantee a new name
           if (max_log_id < 999) {
+              max_log_id++; 
               global_log_id = max_log_id;
-              max_log_id++; // Increment the global ceiling tracker for next calls
           } else {
               global_log_id = 999;
           }
           
           snprintf(filename, sizeof(filename), "DR_LOG_%03d.BIN", global_log_id);
           
-          // Reset recovery counter
+          // 3. Reset recovery and sequence trackers safely
           global_recovery_id = 1;
           
-          // Thread-safe initialization of sequence tracker
           portENTER_CRITICAL(&frameCounterMux);
           global_frame_counter = 0;
           portEXIT_CRITICAL(&frameCounterMux);
           
-          xQueueReset(dataQueue);
+          // Queue acts as a seamless bridge. Unwritten old frames will simply 
+          // pour into the beginning of the new file without any data drop!
 
           strcpy(current_log_filename, filename); 
           logFile = sd.open(current_log_filename, FILE_WRITE);
           
-          // Null-check file pointer to prevent silent logging failures on dynamic creation
+          // Null-check file pointer to prevent silent logging failures
           if (!logFile) {
               sd_critical_error = true;
           }
