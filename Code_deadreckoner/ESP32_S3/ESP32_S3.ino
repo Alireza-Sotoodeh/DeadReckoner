@@ -257,19 +257,18 @@ bool attemptSDRecovery() {
     SPI.begin(SD_SCK_PIN, SD_MISO_PIN, SD_MOSI_PIN, SD_CS_PIN);
     
     if (sd.begin(SD_CS_PIN, SD_SCK_MHZ(SPI_FREQ_MHZ))) {
-        // ULTRA-FAST RECOVERY: Direct Name Generation O(1) -> [XXX][YYY].BIN
+        // === FIX ISSUE 9: Generate file name based on current validated recovery index ===
         snprintf(current_log_filename, sizeof(current_log_filename), "%03d%03d.BIN", global_log_id, global_recovery_id);
-        
-        // Prepare for the next potential failure in this same session
-        global_recovery_id++; 
         
         logFile = sd.open(current_log_filename, FILE_WRITE);
         if (logFile) {
-            sd_critical_error = false; 
+            // Commit on Success: Only increment index after file is verified open
+            global_recovery_id++;
+            sd_critical_error = false;
             return true;
         }
     }
-    return false; 
+    return false;
 }
 
 // =========================================================================
