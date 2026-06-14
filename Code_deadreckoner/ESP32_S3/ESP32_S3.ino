@@ -119,7 +119,7 @@
 // =========================================================================
 // PARAMETRIC BANDWIDTH & MEMORY ENGINE
 // =========================================================================
-  #define DATA_FRAME_SIZE            41     
+  #define DATA_FRAME_SIZE            45     
   #define SAMPLING_RATE_HZ           100    
   #define BYTES_PER_SECOND           (DATA_FRAME_SIZE * SAMPLING_RATE_HZ)
   #define BYTES_PER_HOUR             ((uint64_t)BYTES_PER_SECOND * 3600)
@@ -140,10 +140,10 @@ void loadCalibration();
 /*//////////////////////////// RTOS Data Structures ////////////////////////////*/
 
 #pragma pack(push, 1) // Force absolute 1-byte alignment for all enclosed structures
-// Optimized Parametric Binary structure using Union (Guaranteed Exactly 41 Bytes)
+// Optimized Parametric Binary structure using Union (Guaranteed Exactly 45 Bytes)
 typedef struct {
     uint32_t frame_seq;  // 4 Bytes: Monotonic sequential index for frame drop tracking
-    uint32_t timestamp;  // 4 Bytes: Absolute hardware microsecond timestamp from boot-up
+    uint64_t timestamp;  // 8 Bytes: Absolute hardware microsecond timestamp from boot-up (Prevents 71-min overflow)
     uint8_t event_flag;  // 1 Byte: 0=IMU, 1=TAG, 0xAA=SD_GAP, 0xBB=GPS
     
     // Memory Overlap: Total payload size strictly 32 Bytes
@@ -197,8 +197,9 @@ typedef struct {
   portMUX_TYPE tagEventMux = portMUX_INITIALIZER_UNLOCKED; 
 
 // Tracks the active file to resume appending after failure
-  uint16_t global_log_id = 1;      // X: Main Log/Test Number (e.g., 001)
-  uint16_t global_recovery_id = 1; // Y: Recovery Instance Number (e.g., 002)
+  uint16_t global_log_id = 1;       // X: Main Log/Test Number (e.g., 001)
+  uint16_t global_recovery_id = 1;  // Y: Recovery Instance Number (e.g., 002)
+  uint16_t max_log_id = 1;          // Tracks the highest existing DR_LOG_xxx.BIN index
   char current_log_filename[20] = "DR_LOG_001.BIN";
 
 // FreeRTOS Handles & PSRAM Queue
@@ -310,7 +311,7 @@ void sensorTask(void *pvParameters) {
       frame.frame_seq = global_frame_counter++;
       portEXIT_CRITICAL(&frameCounterMux);
       // === FIX ISSUE: Capture absolute high-precision microsecond hardware timestamp ===
-      frame.timestamp = (uint32_t)esp_timer_get_time(); 
+      frame.timestamp = esp_timer_get_time(); 
       frame.event_flag = 0; // Default: 0 marks standard high-speed IMU packet
       
       // Updated syntax to target the optimized overlapping payload union
@@ -417,7 +418,7 @@ void loggingTask(void *pvParameters) {
                 
                 // Assign identifiers after the memory block is sterile
                 gapFrame.frame_seq = global_frame_counter;
-                gapFrame.timestamp = (uint32_t)esp_timer_get_time();    
+                gapFrame.timestamp = esp_timer_get_time();    
                 gapFrame.event_flag = 0xAA;        
                 
                 // Force secure block write of the sterile gap marker
@@ -862,28 +863,30 @@ void loggingTask(void *pvParameters) {
       }
       if (selectTriggered) {
         if (confirmCursor == 1) {
-          currentState = STATE_SUBMENU_SD_INFO; // Cancel -> Back to SD Info
+          currentState = STATE_SUBMENU_SD_INFO;
           force_update_ui = true;
         } else {
-          // Execute Auto-Sequential New File Creation
+          // Execute Instantaneous O(1) New File Creation without SD card probing loops
           if (logFile) logFile.close();
           char filename[20];
-          global_log_id = 1;
-          while (true) {
-            snprintf(filename, sizeof(filename), "DR_LOG_%03d.BIN", global_log_id);
-            if (!sd.exists(filename)) break;
-            global_log_id++;
-            if (global_log_id > 999) { global_log_id = 999; break; }
+          
+          if (max_log_id < 999) {
+              global_log_id = max_log_id;
+              max_log_id++; // Increment the global ceiling tracker for next calls
+          } else {
+              global_log_id = 999;
           }
+          
+          snprintf(filename, sizeof(filename), "DR_LOG_%03d.BIN", global_log_id);
+          
           // Reset recovery counter
           global_recovery_id = 1;
+          
           // Thread-safe initialization of sequence tracker
           portENTER_CRITICAL(&frameCounterMux);
           global_frame_counter = 0;
           portEXIT_CRITICAL(&frameCounterMux);
-
-          // CRITICAL FIX: Clear and purge any stale sensor frames accumulated in the queue 
-          // during menu interaction, ensuring the new file starts strictly from a sterile buffer state.
+          
           xQueueReset(dataQueue);
 
           strcpy(current_log_filename, filename); 
@@ -895,14 +898,13 @@ void loggingTask(void *pvParameters) {
           snprintf(flashBuf, sizeof(flashBuf), "Created: LOG_%03d", global_log_id);
           u8g2.drawStr((u8g2.getDisplayWidth() - u8g2.getStrWidth(flashBuf)) / 2, 20, flashBuf);
           u8g2.sendBuffer();
-          // Sound effect verification
+          
           if (!is_muted) {
             digitalWrite(BUZZER_PIN, HIGH);
-            // FIX ISSUE 9: Use FreeRTOS non-blocking delay
-            vTaskDelay(pdMS_TO_TICKS(100)); 
+            vTaskDelay(pdMS_TO_TICKS(100));
             digitalWrite(BUZZER_PIN, LOW);
           } else { 
-            vTaskDelay(pdMS_TO_TICKS(1000)); 
+            vTaskDelay(pdMS_TO_TICKS(1000));
           }
           
           currentState = STATE_LIVE_VIEW;
@@ -1175,7 +1177,7 @@ void setup()
       break;
     }
   }
-  
+  max_log_id = global_log_id;       // Store the baseline for O(1) instantaneous dynamic creations
   global_recovery_id = 1;           // Reset recovery counter 
   global_frame_counter = 0;         // Reset frame counter
   strcpy(current_log_filename, filename); 
