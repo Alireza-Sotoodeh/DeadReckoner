@@ -415,6 +415,11 @@ void loggingTask(void *pvParameters) {
                 
                 // FIX ISSUE: Fully clear the entire structure to prevent uninitialized temp/garbage bytes
                 memset(&gapFrame, 0, sizeof(LogFrame));
+
+                // FIX ISSUE: Thread-safe capture and monotonic increment of the sequence counter
+                portENTER_CRITICAL(&frameCounterMux);
+                gapFrame.frame_seq = global_frame_counter++;
+                portEXIT_CRITICAL(&frameCounterMux);
                 
                 // Assign identifiers after the memory block is sterile
                 gapFrame.frame_seq = global_frame_counter;
