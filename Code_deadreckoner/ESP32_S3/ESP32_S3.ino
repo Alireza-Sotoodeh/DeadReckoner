@@ -690,25 +690,38 @@ void loggingTask(void *pvParameters) {
                 
                 // CRITICAL FIX: Cast to 64-bit unsigned integer to prevent arithmetic overflow on large SD cards (>32GB)
                 sd_free_mb = (uint32_t)(((uint64_t)freeClusters * sectorsPerCluster) / 2048);
-                sd_remain_hours = (float)sd_free_mb / MB_PER_HOUR;
+                
+                // Fixed parametric bandwidth tracking based on 41-Byte packets
+                sd_remain_hours = (float)sd_free_mb / MB_PER_HOUR; 
                 
                 uint32_t sd_total_mb = (uint32_t)(((uint64_t)totalClusters * sectorsPerCluster) / 2048);
                 sd_total_gb = (float)sd_total_mb / 1024.0;
-                // Count binary logs safely (Scans both Main Logs and Recovery fragments)
+
+                // === FIX ISSUE 7 & 8: High-Speed Filtered Directory Iteration via openNext() ===
                 totalFilesCount = 0;
-                char checkBuf[20];
-                for (int i = 1; i <= 999; i++) {
-                    // Check for main files
-                    snprintf(checkBuf, sizeof(checkBuf), "DR_LOG_%03d.BIN", i);
-                    if (sd.exists(checkBuf)) totalFilesCount++;
-                    
-                    // Check for recovery files from session 1 (Quick layout estimation)
-                    snprintf(checkBuf, sizeof(checkBuf), "%03d001.BIN", i);
-                    if (sd.exists(checkBuf)) totalFilesCount++;
+                File rootDir;
+                if (rootDir.open("/", O_RDONLY)) {
+                    File file;
+                    char nameBuf[25];
+                    while (file.openNext(&rootDir, O_RDONLY)) {
+                        if (!file.isDir()) {
+                            file.getName(nameBuf, sizeof(nameBuf));
+                            int len = strlen(nameBuf);
+                            
+                            // Validate .BIN extension first
+                            if (len >= 4 && strcasecmp(nameBuf + len - 4, ".BIN") == 0) {
+                                // Filter and count only unique Parent Log sessions starting with "DR_LOG_"
+                                if (strncmp(nameBuf, "DR_LOG_", 7) == 0) {
+                                    totalFilesCount++;
+                                }
+                            }
+                        }
+                        file.close();
+                    }
+                    rootDir.close();
                 }
             } else {
-                sd_free_mb = 0;
-                sd_remain_hours = 0.0; totalFilesCount = 0;
+                sd_free_mb = 0; sd_remain_hours = 0.0; sd_total_gb = 0.0; totalFilesCount = 0;
             }
             currentState = STATE_SUBMENU_SD_INFO;
             sdMenuCursor = 0; // Reset scroll cursors
