@@ -994,12 +994,8 @@ void loggingTask(void *pvParameters) {
               snprintf(buf, sizeof(buf), "Qy:%.2f", receivedFrame.payload.imu.q[2]); u8g2.drawStr(0, 19, buf);
               snprintf(buf, sizeof(buf), "Qz:%.2f", receivedFrame.payload.imu.q[3]); u8g2.drawStr(64, 19, buf);
               
-              // Row 3 (Y=31): System Frame Sequence Counter & Non-blocking MPU Temperature
-              uint32_t total_secs = receivedFrame.frame_seq / 100; // 100 Hz = 100 frames per second
-              uint32_t mins = total_secs / 60;
-              uint32_t secs = total_secs % 60;
-              // === FIX ISSUE: Calculate real run time from hardware microsecond timestamp ===
-              uint32_t total_secs = receivedFrame.timestamp / 1000000; // Convert microseconds to seconds
+              // Row 3 (Y=31): Real-time run duration & Non-blocking MPU Temperature
+              uint32_t total_secs = receivedFrame.timestamp / 1000000; 
               uint32_t mins = total_secs / 60;
               uint32_t secs = total_secs % 60;
               snprintf(buf, sizeof(buf), "T:%03lu:%02lu", mins, secs); u8g2.drawStr(0, 31, buf);
@@ -1312,21 +1308,19 @@ void saveCalibration() {
   uint16_t magic = EEPROM_MAGIC_NUMBER;
   EEPROM.put(EEPROM_MAGIC_ADDR, magic);
   
-  // Offset the data allocation by the size of the magic number
-  int addr = 0;
+  // FIX ISSUE 2: Offset the data allocation by the size of the magic number
+  int addr = sizeof(uint16_t);
+  
   EEPROM.put(addr, mpu.getAccBiasX()); addr += sizeof(float);
-  EEPROM.put(addr, mpu.getAccBiasY());
-  addr += sizeof(float);
+  EEPROM.put(addr, mpu.getAccBiasY()); addr += sizeof(float);
   EEPROM.put(addr, mpu.getAccBiasZ()); addr += sizeof(float);
   EEPROM.put(addr, mpu.getGyroBiasX()); addr += sizeof(float);
   EEPROM.put(addr, mpu.getGyroBiasY()); addr += sizeof(float);
-  EEPROM.put(addr, mpu.getGyroBiasZ());
-  addr += sizeof(float);
+  EEPROM.put(addr, mpu.getGyroBiasZ()); addr += sizeof(float);
   EEPROM.put(addr, mpu.getMagBiasX()); addr += sizeof(float);
   EEPROM.put(addr, mpu.getMagBiasY()); addr += sizeof(float);
   EEPROM.put(addr, mpu.getMagBiasZ()); addr += sizeof(float);
-  EEPROM.put(addr, mpu.getMagScaleX());
-  addr += sizeof(float);
+  EEPROM.put(addr, mpu.getMagScaleX()); addr += sizeof(float);
   EEPROM.put(addr, mpu.getMagScaleY()); addr += sizeof(float);
   EEPROM.put(addr, mpu.getMagScaleZ()); addr += sizeof(float);
   EEPROM.commit();
