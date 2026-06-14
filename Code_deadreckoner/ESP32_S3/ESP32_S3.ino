@@ -406,14 +406,14 @@ void loggingTask(void *pvParameters) {
             
             if (attemptSDRecovery()) {
                 LogFrame gapFrame;
-                // === FIX ISSUE: Explicitly initialize gap frame payload and identifiers ===
+                
+                // FIX ISSUE: Fully clear the entire structure to prevent uninitialized temp/garbage bytes
+                memset(&gapFrame, 0, sizeof(LogFrame));
+                
+                // Assign identifiers after the memory block is sterile
                 gapFrame.frame_seq = global_frame_counter;
                 gapFrame.timestamp = (uint32_t)esp_timer_get_time();    
-                gapFrame.event_flag = 0xAA; // 0xAA explicitly marks the hardware SD_GAP event
-                
-                // Clear the rest of the payload union to guarantee zero garbage bytes
-                memset(gapFrame.payload.imu.q, 0, sizeof(gapFrame.payload.imu.q));
-                memset(gapFrame.payload.imu.accel, 0, sizeof(gapFrame.payload.imu.accel));        
+                gapFrame.event_flag = 0xAA;        
                 
                 // Force secure block write of the sterile gap marker
                 logFile.write((uint8_t*)&gapFrame, sizeof(LogFrame));
