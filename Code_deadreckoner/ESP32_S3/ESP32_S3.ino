@@ -780,15 +780,15 @@ void loggingTask(void *pvParameters) {
       }
     }
     else if (currentState == STATE_SUBMENU_SD_INFO) {
-      // Navigation inside the advanced 7-item SD menu
+      // Navigation inside the expanded 8-item SD menu (Indices 0 to 7)
       if (upTriggered) {
         sdMenuCursor--;
-        if (sdMenuCursor < 0) sdMenuCursor = 6; // Loop back to 7th item (Back)
+        if (sdMenuCursor < 0) sdMenuCursor = 7; // Loop back to 8th item (Back)
         force_update_ui = true;
       }
       if (downTriggered) {
         sdMenuCursor++;
-        if (sdMenuCursor > 6) sdMenuCursor = 0; // Loop back to 1st item (Total)
+        if (sdMenuCursor > 7) sdMenuCursor = 0; // Loop back to 1st item (Total)
         force_update_ui = true;
       }
       
@@ -799,33 +799,28 @@ void loggingTask(void *pvParameters) {
         sdScrollOffset = sdMenuCursor - 2;
       }
 
-      // SELECT Actions based on cursor position
+      // SELECT Actions mapped correctly after adding the Drops item
       if (selectTriggered) {
-        if (sdMenuCursor >= 0 && sdMenuCursor <= 3) {
-          // Lines 1 to 4: Any info selection jumps directly to Live View
+        if (sdMenuCursor >= 0 && sdMenuCursor <= 4) {
+          // FIX ISSUE 1: Lines 1 to 5 (including Drops) jump safely to Live View
           currentState = STATE_LIVE_VIEW;
           force_update_ui = true;
           last_interaction_millis = currentMillis;
         }
-        else if (sdMenuCursor == 4) {
-          // Option 5: Create New File -> Enter confirmation trap
-          currentState = STATE_CONFIRM_CREATE_FILE;
-          confirmCursor = 1; // Default focus on NO for safety
-          force_update_ui = true;
-        }
         else if (sdMenuCursor == 5) {
-          // Option 6: Format / Clear -> Enter confirmation trap
-          currentState = STATE_CONFIRM_FORMAT;
-          confirmCursor = 1; // Default focus on NO for safety
+          // Option 6: Create New File -> Enter confirmation trap
+          currentState = STATE_CONFIRM_CREATE_FILE;
+          confirmCursor = 1; 
           force_update_ui = true;
         }
         else if (sdMenuCursor == 6) {
-          // Option 7: Back to Menu -> Safe escape to main menu
-          currentState = STATE_MENU;
-          menuCursor = 2; // Keep main menu cursor on "3.SD Card Info"
+          // Option 7: Format / Clear -> Enter confirmation trap
+          currentState = STATE_CONFIRM_FORMAT;
+          confirmCursor = 1; 
           force_update_ui = true;
         }
         else if (sdMenuCursor == 7) {
+          // Option 8: Back to Menu -> Safe escape to main menu
           currentState = STATE_MENU;
           menuCursor = 2; 
           force_update_ui = true;
@@ -906,6 +901,11 @@ void loggingTask(void *pvParameters) {
 
           strcpy(current_log_filename, filename); 
           logFile = sd.open(current_log_filename, FILE_WRITE);
+          
+          // Null-check file pointer to prevent silent logging failures on dynamic creation
+          if (!logFile) {
+              sd_critical_error = true;
+          }
 
           // Render instant feedback to the user on screen
           u8g2.clearBuffer();
@@ -941,7 +941,6 @@ void loggingTask(void *pvParameters) {
         } else {
           // Safe Execution: Suspend Core 0 sensor task during massive SD wiping operations
           vTaskSuspend(sensorTaskHandle);
-          
           // Execute Smart Delete Protocol
           u8g2.clearBuffer();
           u8g2.drawStr((u8g2.getDisplayWidth() - u8g2.getStrWidth("Clearing Logs...")) / 2, 20, "Clearing Logs...");
@@ -949,7 +948,6 @@ void loggingTask(void *pvParameters) {
           
           if (logFile) logFile.close();
           char delFilename[20];
-          
           // Enhanced sweeping protocol to remove BOTH Parent logs and Orphaned recovery fragments
           for (int i = 1; i <= 999; i++) {
             // 1. Delete the Parent Log File
@@ -968,15 +966,19 @@ void loggingTask(void *pvParameters) {
               } else {
                 break;
               }
+              
+              // Yield execution inside the nested loop to prevent WDT timeout during heavy fragment wipes
+              vTaskDelay(pdMS_TO_TICKS(1));
             }
             
-            // FEED THE WATCHDOG: Yield execution every loop iteration to prevent hardware reset
+            // Baseline heartbeat yield for empty parent slots
             vTaskDelay(pdMS_TO_TICKS(1));
           }
           
           strcpy(current_log_filename, "DR_LOG_001.BIN");
           global_log_id = 1;
           global_recovery_id = 1;
+          max_log_id = 1; // Reset the ceiling index tracker after card formatting
           
           // Thread-safe initialization of sequence tracker on memory wipe
           portENTER_CRITICAL(&frameCounterMux);
@@ -984,7 +986,7 @@ void loggingTask(void *pvParameters) {
           portEXIT_CRITICAL(&frameCounterMux);
           
           // Purge the queue after memory wipe to prevent leaking stale data
-          xQueueReset(dataQueue);     
+          xQueueReset(dataQueue);
           logFile = sd.open(current_log_filename, FILE_WRITE);
           
           u8g2.clearBuffer();
@@ -992,10 +994,8 @@ void loggingTask(void *pvParameters) {
           u8g2.sendBuffer();
           
           vTaskDelay(pdMS_TO_TICKS(1200));
-          
           // Resume Core 0 task safely after system configuration is restored
           vTaskResume(sensorTaskHandle);
-          
           currentState = STATE_LIVE_VIEW; 
           force_update_ui = true;
           last_interaction_millis = currentMillis;
