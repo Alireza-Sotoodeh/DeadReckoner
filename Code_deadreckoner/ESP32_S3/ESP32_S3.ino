@@ -480,6 +480,11 @@ void loggingTask(void *pvParameters) {
         // Create a new sequential log file to resume mission safely
         logFile = sd.open(current_log_filename, FILE_WRITE);
         
+        // FIX ISSUE 5: Validate file pointer after MPU recovery to prevent silent write failures
+        if (!logFile) {
+            sd_critical_error = true;
+        }
+        
         // Feedback to User
         u8g2.clearBuffer();
         u8g2.drawStr(10, 15, "MPU RECOVERED!");
@@ -971,11 +976,12 @@ void loggingTask(void *pvParameters) {
       if (currentMillis - lastFlushMillis > 5000) { 
         if (logFile) {
             if (!logFile.sync()) {
-                sd_critical_error = true; // Sync failure means card was pulled out
+                sd_critical_error = true;
             }
         }
         lastFlushMillis = currentMillis;
       }
+    } 
 
       // === PHASE 4: Graphics Rendering ===
       if (!is_oled_sleeping) {
@@ -1066,9 +1072,8 @@ void loggingTask(void *pvParameters) {
           currentState = STATE_LIVE_VIEW; 
           force_update_ui = true;
       }
-    }
-  }
-}
+  } 
+} 
 
 /*////////////////////////////setup////////////////////////////*/
 void setup() 
