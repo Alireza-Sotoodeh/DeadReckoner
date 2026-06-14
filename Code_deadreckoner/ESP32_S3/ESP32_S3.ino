@@ -167,7 +167,6 @@ typedef struct {
   enum UIState {
       STATE_LIVE_VIEW,
       STATE_MENU,
-      STATE_SUBMENU_MSG,  
       STATE_SUBMENU_SD_INFO,    
       STATE_SUBMENU_DISPLAY,
       STATE_SUBMENU_MUTE,
@@ -769,12 +768,6 @@ void loggingTask(void *pvParameters) {
         }
       }
     }
-    else if (currentState == STATE_SUBMENU_MSG) {
-        if (selectTriggered) {
-            currentState = STATE_MENU;
-            force_update_ui = true;
-        }
-    }
     else if (currentState == STATE_SUBMENU_SD_INFO) {
       // Navigation inside the advanced 7-item SD menu
       if (upTriggered) {
@@ -1037,10 +1030,7 @@ void loggingTask(void *pvParameters) {
               u8g2.drawStr(10, 20, menuItems[menuCursor]);
               u8g2.drawStr(0, 20, ">");
             }
-            else if (currentState == STATE_SUBMENU_MSG) {
-              u8g2.drawStr(5, 15, subMenuMsg);
-              u8g2.drawStr(5, 28, "[Select] to Back");
-            }
+            
             else if (currentState == STATE_SUBMENU_SD_INFO) {
               // Construct the 7 lines array in memory dynamically
               char lines[7][32];
