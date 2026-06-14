@@ -119,7 +119,7 @@
 // =========================================================================
 // PARAMETRIC BANDWIDTH & MEMORY ENGINE
 // =========================================================================
-  #define DATA_FRAME_SIZE            37     
+  #define DATA_FRAME_SIZE            41     
   #define SAMPLING_RATE_HZ           100    
   #define BYTES_PER_SECOND           (DATA_FRAME_SIZE * SAMPLING_RATE_HZ)
   #define BYTES_PER_HOUR             ((uint64_t)BYTES_PER_SECOND * 3600)
@@ -140,12 +140,13 @@ void loadCalibration();
 /*//////////////////////////// RTOS Data Structures ////////////////////////////*/
 
 #pragma pack(push, 1) // Force absolute 1-byte alignment for all enclosed structures
-// Optimized Binary structure (37 Bytes)
+// Optimized Parametric Binary structure using Union (Guaranteed Exactly 41 Bytes)
 typedef struct {
-    uint32_t frame_seq;       // 4 Bytes: Sequential index
-    uint8_t event_flag;       // 1 Byte: 0=IMU, 1=TAG, 0xAA=SD_GAP, 0xBB=GPS
+    uint32_t frame_seq;  // 4 Bytes: Monotonic sequential index for frame drop tracking
+    uint32_t timestamp;  // 4 Bytes: Absolute hardware microsecond timestamp from boot-up
+    uint8_t event_flag;  // 1 Byte: 0=IMU, 1=TAG, 0xAA=SD_GAP, 0xBB=GPS
     
-    // Memory Overlap: Total size strictly 32 Bytes
+    // Memory Overlap: Total payload size strictly 32 Bytes
     union {
         struct {
             float q[4];
@@ -158,6 +159,7 @@ typedef struct {
             double lng;
         } gps;
     } payload;
+    
 } LogFrame;
 #pragma pack(pop) // Restore default compiler alignment
 
@@ -302,7 +304,9 @@ void sensorTask(void *pvParameters) {
       last_mpu_data_time = millis(); // Reset timeout counter
       portENTER_CRITICAL(&frameCounterMux);
       frame.frame_seq = global_frame_counter++;
-      portEXIT_CRITICAL(&frameCounterMux); 
+      portEXIT_CRITICAL(&frameCounterMux);
+      // === FIX ISSUE: Capture absolute high-precision microsecond hardware timestamp ===
+      frame.timestamp = (uint32_t)esp_timer_get_time(); 
       frame.event_flag = 0; // Default: 0 marks standard high-speed IMU packet
       
       // Updated syntax to target the optimized overlapping payload union
@@ -404,7 +408,8 @@ void loggingTask(void *pvParameters) {
             if (attemptSDRecovery()) {
                 LogFrame gapFrame;
                 // === FIX ISSUE: Explicitly initialize gap frame payload and identifiers ===
-                gapFrame.frame_seq = global_frame_counter;    
+                gapFrame.frame_seq = global_frame_counter;
+                gapFrame.timestamp = (uint32_t)esp_timer_get_time();    
                 gapFrame.event_flag = 0xAA; // 0xAA explicitly marks the hardware SD_GAP event
                 
                 // Clear the rest of the payload union to guarantee zero garbage bytes
@@ -979,6 +984,10 @@ void loggingTask(void *pvParameters) {
               
               // Row 3 (Y=31): System Frame Sequence Counter & Non-blocking MPU Temperature
               uint32_t total_secs = receivedFrame.frame_seq / 100; // 100 Hz = 100 frames per second
+              uint32_t mins = total_secs / 60;
+              uint32_t secs = total_secs % 60;
+              // === FIX ISSUE: Calculate real run time from hardware microsecond timestamp ===
+              uint32_t total_secs = receivedFrame.timestamp / 1000000; // Convert microseconds to seconds
               uint32_t mins = total_secs / 60;
               uint32_t secs = total_secs % 60;
               snprintf(buf, sizeof(buf), "T:%03lu:%02lu", mins, secs); u8g2.drawStr(0, 31, buf);
