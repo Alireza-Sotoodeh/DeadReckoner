@@ -720,9 +720,22 @@ void loggingTask(void *pvParameters) {
                             
                             // Validate .BIN extension first
                             if (len >= 4 && strcasecmp(nameBuf + len - 4, ".BIN") == 0) {
-                                // Filter and count only unique Parent Log sessions starting with "DR_LOG_"
+                                // 1. Check for standard Parent logs (e.g., DR_LOG_001.BIN)
                                 if (strncmp(nameBuf, "DR_LOG_", 7) == 0) {
                                     totalFilesCount++;
+                                } 
+                                // FIX ISSUE 8: 2. Check for Recovery logs (e.g., 001001.BIN -> exactly 10 chars)
+                                else if (len == 10) {
+                                    bool isRecoveryFile = true;
+                                    for (int i = 0; i < 6; i++) {
+                                        if (!isdigit(nameBuf[i])) {
+                                            isRecoveryFile = false;
+                                            break;
+                                        }
+                                    }
+                                    if (isRecoveryFile) {
+                                        totalFilesCount++;
+                                    }
                                 }
                             }
                         }
@@ -892,10 +905,14 @@ void loggingTask(void *pvParameters) {
           // Sound effect verification
           if (!is_muted) {
             digitalWrite(BUZZER_PIN, HIGH);
-            delay(100); digitalWrite(BUZZER_PIN, LOW);
-          } else { delay(1000); }
+            // FIX ISSUE 9: Use FreeRTOS non-blocking delay
+            vTaskDelay(pdMS_TO_TICKS(100)); 
+            digitalWrite(BUZZER_PIN, LOW);
+          } else { 
+            vTaskDelay(pdMS_TO_TICKS(1000)); 
+          }
           
-          currentState = STATE_LIVE_VIEW; // Direct redirect to Home
+          currentState = STATE_LIVE_VIEW;
           force_update_ui = true;
           last_interaction_millis = currentMillis;
         }
@@ -957,7 +974,9 @@ void loggingTask(void *pvParameters) {
           u8g2.clearBuffer();
           u8g2.drawStr((u8g2.getDisplayWidth() - u8g2.getStrWidth("All Logs Cleared!")) / 2, 20, "All Logs Cleared!");
           u8g2.sendBuffer();
-          delay(1200);
+          
+          // FIX ISSUE : Use FreeRTOS non-blocking delay to prevent Watchdog starvation
+          vTaskDelay(pdMS_TO_TICKS(1200));
           
           currentState = STATE_LIVE_VIEW; // Direct redirect to Home after format
           force_update_ui = true;
