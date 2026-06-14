@@ -279,7 +279,6 @@ void sensorTask(void *pvParameters) {
   LogFrame frame;
   unsigned long last_mpu_data_time = millis();  // Track last successful read
   unsigned long last_recovery_attempt = 0;      // Tracks MPU9250 recovery intervals
-  unsigned long last_sd_recovery_attempt = 0;   // Tracks recovery intervals for SD Card
 
   for(;;) {
 
