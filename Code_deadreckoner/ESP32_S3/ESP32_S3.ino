@@ -933,13 +933,6 @@ void loggingTask(void *pvParameters) {
         }
         lastFlushMillis = currentMillis;
       }
-      
-      // === POWER MANAGEMENT TRIGGER ===
-      if (auto_off_enabled && !is_oled_sleeping && (currentMillis - last_interaction_millis > OLED_SLEEP_TIMEOUT_MS)) {
-          is_oled_sleeping = true;
-          u8g2.setPowerSave(1); // Hardware sleep command
-          currentState = STATE_LIVE_VIEW;
-      }
 
       // === PHASE 4: Graphics Rendering ===
       if (!is_oled_sleeping) {
@@ -1023,6 +1016,12 @@ void loggingTask(void *pvParameters) {
             u8g2.sendBuffer();
             lastDisplayMillis = currentMillis;
           }
+      }
+      if (auto_off_enabled && !is_oled_sleeping && (currentMillis - last_interaction_millis > OLED_SLEEP_TIMEOUT_MS)) {
+          is_oled_sleeping = true;
+          u8g2.setPowerSave(1); 
+          currentState = STATE_LIVE_VIEW; 
+          force_update_ui = true;
       }
     }
   }
@@ -1189,7 +1188,7 @@ void setup()
   dataQueue = xQueueCreateStatic(QUEUE_LENGTH, sizeof(LogFrame), queueBuffer, queueStruct);
   Serial.print("SUCCESS: Buffer allocated in PSRAM. Total size (MB): ");
   Serial.println(PSRAM_BUFFER_SIZE_MB);
-  
+
   // Pin Sensor Task to Core 0 (Highest Priority)
   xTaskCreatePinnedToCore(sensorTask, "SensorTask", 4096, NULL, 2, &sensorTaskHandle, 0);
   // Pin Logging Task to Core 1
