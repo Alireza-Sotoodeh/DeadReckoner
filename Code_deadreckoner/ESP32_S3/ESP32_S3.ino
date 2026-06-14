@@ -191,6 +191,7 @@ typedef struct {
   volatile bool sd_critical_error = false;
   volatile bool system_shutdown_requested = false;
   volatile uint32_t global_frame_counter = 0;
+  volatile uint32_t dropped_frames_count = 0;
 
 // Hardware spinlocks for multi-core thread safety
   portMUX_TYPE frameCounterMux = portMUX_INITIALIZER_UNLOCKED;
@@ -330,8 +331,13 @@ void sensorTask(void *pvParameters) {
           tag_event_triggered = false; 
       }
       portEXIT_CRITICAL(&tagEventMux);
-      // Send to queue without blocking. If queue is full, frame drops (keeps real-time integrity)
-      xQueueSend(dataQueue, &frame, 0);
+      // Monitor Queue Health and Track Silent Overflows
+      if (xQueueSend(dataQueue, &frame, 0) != pdPASS) {
+          dropped_frames_count++;
+          digitalWrite(LED_RED_PIN, HIGH);
+      } else if (!sd_critical_error && !mpu_critical_error) {
+          digitalWrite(LED_RED_PIN, LOW);
+      }
     } else {
       // DETECT SENSOR DISCONNECTION: No new data for 500ms
       if (millis() - last_mpu_data_time > 500) {
@@ -413,7 +419,7 @@ void loggingTask(void *pvParameters) {
             if (attemptSDRecovery()) {
                 LogFrame gapFrame;
                 
-                // FIX ISSUE: Fully clear the entire structure to prevent uninitialized temp/garbage bytes
+                // Fully clear the entire structure to prevent uninitialized temp/garbage bytes
                 memset(&gapFrame, 0, sizeof(LogFrame));
 
                 // FIX ISSUE: Thread-safe capture and monotonic increment of the sequence counter
@@ -422,7 +428,6 @@ void loggingTask(void *pvParameters) {
                 portEXIT_CRITICAL(&frameCounterMux);
                 
                 // Assign identifiers after the memory block is sterile
-                gapFrame.frame_seq = global_frame_counter;
                 gapFrame.timestamp = esp_timer_get_time();    
                 gapFrame.event_flag = 0xAA;        
                 
@@ -820,6 +825,11 @@ void loggingTask(void *pvParameters) {
           menuCursor = 2; // Keep main menu cursor on "3.SD Card Info"
           force_update_ui = true;
         }
+        else if (sdMenuCursor == 7) {
+          currentState = STATE_MENU;
+          menuCursor = 2; 
+          force_update_ui = true;
+        }
       }
     }
     else if (currentState == STATE_SUBMENU_DISPLAY) {
@@ -1047,21 +1057,21 @@ void loggingTask(void *pvParameters) {
             }
             
             else if (currentState == STATE_SUBMENU_SD_INFO) {
-              // Construct the 7 lines array in memory dynamically
-              char lines[7][32];
+              char lines[8][32];
               snprintf(lines[0], 32, "1.Total: %.1f GB", sd_total_gb); 
               snprintf(lines[1], 32, "2.Free: %lu MB", sd_free_mb);
               snprintf(lines[2], 32, "3.Time: %.1f Hrs", sd_remain_hours);
               snprintf(lines[3], 32, "4.Files Count: %u", totalFilesCount);
-              snprintf(lines[4], 32, "5.Create New File");
-              snprintf(lines[5], 32, "6.Format / Clear");
-              snprintf(lines[6], 32, "7.Back to Menu");
-              // Render only the 3 lines inside the scrolling window matrix
+              snprintf(lines[4], 32, "5.Drops: %lu", dropped_frames_count);
+              snprintf(lines[5], 32, "6.Create New File");
+              snprintf(lines[6], 32, "7.Format / Clear");
+              snprintf(lines[7], 32, "8.Back to Menu");
+              
               for (int i = 0; i < 3; i++) {
                 int lineIndex = sdScrollOffset + i;
-                int yPos = 10 + (i * 10); // Spacing for 32px display
+                int yPos = 10 + (i * 10); 
                 u8g2.drawStr(12, yPos, lines[lineIndex]);
-                // Draw cursor arrow on the correctly focused item
+                
                 if (lineIndex == sdMenuCursor) {
                   u8g2.drawStr(2, yPos, ">");
                 }
