@@ -186,6 +186,10 @@ typedef struct {
   volatile bool system_shutdown_requested = false;
   volatile uint32_t global_frame_counter = 0;
 
+// Hardware spinlocks for multi-core thread safety
+  portMUX_TYPE frameCounterMux = portMUX_INITIALIZER_UNLOCKED;
+  portMUX_TYPE tagEventMux = portMUX_INITIALIZER_UNLOCKED; 
+
 // Tracks the active file to resume appending after failure
   uint16_t global_log_id = 1;      // X: Main Log/Test Number (e.g., 001)
   uint16_t global_recovery_id = 1; // Y: Recovery Instance Number (e.g., 002)
@@ -291,8 +295,9 @@ void sensorTask(void *pvParameters) {
 
     if (mpu.update()) {
       last_mpu_data_time = millis(); // Reset timeout counter
-      
-      frame.frame_seq = global_frame_counter++; 
+      portENTER_CRITICAL(&frameCounterMux);
+      frame.frame_seq = global_frame_counter++;
+      portEXIT_CRITICAL(&frameCounterMux); 
       frame.event_flag = 0; // Default: 0 marks standard high-speed IMU packet
       
       // Updated syntax to target the optimized overlapping payload union
@@ -304,12 +309,13 @@ void sensorTask(void *pvParameters) {
       frame.payload.imu.accel[1] = mpu.getLinearAccY();
       frame.payload.imu.accel[2] = mpu.getLinearAccZ();
       frame.payload.imu.temp = mpu.getTemperature();
-      // Thread-safe check for Waypoint Tagging
+      // Thread-safe isolation for inter-core Waypoint Tagging flags
+      portENTER_CRITICAL(&tagEventMux);
       if (tag_event_triggered) {
           frame.event_flag = 1; // 1 marks user button interaction event
-          tag_event_triggered = false; // Reset the flag after recording
+          tag_event_triggered = false; 
       }
-      
+      portEXIT_CRITICAL(&tagEventMux);
       // Send to queue without blocking. If queue is full, frame drops (keeps real-time integrity)
       xQueueSend(dataQueue, &frame, 0);
     } else {
@@ -490,7 +496,10 @@ void loggingTask(void *pvParameters) {
       // TAG Button (Independent of OLED Sleep state)
       if (digitalRead(BTN_TAG_PIN) == LOW) {
         if (!tagWasPressed) { 
+            // Protect writing to shared variable across cores
+            portENTER_CRITICAL(&tagEventMux);
             tag_event_triggered = true;
+            portEXIT_CRITICAL(&tagEventMux);
             tagWasPressed = true;
             last_interaction_millis = currentMillis; 
             
@@ -824,8 +833,10 @@ void loggingTask(void *pvParameters) {
           }
           // Reset recovery counter
           global_recovery_id = 1;
-          // Reset frame counter          
+          // Thread-safe initialization of sequence tracker
+          portENTER_CRITICAL(&frameCounterMux);
           global_frame_counter = 0;
+          portEXIT_CRITICAL(&frameCounterMux);
 
           // CRITICAL FIX: Clear and purge any stale sensor frames accumulated in the queue 
           // during menu interaction, ensuring the new file starts strictly from a sterile buffer state.
@@ -897,7 +908,10 @@ void loggingTask(void *pvParameters) {
           // Reset Y            
           global_recovery_id = 1;
           // Reset frame counter       
+          // Thread-safe initialization of sequence tracker on memory wipe
+          portENTER_CRITICAL(&frameCounterMux);
           global_frame_counter = 0;
+          portEXIT_CRITICAL(&frameCounterMux);
           // CRITICAL FIX: Purge the queue after memory wipe to prevent frames captured 
           // during formatting from leaking into the new fresh session.
           xQueueReset(dataQueue);     
