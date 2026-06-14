@@ -126,6 +126,11 @@
   #define MB_PER_HOUR                ((float)BYTES_PER_HOUR / (1024.0 * 1024.0)) 
   #define QUEUE_LENGTH               50000  
   #define PSRAM_BUFFER_SIZE_MB       ((float)(QUEUE_LENGTH * DATA_FRAME_SIZE) / (1024.0 * 1024.0))
+// =========================================================================
+// Calabiriation
+// =========================================================================
+  #define EEPROM_MAGIC_NUMBER       0xDEAD
+  #define EEPROM_MAGIC_ADDR         0
 
 /*//////////////////////////// Function prototypes ////////////////////////////*/
 void performCalibration();
@@ -1282,6 +1287,11 @@ void print_calibration() {
 }
 
 void saveCalibration() {
+  // Write the confirmation sentinel first to validate future boots
+  uint16_t magic = EEPROM_MAGIC_NUMBER;
+  EEPROM.put(EEPROM_MAGIC_ADDR, magic);
+  
+  // Offset the data allocation by the size of the magic number
   int addr = 0;
   EEPROM.put(addr, mpu.getAccBiasX()); addr += sizeof(float);
   EEPROM.put(addr, mpu.getAccBiasY());
@@ -1302,7 +1312,20 @@ void saveCalibration() {
 }
 
 void loadCalibration() {
-  int addr = 0;
+  uint16_t loadedMagic = 0;
+  EEPROM.get(EEPROM_MAGIC_ADDR, loadedMagic);
+  
+  // Defensive Check: Validate if EEPROM has been calibrated before
+  if (loadedMagic != EEPROM_MAGIC_NUMBER) {
+    Serial.println("WARNING: No valid calibration found in EEPROM. Using factory defaults.");
+    mpu.setAccBias(0.0, 0.0, 0.0);
+    mpu.setGyroBias(0.0, 0.0, 0.0);
+    mpu.setMagBias(0.0, 0.0, 0.0);
+    mpu.setMagScale(1.0, 1.0, 1.0);
+    return; // Abort loading to protect the Madgwick filter from corrupt floats
+  }
+
+  int addr = sizeof(uint16_t);
   float accBiasX, accBiasY, accBiasZ;
   float gyroBiasX, gyroBiasY, gyroBiasZ;
   float magBiasX, magBiasY, magBiasZ;
@@ -1325,6 +1348,7 @@ void loadCalibration() {
   mpu.setGyroBias(gyroBiasX, gyroBiasY, gyroBiasZ);
   mpu.setMagBias(magBiasX, magBiasY, magBiasZ);
   mpu.setMagScale(magScaleX, magScaleY, magScaleZ);
+  
   Serial.println("Loaded calibration values from EEPROM:");
   Serial.print("Acc Bias X: "); Serial.println(accBiasX);
   Serial.print("Acc Bias Y: "); Serial.println(accBiasY);
