@@ -84,7 +84,7 @@
   // DIY SD card
   #define SPI_FREQ_MHZ 20                                 // max is 26MHZ
   #define Attempt_Runtime_SD_recovery_MS 3000
-  #define Recheck_SD_beforeBoot_MS 3000                                // Wait time before retrying SD initialization
+  #define Recheck_SD_beforeBoot_MS 3000                                
   #define SD_recoverd_signal_MS 50
   // MPU9250 setting
   MPU9250 mpu; // handler: allowing access to all library methods
@@ -107,27 +107,38 @@
   #define font_8_pixel u8g2_font_helvB08_tf
   #define font_5_pixel u8g2_font_spleen5x8_me
   #define update_rate_oled 1500
-  #define OLED_SLEEP_TIMEOUT_MS 20000                       // default Time in milliseconds before OLED sleeps
+  #define OLED_SLEEP_TIMEOUT_MS 20000                       
   // Notification Timings
   #define ALARM_BEEP_MS 100                                 // Duration of error beeps during SD failure      
-  #define TAG_BEEP_MS 50                                    // Duration of short beep for Waypoint TAG
-  #define TAG_BLINK_MS 100                                  // Duration of Green LED flash for TAG
+  #define TAG_BEEP_MS 50                                    
+  #define TAG_BLINK_MS 100                                  
   // buttons 
   #define Press_to_ShutDown_MS 3000
+// =========================================================================
+// PARAMETRIC BANDWIDTH & MEMORY ENGINE
+// =========================================================================
+#define DATA_FRAME_SIZE            37     
+#define SAMPLING_RATE_HZ           100    
+#define BYTES_PER_SECOND           (DATA_FRAME_SIZE * SAMPLING_RATE_HZ)
+#define BYTES_PER_HOUR             ((uint64_t)BYTES_PER_SECOND * 3600)
+#define MB_PER_HOUR                ((float)BYTES_PER_HOUR / (1024.0 * 1024.0)) 
+#define QUEUE_LENGTH               50000  
+#define PSRAM_BUFFER_SIZE_MB       ((float)(QUEUE_LENGTH * DATA_FRAME_SIZE) / (1024.0 * 1024.0))
 
 /*//////////////////////////// RTOS Data Structures ////////////////////////////*/
 
 #pragma pack(push, 1) // Force absolute 1-byte alignment for all enclosed structures
-// Optimized Binary structure using Union (Guaranteed Exactly 33 Bytes)
+// Optimized Binary structure (37 Bytes)
 typedef struct {
     uint32_t frame_seq;       // 4 Bytes: Sequential index
     uint8_t event_flag;       // 1 Byte: 0=IMU, 1=TAG, 0xAA=SD_GAP, 0xBB=GPS
     
-    // Memory Overlap: Total size strictly 28 Bytes
+    // Memory Overlap: Total size strictly 32 Bytes
     union {
         struct {
             float q[4];
             float accel[3];
+            float temp;
         } imu;
         
         struct {
@@ -135,7 +146,6 @@ typedef struct {
             double lng;
         } gps;
     } payload;
-    
 } LogFrame;
 #pragma pack(pop) // Restore default compiler alignment
 
@@ -176,9 +186,9 @@ uint16_t global_recovery_id = 1; // Y: Recovery Instance Number (e.g., 002)
 
 // FreeRTOS Handles & PSRAM Queue
 QueueHandle_t dataQueue;
-#define QUEUE_LENGTH 50000 // 50,000 frames = ~8.3 Minutes of Buffer at 100Hz!
-uint8_t *queueBuffer;      // Pointer to hold the massive 1.6MB buffer in PSRAM
-StaticQueue_t *queueStruct;// Pointer to hold the Queue control structure in internal RAM
+#define QUEUE_LENGTH 50000 
+uint8_t *queueBuffer;      
+StaticQueue_t *queueStruct;
 TaskHandle_t sensorTaskHandle;
 TaskHandle_t loggingTaskHandle;
 
@@ -291,7 +301,7 @@ void sensorTask(void *pvParameters) {
       frame.payload.imu.accel[0] = mpu.getLinearAccX();
       frame.payload.imu.accel[1] = mpu.getLinearAccY();
       frame.payload.imu.accel[2] = mpu.getLinearAccZ();
-      
+      frame.payload.imu.temp = mpu.getTemperature();
       // Thread-safe check for Waypoint Tagging
       if (tag_event_triggered) {
           frame.event_flag = 1; // 1 marks user button interaction event
@@ -654,10 +664,7 @@ void loggingTask(void *pvParameters) {
                 
                 // CRITICAL FIX: Cast to 64-bit unsigned integer to prevent arithmetic overflow on large SD cards (>32GB)
                 sd_free_mb = (uint32_t)(((uint64_t)freeClusters * sectorsPerCluster) / 2048);
-                
-                // CRITICAL FIX: Dynamic bandwidth calculation based on optimized 33-byte frames at 100Hz
-                // 33 Bytes * 100 Hz * 3600 Secs = 11.88 MB per hour
-                sd_remain_hours = (float)sd_free_mb / 11.88;
+                sd_remain_hours = (float)sd_free_mb / MB_PER_HOUR;
                 
                 uint32_t sd_total_mb = (uint32_t)(((uint64_t)totalClusters * sectorsPerCluster) / 2048);
                 sd_total_gb = (float)sd_total_mb / 1024.0;
@@ -956,7 +963,7 @@ void loggingTask(void *pvParameters) {
               uint32_t mins = total_secs / 60;
               uint32_t secs = total_secs % 60;
               snprintf(buf, sizeof(buf), "T:%03lu:%02lu", mins, secs); u8g2.drawStr(0, 31, buf);
-              snprintf(buf, sizeof(buf), "T:%.1fC", mpu.getTemperature()); u8g2.drawStr(76, 31, buf);
+              snprintf(buf, sizeof(buf), "T:%.1fC", receivedFrame.payload.imu.temp); u8g2.drawStr(76, 31, buf);
             } 
             else if (currentState == STATE_MENU) {
               u8g2.drawStr(0, 8, "--- MENU ---");
@@ -1180,7 +1187,8 @@ void setup()
 
   // 3. Create the Static Queue using the allocated memory
   dataQueue = xQueueCreateStatic(QUEUE_LENGTH, sizeof(LogFrame), queueBuffer, queueStruct);
-  Serial.println("SUCCESS: 50,000-Frame Buffer allocated in PSRAM.");
+  Serial.print("SUCCESS: Buffer allocated in PSRAM. Total size (MB): ");
+  Serial.println(PSRAM_BUFFER_SIZE_MB);
   
   // Pin Sensor Task to Core 0 (Highest Priority)
   xTaskCreatePinnedToCore(sensorTask, "SensorTask", 4096, NULL, 2, &sensorTaskHandle, 0);
