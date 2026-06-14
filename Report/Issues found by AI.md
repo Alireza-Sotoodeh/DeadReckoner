@@ -258,3 +258,66 @@ The software architecture is well organized and demonstrates good use of FreeRTO
 | **Overall**                    | **7.0 / 10** |
 
 > Fixing **L1–L4** (critical logical errors) alone would bring this to approximately **8.5/10**.
+
+---
+
+## Grok
+
+**DeadReckoner v1.9 Code Review**
+
+### 1. Critical Logical Errors
+
+- **Shutdown Protocol Bug**  
+  `system_shutdown_requested` stops sensor task but logging task continues reading from queue and may write after `logFile.close()`. Flush logic can cause corruption or crash.
+
+- **SD Recovery Issue**  
+  `global_recovery_id++` happens before confirming successful file open. Failed recovery increments ID without creating file → broken numbering.
+
+- **MPU Recovery Weakness**  
+  Re-init is incomplete; `mpu.update()` may still fail after recovery. EEPROM load during recovery can crash if corrupted.
+
+- **UI State Machine Gaps**  
+  `STATE_SUBMENU_MSG` is dead code. File creation/format does not fully synchronize with active logging.
+
+### 2. Redundant / Removable Code
+
+- `STATE_SUBMENU_MSG` and `subMenuMsg` array (unused).  
+- `last_sd_recovery_attempt` in sensorTask (defined but never used).  
+- Excessive long comments inside functions.  
+- Redundant `error_handled` flag logic (can be simplified).  
+- Some `Serial.print` calls in production paths.
+
+### 3. Potential Stability & Runtime Problems
+
+- **Watchdog Risk**  
+  Long queue flush during shutdown (up to 50k frames) may trigger task watchdog if yield is insufficient.
+
+- **PSRAM & Memory**  
+  System halts if PSRAM allocation fails. Stack size for sensorTask (4096) is tight for heavy MPU library usage.
+
+- **Hardware Instability**  
+  Runtime `Wire.end()/begin()` and hot SD card removal at 20MHz FSPI can cause I2C bus hangs or filesystem corruption.
+
+- **Power & Timing**  
+  High power draw from dual-core + software I2C OLED. Button debounce and interaction timing can overlap.
+
+### 4. Improvement Ideas
+
+- **Immediate Fixes**  
+  Use EventGroup or notification for inter-task communication. Move UI rendering to a separate task. Add file header with version & calibration.
+
+- **Stability Enhancements**  
+  Enable ESP task watchdog with periodic reset. Add CRC to LogFrame. Implement circular buffer instead of simple queue.
+
+- **Architecture Upgrade**  
+  Split into 3 tasks: Sensor (Core 0), Logger (Core 1), UI (Core 1 or pinned). Add low-power mode when OLED sleeps.
+
+- **Long-term**  
+  Add binary log header, optional CSV export, and EEPROM checksum.
+
+### 5. Overall Score: **7.4 / 10**
+
+**Strengths**: Excellent recovery design, smart union + PSRAM usage, feature-rich UI on tiny OLED.  
+**Weaknesses**: Overly complex single-task UI+logging, critical shutdown bugs, maintainability concerns.  
+
+Clean the shutdown and recovery bugs first, then refactor to multi-task architecture to reach **8.5+**.
