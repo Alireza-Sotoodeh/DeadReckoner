@@ -919,9 +919,12 @@ void loggingTask(void *pvParameters) {
       }
       if (selectTriggered) {
         if (confirmCursor == 1) {
-          currentState = STATE_SUBMENU_SD_INFO; // Cancel -> Back to SD Info
+          currentState = STATE_SUBMENU_SD_INFO;
           force_update_ui = true;
         } else {
+          // Safe Execution: Suspend Core 0 sensor task during massive SD wiping operations
+          vTaskSuspend(sensorTaskHandle);
+          
           // Execute Smart Delete Protocol
           u8g2.clearBuffer();
           u8g2.drawStr((u8g2.getDisplayWidth() - u8g2.getStrWidth("Clearing Logs...")) / 2, 20, "Clearing Logs...");
@@ -930,7 +933,7 @@ void loggingTask(void *pvParameters) {
           if (logFile) logFile.close();
           char delFilename[20];
           
-          // CRITICAL FIX: Enhanced sweeping protocol to remove BOTH Parent logs and Orphaned recovery fragments
+          // Enhanced sweeping protocol to remove BOTH Parent logs and Orphaned recovery fragments
           for (int i = 1; i <= 999; i++) {
             // 1. Delete the Parent Log File
             snprintf(delFilename, sizeof(delFilename), "DR_LOG_%03d.BIN", i);
@@ -944,34 +947,39 @@ void loggingTask(void *pvParameters) {
               snprintf(delFilename, sizeof(delFilename), "%03d%03d.BIN", i, j);
               if (sd.exists(delFilename)) {
                 sd.remove(delFilename);
-                j++; // Increment to check the next sequential crash fragment
+                j++;
               } else {
-                break; // No more recovery fragments exist for this specific log session
+                break;
               }
             }
+            
+            // FEED THE WATCHDOG: Yield execution every loop iteration to prevent hardware reset
+            vTaskDelay(pdMS_TO_TICKS(1));
           }
+          
           strcpy(current_log_filename, "DR_LOG_001.BIN");
-          // Reset X
           global_log_id = 1;
-          // Reset Y            
           global_recovery_id = 1;
-          // Reset frame counter       
+          
           // Thread-safe initialization of sequence tracker on memory wipe
           portENTER_CRITICAL(&frameCounterMux);
           global_frame_counter = 0;
           portEXIT_CRITICAL(&frameCounterMux);
-          // CRITICAL FIX: Purge the queue after memory wipe to prevent frames captured 
-          // during formatting from leaking into the new fresh session.
+          
+          // Purge the queue after memory wipe to prevent leaking stale data
           xQueueReset(dataQueue);     
           logFile = sd.open(current_log_filename, FILE_WRITE);
+          
           u8g2.clearBuffer();
           u8g2.drawStr((u8g2.getDisplayWidth() - u8g2.getStrWidth("All Logs Cleared!")) / 2, 20, "All Logs Cleared!");
           u8g2.sendBuffer();
           
-          // FIX ISSUE : Use FreeRTOS non-blocking delay to prevent Watchdog starvation
           vTaskDelay(pdMS_TO_TICKS(1200));
           
-          currentState = STATE_LIVE_VIEW; // Direct redirect to Home after format
+          // Resume Core 0 task safely after system configuration is restored
+          vTaskResume(sensorTaskHandle);
+          
+          currentState = STATE_LIVE_VIEW; 
           force_update_ui = true;
           last_interaction_millis = currentMillis;
         }
