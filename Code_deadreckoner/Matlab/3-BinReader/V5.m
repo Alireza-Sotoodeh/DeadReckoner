@@ -1,11 +1,12 @@
-% Last Edit: 2026-06-13 15:10:00  
-% Reason for Last Edit: Fixed the missing END syntax error by expanding inline loops. 
-% Resolved rawData typo to sessionData and added missing drop_instances definition.
+% Last Edit: 2026-06-14
+% Reason for Last Edit: Upgraded parser to 45-Byte parametric structure.
+% Added 64-bit hardware timestamp decoding and temperature extraction.
+% Migrated plotting X-axis to absolute time (seconds) for precision analysis.
 
 clc; clear; close all;
 
 % --- HARDWARE ARCHITECTURE CONFIGURATION ---
-FRAME_SIZE = 33; % Exact packed 33-byte union struct size from ESP32
+FRAME_SIZE = 45; % Updated to 45-byte parametric structure 
 
 fprintf('\n==================================================\n');
 fprintf('   DEADRECKONER DETERMINISTIC STITCHING PIPELINE   \n');
@@ -75,30 +76,38 @@ for s = 1:length(uniqueSessions)
     numFrames = floor(length(sessionData) / FRAME_SIZE);
     if numFrames < 2, continue; end
     
-    % 3. Preallocate memory for high-speed extraction
+    % 3. Preallocate memory for high-speed extraction (45-Byte Structure)
     frame_seq = zeros(numFrames, 1, 'uint32');
+    timestamp_us = zeros(numFrames, 1, 'uint64');
     event_flag = zeros(numFrames, 1, 'uint8');
     q = nan(numFrames, 4, 'single');        
-    acc = nan(numFrames, 3, 'single');      
+    acc = nan(numFrames, 3, 'single');
+    temp = nan(numFrames, 1, 'single');
     
     % 4. Decode Packed Bytes
     for i = 1:numFrames
         offset = (i - 1) * FRAME_SIZE;
         
-        frame_seq(i) = typecast(sessionData(offset+1 : offset+4), 'uint32');
-        event_flag(i) = sessionData(offset+5);
+        frame_seq(i)    = typecast(sessionData(offset+1 : offset+4), 'uint32');
+        timestamp_us(i) = typecast(sessionData(offset+5 : offset+12), 'uint64');
+        event_flag(i)   = sessionData(offset+13);
         
         if event_flag(i) == 0 || event_flag(i) == 1
-            q(i, 1) = typecast(sessionData(offset+6  : offset+9),  'single'); % Qw
-            q(i, 2) = typecast(sessionData(offset+10 : offset+13), 'single'); % Qx
-            q(i, 3) = typecast(sessionData(offset+14 : offset+17), 'single'); % Qy
-            q(i, 4) = typecast(sessionData(offset+18 : offset+21), 'single'); % Qz
+            q(i, 1)   = typecast(sessionData(offset+14 : offset+17), 'single'); % Qw
+            q(i, 2)   = typecast(sessionData(offset+18 : offset+21), 'single'); % Qx
+            q(i, 3)   = typecast(sessionData(offset+22 : offset+25), 'single'); % Qy
+            q(i, 4)   = typecast(sessionData(offset+26 : offset+29), 'single'); % Qz
             
-            acc(i, 1) = typecast(sessionData(offset+22 : offset+25), 'single'); % Acc X
-            acc(i, 2) = typecast(sessionData(offset+26 : offset+29), 'single'); % Acc Y
-            acc(i, 3) = typecast(sessionData(offset+30 : offset+33), 'single'); % Acc Z
+            acc(i, 1) = typecast(sessionData(offset+30 : offset+33), 'single'); % Acc X
+            acc(i, 2) = typecast(sessionData(offset+34 : offset+37), 'single'); % Acc Y
+            acc(i, 3) = typecast(sessionData(offset+38 : offset+41), 'single'); % Acc Z
+            
+            temp(i)   = typecast(sessionData(offset+42 : offset+45), 'single'); % Temperature
         end
     end
+    
+    % Convert timestamp to seconds for plotting
+    time_sec = double(timestamp_us) / 1e6;
     
     % --- MATHEMATICAL TRANSFORMATIONS ---
     % Convert Quaternions to standard Euler Angles (Roll, Pitch, Yaw) in Degrees
@@ -115,7 +124,7 @@ for s = 1:length(uniqueSessions)
     end
     
     % --- ENGINEERING STATS & HEALTH DIAGNOSTICS ---
-    gap_indices = find(event_flag == 170);
+    gap_indices = find(event_flag == 170); % 0xAA
     tag_indices = find(event_flag == 1);
     
     valid_seq = double(frame_seq(valid_q_idx));
@@ -129,9 +138,11 @@ for s = 1:length(uniqueSessions)
     
     % Print Engineering Logs to Screen
     chainString = strjoin(fileChain, ' -> ');
+    total_time = max(time_sec) - min(time_sec);
+    
     fprintf('\n[✓] SESSION %d REGISTERED MAP:\n', currSessionID);
     fprintf('    [*] Chained Nodes: %s\n', chainString);
-    fprintf('    [*] Combined Payload: %d frames (~%.2f seconds)\n', numFrames, numFrames/100);
+    fprintf('    [*] Combined Payload: %d frames (~%.2f seconds)\n', numFrames, total_time);
     fprintf('    [+] User Waypoint Markers Pressed: %d times\n', length(tag_indices));
     fprintf('    [!] Intercepted SD Crashes: %d instances\n', length(gap_indices));
     fprintf('    [!] Memory Drops (Queue Drops): %d frames\n', total_dropped_frames);
@@ -142,15 +153,16 @@ for s = 1:length(uniqueSessions)
     
     % Subplot 1: Linear Acceleration Profile
     subplot(3, 1, 1); hold on; grid on;
-    plot(acc(:,1), 'r', 'LineWidth', 1.0, 'DisplayName', 'Acc X'); 
-    plot(acc(:,2), 'g', 'LineWidth', 1.0, 'DisplayName', 'Acc Y'); 
-    plot(acc(:,3), 'b', 'LineWidth', 1.0, 'DisplayName', 'Acc Z');
+    plot(time_sec, acc(:,1), 'r', 'LineWidth', 1.0, 'DisplayName', 'Acc X'); 
+    plot(time_sec, acc(:,2), 'g', 'LineWidth', 1.0, 'DisplayName', 'Acc Y'); 
+    plot(time_sec, acc(:,3), 'b', 'LineWidth', 1.0, 'DisplayName', 'Acc Z');
+    
     if ~isempty(tag_indices)
-        plot(tag_indices, acc(tag_indices, 3), 'k^', 'MarkerFaceColor', 'y', 'MarkerSize', 8, 'DisplayName', 'User Tag');
+        plot(time_sec(tag_indices), acc(tag_indices, 3), 'k^', 'MarkerFaceColor', 'y', 'MarkerSize', 8, 'DisplayName', 'User Tag');
     end
     if ~isempty(gap_indices)
         for g = 1:length(gap_indices)
-            xline(gap_indices(g), 'm--', 'LineWidth', 1.5, 'HandleVisibility', 'off'); 
+            xline(time_sec(gap_indices(g)), 'm--', 'LineWidth', 1.5, 'HandleVisibility', 'off'); 
         end
         plot(NaN, NaN, 'm--', 'LineWidth', 1.5, 'DisplayName', 'SD Crash Link Event');
     end
@@ -159,11 +171,11 @@ for s = 1:length(uniqueSessions)
     
     % Subplot 2: Physical Attitude Navigation Profile (Euler Angles)
     subplot(3, 1, 2); hold on; grid on;
-    plot(roll, 'm', 'LineWidth', 1.1, 'DisplayName', 'Roll (Φ)'); 
-    plot(pitch, 'c', 'LineWidth', 1.1, 'DisplayName', 'Pitch (θ)'); 
-    plot(yaw, 'k', 'LineWidth', 1.3, 'DisplayName', 'Yaw (Ψ)');
+    plot(time_sec, roll, 'm', 'LineWidth', 1.1, 'DisplayName', 'Roll (\Phi)'); 
+    plot(time_sec, pitch, 'c', 'LineWidth', 1.1, 'DisplayName', 'Pitch (\theta)'); 
+    plot(time_sec, yaw, 'k', 'LineWidth', 1.3, 'DisplayName', 'Yaw (\Psi)');
     title('Real-World Attitude Extrapolated Data (Euler Degrees)', 'FontSize', 11);
-    ylabel('Degrees (°)'); legend('Location', 'best');
+    ylabel('Degrees (\circ)'); legend('Location', 'best');
     
     % Subplot 3: Stream Quality & Time-Continuity Monitor
     subplot(3, 1, 3); hold on; grid on;

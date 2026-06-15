@@ -1,38 +1,26 @@
 # Signal-Free Offline Tracking System: Progress & Architecture Report
 
-**Author:** Alireza Sotoodeh
-
-**Version:** 1.0.0 
-
-**Date:** June 3, 2026
-
-**Name of project:** DeadReckoner
+**Author:** Alireza Sotoodeh  
+**Project:** DeadReckoner  
+**Version:** 2.0.0  
+**Date:** June 15, 2026  
 
 ---
 
 ## 1. Hardware Inventory
 
-The following components are currently available for the development and testing of the tracking system:
+The system was developed around a set of IMU, storage, display, and positioning modules.  
+The final architecture prioritizes real-time sensing, reliable logging, and offline analysis.
 
 ### Microcontrollers
 
-- **NodeMCU ESP8266MOD:** Current prototype board. Features a single-core processor and limited memory.
-- **ESP32-S3 N16R8:** Advanced dual-core MCU with 16MB Flash and 8MB PSRAM. Built for heavy IoT and AI/data logging tasks.
-- **ESP32 WIFI+BT Type-C:** Standard ESP32 dual-core module with modern USB-C interface.
+| Board                | Role               | Notes                                                              |
+| -------------------- | ------------------ | ------------------------------------------------------------------ |
+| NodeMCU ESP8266MOD   | Legacy prototype   | Single-core baseline used for the early IMU/display experiments.   |
+| ESP32-S3 N16R8       | Final controller   | Dual-core MCU with 16MB Flash and 8MB PSRAM for real-time logging. |
+| ESP32 WIFI+BT Type-C | Auxiliary platform | Used as a reference ESP32-class board during development.          |
 
-### Sensors & Modules
-
-- **MPU9250:** 9-axis IMU (3-axis Accel, 3-axis Gyro, 3-axis Mag). Excellent for high-precision sensor fusion.
-- **MPU6500:** 6-axis IMU (Accel + Gyro). Lacks magnetometer, making it prone to yaw drift over time.
-- **GY-25:** Tilt/serial angle sensor module (usually incorporates an MPU6050 with an onboard MCU for angle calculation).
-- **HW-123:** Generic module designation (often associated with specific sensor breakouts; requires specific part verification).
-- **BMP280:** Barometric pressure and temperature sensor. Highly accurate for altitude tracking.
-- **S6MV2 (GPS):** GNSS module for global positioning. Essential for outdoor signal-free tracking.
-- **OLED 0.91-inch:** I2C monochrome display (128x32) for live status monitoring.
-
----
-
-## 2. Microcontroller Comparison
+### Microcontroller Comparison
 
 | Feature / MCU        | NodeMCU (ESP8266)    | ESP32 (Standard)    | ESP32-S3 (N16R8)                     |
 | -------------------- | -------------------- | ------------------- | ------------------------------------ |
@@ -46,161 +34,370 @@ The following components are currently available for the development and testing
 | **Hardware I2C**     | 1 Bus (Often shared) | 2 Independent Buses | 2 Independent Buses                  |
 | **Est. Price (USD)** | 3.00 - 4.00          | 4.00 - 6.00         | 7.00 - 10.00                         |
 
----
+### Sensors & Modules
 
-## 3. Best Choices & Justifications
-
-Based on the goal of creating an **Offline Logging System**, the recommended hardware stack is:
-
-1. **Core Controller: `ESP32-S3 N16R8`.**
-   - **Reason:** The massive 16MB Flash allows for extensive onboard LittleFS data logging without needing an immediate SD Card module. The 8MB PSRAM handles large data buffers. The dual-core architecture is mandatory to separate high-frequency IMU reading (Core 0) from low-frequency SD writing/GPS reading (Core 1), preventing sensor data loss (blocking delays).
-2. **Primary IMU: `MPU9250`.** 
-   - ***Reasoning:*** The 9-axis capability allows the Madgwick filter to correct yaw drift using the magnetometer, which is impossible with the 6-axis MPU6500.
-3. **Positioning: S6MV2 GPS.**
-   - ***Reasoning:*** Provides the absolute global coordinates needed to anchor the relative movements calculated by the IMU.
-
----
-
-## 4. Codebase Analysis & Logic Breakdown
-
-### 4.1 NodeMCU Firmware (`nodeMUC8266.ino`)
-
-The current firmware serves as a data-streaming prototype. It initializes the IMU, applies a Madgwick filter, and streams quaternion and acceleration data via Serial.
-
-**Key Logic Blocks:**
-
-- **Sensor Initialization & Madgwick Filter:** The MPU9250 is configured via Hardware I2C. The Madgwick filter is used to fuse raw sensor data into quaternions (`Qw, Qx, Qy, Qz`). This is computationally heavy but mathematically superior to Euler angles (avoids gimbal lock).
-- **OLED Separation:** The OLED uses Software I2C (`U8G2_SSD1306_128X32_UNIVISION_F_SW_I2C`). *Logic:* This intentionally prevents the slow display updates from congesting the Hardware I2C bus, ensuring the IMU can be sampled rapidly.
-- **EEPROM Calibration Routine (Flawed):** The code initiates a calibration sequence and saves bias data to EEPROM. However, the `loadCalibration()` function retrieves the data but lacks the setter methods to apply them back to the `mpu` object, rendering the saved calibration inert.
-- **Serial Bottleneck:** Data is transmitted using `Serial.print()` with float-to-string conversion. This is highly inefficient for data logging and will consume significant CPU cycles.
-
-### 4.2 MATLAB Visualization (`visual.m`)
-
-A script designed to parse the incoming serial stream and render a real-time 3D orientation vector.
-
-**Key Logic Blocks:**
-
-- **Serial Handling:** Uses `serialport` and waits for a valid 4-value string. It employs a `try-catch` block, ensuring the script does not crash if corrupted data arrives over the serial line.
-- **Math Transformation (`quat2rotm`):** Converts the incoming quaternion stream into a 3x3 Rotation Matrix. It extracts the X, Y, and Z column vectors to plot the 3D quiver arrows, successfully translating mathematical orientation into visual space.
+| Module         | Function          | Notes                                                                                                                            |
+| -------------- | ----------------- | -------------------------------------------------------------------------------------------------------------------------------- |
+| MPU9250        | 9-axis IMU        | Main motion sensor for quaternion and acceleration estimation. Excellent for high-precision sensor fusion with Madgwick filter.  |
+| MPU6500        | 6-axis IMU        | Early prototype sensor used during the research phase. Lacks magnetometer, prone to yaw drift over time.                         |
+| GY-25          | Tilt sensor       | Used for comparison and sensor-validation experiments. Typically incorporates an MPU6050 with onboard MCU for angle calculation. |
+| HW-123         | Generic module    | Included in early hardware exploration and verification.                                                                         |
+| BMP280         | Barometric sensor | Reserved for altitude-related extensions. Highly accurate for barometric altitude tracking to offset Z-axis drift.               |
+| S6MV2 (GPS)    | GNSS module       | Planned for global positioning and time anchoring. Essential for outdoor signal-free tracking and trajectory anchoring.          |
+| OLED 0.91-inch | Status display    | Used for runtime feedback, menus, and error reporting. I2C monochrome 128x32 display, intentionally isolated on a secondary bus. |
 
 ---
 
-## 5. Hardware Migration Rationale: ESP8266 to ESP32-S3
+## 2. Project Evolution Summary
 
-Before finalizing the software architecture, it is crucial to document the exact engineering reasons for migrating from the `NodeMCU (ESP8266)` to the `ESP32-S3`. The tracking system's requirements have outgrown the physical limitations of the legacy ESP8266 chip.
+The project started as a small IMU-based prototype and gradually evolved into a multi-core offline tracking system.  
+Each major stage introduced one architectural layer: sensing, fusion, storage, validation, fault handling, and analysis.
 
-1. **Processing Bottlenecks (Single vs. Dual Core):** The ESP8266 is a single-core processor. It cannot read the MPU9250 at 100Hz, apply the complex Madgwick filter, and write data to an SD card simultaneously without blocking delays. The ESP32-S3 provides a dual-core architecture, allowing strict separation of sensor fusion (Core 0) and data logging (Core 1).
-2. **Memory Constraints:** The ESP8266 has limited usable SRAM (~50 KB) and Flash memory (4 MB). Buffer queues for offline logging quickly cause memory overflow. The ESP32-S3 variant selected (N16R8) offers massive headroom with 16 MB of Flash and 8 MB of PSRAM, enabling robust data buffering.
-3. **Peripheral Routing:** The ESP32-S3 features a complete IO MUX matrix, allowing us to map the Hardware I2C buses to any GPIO pin, eliminating the bus congestion issues seen on the ESP8266 prototype.
+| Milestone              | Meaning                                               |
+| ---------------------- | ----------------------------------------------------- |
+| Legacy IMU prototype   | Initial sensor research and driver bring-up.          |
+| ESP32-S3 migration     | Hardware upgrade for concurrency and memory headroom. |
+| RTOS architecture      | Separation of sensing and logging workloads.          |
+| Persistent calibration | EEPROM-backed bias storage and restore flow.          |
+| SD logging             | Reliable binary storage on external media.            |
+| Fault handling         | Safe shutdown and recovery on sensor failure.         |
+| Validation tools       | MATLAB-based analysis and result inspection.          |
+| PSRAM buffering        | Massive 50,000-frame queue for zero-loss acquisition. |
+| GPS preparation        | GNSS-ready data structure for future fusion.          |
+
+---
+
+## 3. Hardware Choices & Rationale
+
+The final hardware stack was selected to eliminate the bottlenecks that appeared in the prototype phase.  
+The choices below reflect both the commit history and the test results collected during integration.
+
+### 3.1 Core Controller
+
+**ESP32-S3 N16R8** was selected as the main controller.  
+The dual-core CPU, PSRAM, and larger Flash space made it suitable for continuous IMU acquisition and blocking storage operations.
+
+The migration from ESP8266 was driven by three fundamental hardware limits that could not be resolved through software optimisation alone:
+
+1. **Processing Bottlenecks (Single vs. Dual Core):** The ESP8266 single-core processor cannot read the MPU9250 at 100 Hz, apply the Madgwick filter, and write data to an SD card simultaneously without blocking delays. The ESP32-S3 separates sensor fusion (Core 0) from data logging (Core 1) strictly.
+
+2. **Memory Constraints:** The ESP8266 has ~50 KB usable SRAM and 4 MB Flash. Buffer queues for offline logging cause memory overflow. The ESP32-S3 N16R8 offers 16 MB Flash and 8 MB PSRAM, enabling the 50,000-frame PSRAM queue (~2.14 MB) used in the current architecture.
+
+3. **Peripheral Routing:** The ESP32-S3 features a complete IO MUX matrix that maps hardware I2C buses to any GPIO pin, eliminating bus congestion issues and enabling physical segregation of the IMU and SD card buses.
+
+### 3.2 Primary IMU
+
+**MPU9250** became the preferred IMU.  
+It provides accelerometer, gyroscope, and magnetometer data, which improves long-term orientation tracking compared with the MPU6500. The 9-axis capability allows the Madgwick filter to correct yaw drift using the magnetometer, which is impossible with a 6-axis IMU.
+
+### 3.3 Storage Medium
+
+A **3.3V DIY SD adapter** was finalized for logging.  
+The adapter was chosen after multiple failed and successful tests with other SD card modules and SPI clock settings. The pure 3.3V logic path bypasses level-shifter failures seen on commercial 5V modules.
+
+### 3.4 Display Layer
+
+The **0.91-inch OLED** was used for runtime diagnostics and menu-driven interaction.  
+It was separated from the sensor bus to avoid blocking the high-frequency acquisition loop.
+
+---
+
+## 4. System Challenges & Engineering Decisions
+
+This section summarizes the main engineering problems that shaped the final architecture.  
+Each problem led to a concrete design decision rather than a temporary workaround.
+
+### Memory and Throughput Limits
+
+The ESP8266 prototype could not safely handle continuous sensing, display updates, and logging at the same time.  
+The project moved to ESP32-S3 to gain dual-core execution, PSRAM, and more flexible peripheral routing.
+
+### I2C Bus Contention
+
+The IMU, EEPROM, and OLED initially shared a constrained communication path.  
+The OLED was moved to a separate I2C bus so display updates would not interfere with sensor timing.
+
+### Blocking Storage Operations
+
+Text-based logging and slow file writes created data loss risk at high sample rates.  
+The logging layer was redesigned around binary blocks and a queue-based producer-consumer model.
+
+### Reliability Under Fault Conditions
+
+Unexpected IMU disconnection could leave the system half-active and corrupt the active log file.  
+A dedicated fault layer was added to close files safely, signal the operator, and stop unsafe execution.
+
+---
+
+## 5. Software Architecture Evolution & Development Phases
+
+The development path is organized as a staged roadmap rather than a simple task list.  
+Each phase introduced a dependency that was required by the next one.
+
+#### Phase 0: Legacy Prototype & Sensor Research [COMPLETED]
+
+The first phase established the baseline firmware and tested the early IMU stack.
+
+- [x] **Project Bootstrap:** Create the initial repository and firmware skeleton.
+- [x] **MPU6500 Evaluation:** Bring up the early IMU driver and validate communication.
+- [x] **DMP Exploration:** Test Digital Motion Processor support for orientation output.
+- [x] **Calibration Research:** Study raw motion data and sensor bias behavior.
+- [x] **Display Prototyping:** Add an OLED feedback layer for quick debugging.
+- [x] **Prototype Validation:** Confirm basic orientation and acceleration reading.
+
+#### Phase 1: ESP32-S3 Migration & System Architecture [COMPLETED]
+
+The second phase moved the project to a stronger controller and reorganized the hardware.
+
+- [x] **Platform Migration:** Move from ESP8266 NodeMCU to ESP32-S3 N16R8.
+- [x] **Firmware Rebuild:** Reinitialize the project around the new board layout.
+- [x] **Pin Porting:** Remap the sensor and display pins to the ESP32-S3 IO matrix.
+- [x] **Wiring Redesign:** Update the hardware connections for the new controller.
+- [x] **Flash Configuration:** Prepare the board settings for large-memory operation.
+- [x] **Bring-Up Verification:** Validate the migrated platform before adding complexity.
+- [x] **Pin Relocation:** Move away from GPIO 9 and 10 due to internal Flash/PSRAM strapping line conflicts.
+
+#### Phase 2: RTOS & Multi-Core Framework [COMPLETED]
+
+This phase replaced the single-flow firmware with a real-time multi-core design.
+
+- [x] **FreeRTOS Integration:** Introduce task-based scheduling.
+- [x] **Sensor Task:** Run high-rate acquisition on Core 0.
+- [x] **Logging Task:** Run blocking storage work on Core 1.
+- [x] **Producer-Consumer Queue:** Pass complete log frames between tasks.
+- [x] **Thread-Safe Communication:** Avoid shared-state corruption across cores.
+- [x] **Race Condition Mitigation:** Remove direct concurrent memory access.
+- [x] **Timing Stability:** Keep acquisition deterministic under continuous load.
+- [x] **Spinlock Protection:** Add portMUX_TYPE critical sections for frame counter and tag event atomicity across cores.
+
+#### Phase 3: Calibration & I2C Optimization [COMPLETED]
+
+This phase improved sensor accuracy and reduced bus-level interference.
+
+- [x] **I2C Fast Mode:** Raise the bus frequency to 400 kHz.
+- [x] **EEPROM Bias Storage:** Save calibration values for later reuse.
+- [x] **Bias Restoration:** Load the saved values automatically at startup.
+- [x] **Offset Compensation Fix:** Apply the loaded calibration to raw readings.
+- [x] **Bus Collision Prevention:** Pause acquisition during blocking EEPROM access.
+- [x] **Dual-I2C Topology:** Move OLED traffic to the secondary bus.
+- [x] **I2C Validation:** Verify that the buses remained stable in normal use.
+- [x] **EEPROM Magic Number:** Add sentinel value (0xDEAD) to detect corrupt or uninitialized EEPROM and prevent loading garbage bias data.
+- [x] **I2C Bus Timeout:** Configure Wire.setTimeout(50) to prevent hardware bus hangs if lines are pulled low.
+
+#### Phase 4: Hardware Validation & Performance Testing [COMPLETED]
+
+This phase proved that the sensor stack was stable before adding storage complexity.
+
+- [x] **MPU9250 Sanity Check:** Validate the IMU and its register communication.
+- [x] **OLED Sanity Check:** Confirm display initialization and output.
+- [x] **Static Drift Test:** Measure long-term orientation drift while stationary.
+- [x] **Dynamic Return-to-Zero:** Check recovery after large motion.
+- [x] **Vibration Rejection Test:** Verify robustness against physical noise.
+- [x] **Filter Validation:** Confirm that the fusion output stayed consistent.
+- [x] **Analysis Tools:** Create visualization scripts for offline review.
+
+#### Phase 5: SD Card Storage Architecture [COMPLETED]
+
+The storage subsystem was selected and tested as a reliable logging target.
+
+- [x] **SD Interface Study:** Compare several SD card module options.
+- [x] **SPI Storage Path:** Adopt SPI as the physical logging interface.
+- [x] **Standalone SD Tests:** Validate the module without the full firmware stack.
+- [x] **Adapter Selection:** Finalize the 3.3V DIY SD adapter.
+- [x] **Signal Integrity Tuning:** Cap SPI clock at 20 MHz for stable operation over physical wiring.
+- [x] **Storage Benchmarking:** Measure practical write throughput (797 KB/s at 20 MHz).
+- [x] **Final Validation:** Confirm successful logging under repeated tests.
+- [x] **Bandwidth Calculation:** Determine 11.88 MB/hour consumption at 45-byte frames and 100 Hz sampling rate.
+
+#### Phase 6: Binary Logging Framework [COMPLETED]
+
+The text-based logging path was replaced with a structured binary pipeline.
+
+- [x] **LogFrame Design:** Define a fixed-size telemetry frame.
+- [x] **Timestamp Logging:** Add 64-bit microsecond time stamps to every recorded sample.
+- [x] **Quaternion Logging:** Store fused orientation values.
+- [x] **Acceleration Logging:** Store gravity-compensated linear acceleration.
+- [x] **Binary Write Path:** Replace string output with raw binary writes.
+- [x] **Continuous Streaming:** Keep the logging pipeline active at high rate.
+- [x] **Sequential File Naming:** Generate unique log files automatically.
+- [x] **Boot-Time Discovery:** Scan the storage and compute the next file index.
+- [x] **Capacity Display:** Show log counts and storage info on the OLED.
+- [x] **Union Memory Optimization:** Overlap IMU and GPS payload in a 45-byte union LogFrame (down from 48 bytes).
+- [x] **Frame Sequence Counter:** Monotonic 32-bit frame_seq for frame-drop detection and MATLAB stitching.
+- [x] **Gap Frame Injection:** Write 0xAA event marker on SD disconnection to preserve data continuity.
+
+#### Phase 7: Fault Detection, Recovery & Mission Safety [COMPLETED]
+
+A dedicated safety layer was added to handle IMU failure and protect recorded data.
+
+- [x] **IMU Disconnect Detection:** Detect sensor communication loss.
+- [x] **Timeout Monitoring:** Track the health of the I2C acquisition loop.
+- [x] **Critical Fault State:** Stop unsafe execution after a fatal error.
+- [x] **Safe Log Shutdown:** Close the file cleanly before stopping.
+- [x] **Automatic Sync:** Flush buffered data before shutdown.
+- [x] **OLED Fault Reporting:** Show readable diagnostic messages.
+- [x] **Audible Alerts:** Use buzzer feedback for critical faults.
+- [x] **Visual Alerts:** Use LED signaling for emergency status.
+- [x] **Recovery Flow:** Add a reconnection-oriented recovery protocol.
+- [x] **Dynamic SD Recovery:** Detect SD card hot-plug, auto-reopen new recovery file, and resume logging with gap marker injection.
+- [x] **SOS Alarm Pattern:** Rhythmic 100 ms buzzer + red LED cycle during critical failures.
+- [x] **Recovery File Naming:** Deterministic XXXYYY.BIN format linking parent log ID to recovery instance.
+
+#### Phase 8: User Interface & Operational Monitoring [COMPLETED]
+
+This phase improved the operator experience and made the system easier to inspect.
+
+- [x] **Multi-Page OLED UI:** Create simple runtime menu pages.
+- [x] **Status Screens:** Show live system and sensor state.
+- [x] **Storage Monitoring:** Display SD statistics and file counts.
+- [x] **Display Modes:** Add selectable visualization modes (Always ON / Auto Off 20s).
+- [x] **Buzzer Control:** Allow runtime mute and unmute behavior.
+- [x] **SD Menu:** Add 8-item SD manager submenu with scrolling for 128x32 OLED.
+- [x] **Diagnostics Screen:** Show faults and recovery messages clearly.
+- [x] **Confirmation Traps:** Two-stage YES/NO guards for Format and Create New File actions; default cursor is NO.
+- [x] **OLED Auto-Sleep:** Power-save after 20 seconds of inactivity; wake on any button press.
+- [x] **Stealth Mode:** Mute buzzer; TAG button with green LED feedback only.
+- [x] **Drop Frame Counter:** Queue overflow count displayed in SD info submenu.
+
+#### Phase 9: Data Analysis & Validation Toolchain [COMPLETED]
+
+The recorded datasets were made usable through offline analysis tools.
+
+- [x] **MATLAB Binary Reader:** Decode the logged binary frames.
+- [x] **Quaternion Plotting:** Visualize orientation trends over time.
+- [x] **Acceleration Plotting:** Inspect linear acceleration behavior.
+- [x] **Drift Analysis:** Measure long-term navigation stability.
+- [x] **Validation Pipeline:** Create a repeatable test-and-review workflow.
+- [x] **Result Correlation:** Compare recorded data with physical tests.
+- [x] **Python BinReader:** Alternative parser (DeadReckoner_Parser.py) for platform-independent log inspection.
+- [x] **Recovery Fragment Stitching:** Seamlessly merge recovery chunks across file boundaries using frame_seq continuity.
+- [x] **Garbage Frame Filtering:** Isolate and discard hardware-interrupted sector dumps during analysis.
+
+#### Phase 10: PSRAM Buffering & Memory Architecture [COMPLETED]
+
+This phase added a massive PSRAM-backed queue to eliminate frame loss during SD write latency.
+
+- [x] **PSRAM Buffer Allocation:** Dedicate 2.14 MB of external PSRAM for a 50,000-frame static queue.
+- [x] **Queue Health Monitoring:** Detect silent overflows; red LED indicator and drop-frame counter.
+- [x] **64-bit Overflow Protection:** Safe arithmetic for SD cards larger than 32 GB.
+- [x] **openNext Directory Iteration:** Replace sequential exists() probing with high-speed SdFat directory iteration (10-100x faster file scanning).
+
+#### Phase 11: GPS Integration & Time Synchronization [PLANNED]
+
+The final extension will add GNSS support and time alignment.
+
+- [x] **Reserved GPS Fields:** Prepare the log frame for GNSS data via the payload union (lat/lng as 64-bit double).
+- [ ] **UART Configuration:** Add a dedicated serial line for the S6MV2 receiver.
+- [ ] **NMEA Parser:** Decode GPS position and timing information.
+- [ ] **Coordinate Injection:** Store latitude and longitude in the logging stream.
+- [ ] **Status Monitoring:** Track satellite lock and GNSS health.
+- [ ] **Time Sync:** Align 1 Hz GPS updates with 100 Hz IMU samples.
+- [ ] **Trajectory Validation:** Verify synchronized offline reconstruction.
 
 ---
 
 ## 6. Firmware Flashing Configuration (`ESP32-S3 N16R8`)
 
-*Comprehensive Arduino IDE settings required to utilize the full 16MB Flash and 8MB PSRAM, ensuring stable FreeRTOS execution and maximum data logging capacity.*
+The firmware was tuned for stable execution on the ESP32-S3 (for Arduino IDE programming)
 
-- **Board:** ESP32S3 Dev Module
-
-- **USB CDC On Boot:** Disabled
-
-- **CPU Frequency:** 240MHz (WiFi)
-
-- **Core Debug Level:** None
-
-- **USB DFU On Boot:** Disabled
-
-- **Erase All Flash Before Sketch Upload:** Disabled
-
-- **Events Run On:** Core 1
-
-- **Flash Mode:** QIO 80MHz
-
-- **Flash Size:** 16MB (128Mb)
-
-- **JTAG Adapter:** Disabled
-
-- **Arduino Runs On:** Core 1
-
-- **USB Firmware MSC On Boot:** Disabled
-
-- **Partition Scheme:** 16M Flash (e.g., 3MB APP/9.9MB FATFS) *[CRITICAL: Must not be 4MB default]*
-
-- **PSRAM:** OPI PSRAM
-
-- **Upload Mode:** UART0 / Hardware CDC
-
-- **Upload Speed:** 921600
-
-- **USB Mode:** Hardware CDC and JTAG
-
-- **Zigbee Mode:** Disabled
+| Setting                              | Value                                                                       |
+|:------------------------------------:|:---------------------------------------------------------------------------:|
+| Board                                | ESP32S3 Dev Module                                                          |
+| USB CDC On Boot                      | Disabled                                                                    |
+| CPU Frequency                        | 240 MHz                                                                     |
+| Core Debug Level                     | None                                                                        |
+| USB DFU On Boot                      | Disabled                                                                    |
+| Erase All Flash Before Sketch Upload | Disabled                                                                    |
+| Events Run On                        | Core 1                                                                      |
+| Flash Mode                           | QIO 80 MHz                                                                  |
+| Flash Size                           | 16MB (128Mb)                                                                |
+| JTAG Adapter                         | Disabled                                                                    |
+| Arduino Runs On                      | Core 1                                                                      |
+| USB Firmware MSC On Boot             | Disabled                                                                    |
+| Partition Scheme                     | 16M Flash (e.g., 3MB APP/9.9MB FATFS) — [CRITICAL: Must not be 4MB default] |
+| PSRAM                                | OPI PSRAM                                                                   |
+| Upload Mode                          | UART0 / Hardware CDC                                                        |
+| Upload Speed                         | 921600                                                                      |
+| USB Mode                             | Hardware CDC and JTAG                                                       |
+| Zigbee Mode                          | Disabled                                                                    |
 
 ---
 
 ## 7. Multi-Core Architecture & Concurrency Management
 
-Moving to a dual-core processor introduces a critical system design challenge: **Concurrency and Shared Memory Interference**.
+The dual-core design solved the biggest reliability issue in the system: blocking storage work.  
+Sensor acquisition and logging now run independently without forcing one task to wait for the other.
 
 ### 7.1 The Race Condition Problem
 
 In a dual-core tracking system, tasks operate at vastly different frequencies:
 
-- **Core 0 (Sensor Fusion):** Reads the IMU and calculates quaternions continuously at high speeds (100 Hz).
-- **Core 1 (Data Logging):** Writes data to non-volatile memory (LittleFS or SD Card). Flash write operations are slow and inherently blocking.
+- **Core 0 (Sensor Fusion):** Reads the IMU and calculates quaternions continuously at 100 Hz.
+- **Core 1 (Data Logging):** Writes data to SD card. Flash write operations are inherently blocking.
 
-If both cores attempt to access the same global orientation variables simultaneously, a **Race Condition** occurs. Core 1 might read an incomplete data set before Core 0 finishes updating it, resulting in corrupted logs and destroying the 3D trajectory reconstruction in MATLAB. Standard Mutex locks are not viable here, as locking the data during a slow SD card write would force Core 0 to wait, dropping critical high-frequency IMU reads.
+If both cores attempt to access the same global orientation variables simultaneously, a **Race Condition** occurs. Core 1 may read an incomplete data set before Core 0 finishes updating it, resulting in corrupted logs and destroying 3D trajectory reconstruction in MATLAB. Standard Mutex locks are not viable here — locking the data during a slow SD card write would force Core 0 to wait, dropping critical high-frequency IMU reads.
 
-### 7.2 The Solution: Producer-Consumer Pattern via FreeRTOS Queues
+### 7.2 Producer-Consumer Solution
 
-To completely decouple the cores while ensuring 100% data integrity, the system utilizes the **Producer-Consumer architecture** using FreeRTOS Queues.
+The system uses a FreeRTOS queue to move complete frames between tasks.  
+Core 0 acts as the producer, and Core 1 acts as the consumer that writes finished frames to storage.
 
-1. **Data Encapsulation:** All variables for a single point in time are packed into a rigid `C struct`. Crucially, to prevent precision loss (truncation) that causes map-drift, GPS coordinates are defined as 64-bit `double` types.
-2. **The Queue (Buffer):** A thread-safe FIFO (First-In, First-Out) queue is allocated in the ESP32's RAM.
-3. **Task Separation:** Core 0 (Producer) reads sensors and pushes structs to the back of the queue without blocking. Core 1 (Consumer) wakes up, pops blocks from the front of the queue, and writes them to storage in binary format.
+1. **Data Encapsulation:** All variables for a single point in time are packed into a rigid C struct. GPS coordinates use 64-bit double to prevent precision loss that would cause map-drift.
+2. **The Queue (Buffer):** A thread-safe FIFO queue — originally sized at 300 frames in internal SRAM, later upgraded to **50,000 frames in external PSRAM** (~2.14 MB) for zero-loss acquisition.
+3. **Task Separation:** Core 0 (Producer) reads sensors and pushes structs to the back of the queue without blocking. Core 1 (Consumer) pops frames from the front and writes them to storage in binary format.
 
-### 7.3 Core Data Structure & Memory Calculation
+### 7.3 LogFrame Structure
 
 ```c
-// Data structure for a single logging frame (Binary Logging)
+// Current optimized structure (45 bytes via union payload overlap)
+#pragma pack(push, 1)
 typedef struct {
- uint32_t timestamp; // 4 bytes: Time since boot
- float q[4]; // 16 bytes: Quaternions (qw, qx, qy, qz)
- float accel[3]; // 12 bytes: Accelerations (ax, ay, az)
- double gps_lat; // 8 bytes: Latitude (cm-level precision)
- double gps_lng; // 8 bytes: Longitude (cm-level precision)
-} LogFrame; // Total Size: 48 Bytes per frame
+    uint32_t frame_seq;  // 4 bytes: Monotonic sequential index
+    uint64_t timestamp;  // 8 bytes: Microsecond resolution
+    uint8_t event_flag;  // 1 byte: 0=IMU, 1=TAG, 0xAA=SD_GAP, 0xBB=GPS
 
-// FreeRTOS Queue Handle declaration
-QueueHandle_t dataQueue;
+    union {
+        struct {
+            float q[4];      // 16 bytes: Quaternions
+            float accel[3];  // 12 bytes: Linear acceleration
+            float temp;      // 4 bytes: IMU temperature
+        } imu;
+        struct {
+            double lat;      // 8 bytes: Latitude
+            double lng;      // 8 bytes: Longitude
+        } gps;
+    } payload;               // 32 bytes shared
+
+} LogFrame; // Total: 45 bytes
+#pragma pack(pop)
 ```
 
-**Buffer Sizing Analysis:** To ensure zero data loss during high-latency SD card operations, the system must buffer data.
+The fixed-size frame keeps the logging format deterministic and easy to decode offline.  
+The union payload allows IMU and GPS data to share the same memory region, reducing frame size from 48 to 45 bytes.
 
-- **Target Frequency:** 100 Hz (100 frames/sec)
+### 7.4 Queue Sizing
 
-- **Target Buffer Duration:** 3 seconds of maximum latency tolerance
-
-- **Queue Depth required:** 300 items
-
-- **RAM Footprint:** 300 items * 48 bytes = **14,400 bytes (14.06 KB)** This memory footprint is safely accommodated by the ESP32-S3's internal SRAM, leaving the 8MB PSRAM completely free for larger operational tasks.
+The initial queue depth of 300 frames (internal SRAM) was designed to survive short storage stalls.  
+At 100 Hz, that gave roughly 3 seconds of buffering. The current architecture uses a **50,000-frame static queue in external PSRAM**, providing over 8 minutes of buffer headroom during prolonged SD write interrupts.
 
 ---
 
 ## 8. Hardware & Filter Validation (Test Results)
 
-To ensure the reliability of the Dead Reckoning system during periods of GPS signal loss, the MPU9250 IMU and the FreeRTOS-based Madgwick filter underwent three rigorous physical tests. The raw quaternion data was streamed to MATLAB (`visual.m`) for mathematical analysis.
+The IMU and fusion pipeline were verified through controlled physical tests.  
+The outputs were recorded and inspected offline to confirm stability under different motion patterns.
 
-### 8.1 Test 1: Static Drift (Zero-Rate Offset)
+### 8.1 Static Drift Test (Zero-Rate Offset)
 
-- **Objective:** Measure the accumulated error (drift) over a 15-minute stationary period to evaluate baseline stability.
+- **Objective:** Measure the accumulated error over a 15-minute stationary period to evaluate baseline stability.
 - **Methodology:** Device kept completely still on an isolated, flat surface for ~900 seconds post-calibration.
 - **Results:**
   - **Max Roll Drift:** 0.43°
   - **Max Pitch Drift:** 0.39°
   - **Max Yaw Drift:** 2.73° (over 15 minutes)
-- **Conclusion:** **PASS.** The accelerometer perfectly isolates the gravity vector, effectively eliminating Pitch/Roll drift (<0.5°). The magnetometer bounds the Yaw drift to ~0.18° per minute, proving high immunity against false map rotations during prolonged GPS outages.
+- **Conclusion:** **PASS.** The accelerometer isolates the gravity vector, eliminating pitch/roll drift (<0.5°). The magnetometer bounds yaw drift to ~0.18°/minute, proving high immunity against false map rotations during prolonged GPS outages.
 
-### 8.2 Test 2: Dynamic Return-to-Zero
+### 8.2 Dynamic Return-to-Zero Test
 
 - **Objective:** Evaluate the filter's ability to recover from high-G linear accelerations without losing the true horizon.
 - **Methodology:** Device subjected to violent 3D rotations and linear accelerations (up to 130° swings) for 30 seconds, then returned exactly to its initial physical position.
@@ -208,179 +405,277 @@ To ensure the reliability of the Dead Reckoning system during periods of GPS sig
   - **Roll Error:** 0.07°
   - **Pitch Error:** 0.36°
   - **Yaw Error:** 1.55°
-- **Conclusion:** **PASS.** The Madgwick filter's `Beta` gain is optimally tuned. The system successfully ignores temporary linear accelerations (preventing them from being mistaken as gravity) and snaps back to the true orientation with sub-degree accuracy.
+- **Conclusion:** **PASS.** The Madgwick filter Beta gain is optimally tuned. The system ignores temporary linear accelerations and snaps back to true orientation with sub-degree accuracy.
 
-### 8.3 Test 3: Vibration Rejection
+### 8.3 Vibration Rejection Test
 
-- **Objective:** Test the system's resilience against high-frequency mechanical noise (e.g., vehicle engine vibrations or footsteps).
+- **Objective:** Test the system's resilience against high-frequency mechanical noise (vehicle vibrations, footsteps).
 - **Methodology:** Device subjected to external mechanical shocks, including light pen tapping and heavy fist pounds on the adjacent surface.
 - **Results (Max Deviation during impact):**
   - **Pen Tapping (Roll/Pitch Swing):** < 0.1° deviation
   - **Heavy Fist Pound (Max Pitch Swing):** 0.57° deviation
-- **Conclusion:** **PASS.** The hardware Digital Low Pass Filter (DLPF) configured at `5Hz` effectively isolates the IMU from environmental vibrations. The tracking coordinates will remain highly stable even under harsh physical or automotive conditions.
+- **Conclusion:** **PASS.** The hardware DLPF configured at 5 Hz effectively isolates the IMU from environmental vibrations. Tracking coordinates remain highly stable under harsh physical or automotive conditions.
 
 ---
 
 ## 9. Storage Hardware Validation (SD Card Diagnostics)
 
-**Objective:** Validate the physical stability of SD Card modules on 3.3V logic for 100Hz continuous logging and eliminate SPI communication bottlenecks prior to RTOS implementation.
+The storage path was tested on several boards and adapter designs before finalizing the architecture.  
+The tests showed that signal integrity mattered more than raw SPI speed alone.
 
 ### 9.1 Cross-Platform Diagnostic Results
 
-| Test Platform         | Hardware Tested      | SPI Frequency | Result | Engineering Conclusion & Root Cause                                                                                                                  |
-|:--------------------- |:-------------------- |:------------- |:------ |:---------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **NodeMCU (ESP8266)** | Commercial 5V Module | Standard      | FAILED | **Level Shifter Trap:** The 5V logic level shifter fails to trigger on weak 3.3V ESP lines. Also susceptible to voltage dropouts during boot.        |
-| **NodeMCU (ESP8266)** | DIY 3.3V Adapter     | Standard      | FAILED | **Signal Distortion:** The high default SPI speed of the ESP8266 combined with jumper wires caused severe signal degradation.                        |
-| **Arduino UNO**       | Commercial 5V Module | Standard      | PASSED | **5V Logic Match:** Pure 5V logic compatibility confirmed. This test proved the commercial module and the MicroSD card are 100% healthy.             |
-| **ESP32 Classic**     | DIY 3.3V Adapter     | 50 MHz        | FAILED | **Signal Integrity Loss:** The ultra-high frequency caused an antenna effect on the jumper wires, corrupting the data blocks during read operations. |
-| **ESP32 Classic**     | DIY 3.3V Adapter     | 10 MHz        | PASSED | **Optimal Stability:** Lowering the clock stabilized the signal. SDHC card and FAT32 volume successfully mounted, read, and written.                 |
+| Platform        | Module               | SPI Frequency | Result | Engineering Conclusion                                                                 |
+| --------------- | -------------------- |:-------------:|:------:| -------------------------------------------------------------------------------------- |
+| NodeMCU ESP8266 | Commercial 5V Module | Standard      | FAILED | Level shifter fails to trigger on weak 3.3V ESP lines; voltage dropouts during boot.   |
+| NodeMCU ESP8266 | DIY 3.3V Adapter     | Standard      | FAILED | High default SPI speed with jumper wires caused severe signal degradation.             |
+| Arduino UNO     | Commercial 5V Module | Standard      | PASSED | Pure 5V logic compatibility confirmed; the module and microSD card are healthy.        |
+| ESP32 Classic   | DIY 3.3V Adapter     | 50 MHz        | FAILED | Ultra-high frequency caused antenna effect on jumper wires, corrupting data blocks.    |
+| ESP32 Classic   | DIY 3.3V Adapter     | 10 MHz        | PASSED | Lower clock stabilized signal; SDHC and FAT32 successfully mounted, read, and written. |
 
-### 9.2 Key Architectural Decisions: Storage & Bandwidth
+### 9.2 High-Precision SPI Frequency Sweep
 
-* **Hardware Choice:** The DIY Adapter (pure 3.3V logic without onboard regulators or level shifters) is the finalized hardware for the ESP32 architecture, bypassing unnecessary voltage conversions.
-* **Clock Limitation:** The SPI clock frequency is strictly capped at **10 MHz** to guarantee signal integrity over physical wires.
-* **Bandwidth Validation:** 100Hz data logging requires approximately **10 KB/s** of bandwidth. A 10 MHz SPI clock provides practical write speeds of over **200 KB/s**, leaving a massive 95% safety margin to prevent RTOS queue bottlenecks.
-* **Library Selection:** The `SdFat` library (version 1.1.4 for API compatibility) will be utilized for low-level memory block access, accurate file system operations, and long-term FAT32 stability.
-
-the result of testind DIY adaptor is like this:
+A 1 MHz stepped sweep was performed on the DIY 3.3V adapter using an ESP32 to determine the maximum stable operating frequency:
 
 ```
-Jul 29 2019 12:21:46
-
-rst:0x1 (POWERON_RESET),boot:0x13 (SPI_FAST_FLASH_BOOT)
-configsip: 0, SPIWP:0xee
-clk_drv:0x00,q_drv:0x00,d_drv:0x00,cs0_drv:0x00,hd_drv:0x00,wp_drv:0x00
-mode:DIO, clock div:1
-load:0x3fff0030,len:4980
-load:0x40078000,len:16612
-load:0x40080400,len:3480
-entry 0x400805b4
-
 --- HIGH-PRECISION SPI SWEEP (1MHz Steps) ---
 Freq(MHz) | Result | Speed(KB/s)
 ------------------------------------
-1 MHz    | PASSED | 93.57 KB/s
-2 MHz    | PASSED | 175.34 KB/s
-3 MHz    | PASSED | 226.35 KB/s
-4 MHz    | PASSED | 278.56 KB/s
-5 MHz    | PASSED | 365.19 KB/s
-6 MHz    | PASSED | 399.38 KB/s
-7 MHz    | PASSED | 440.62 KB/s
-8 MHz    | PASSED | 465.03 KB/s
-9 MHz    | PASSED | 532.22 KB/s
+1 MHz     | PASSED | 93.57 KB/s
+5 MHz     | PASSED | 365.19 KB/s
 10 MHz    | PASSED | 555.31 KB/s
-11 MHz    | PASSED | 554.71 KB/s
-12 MHz    | PASSED | 568.26 KB/s
-13 MHz    | PASSED | 608.08 KB/s
-14 MHz    | PASSED | 638.40 KB/s
 15 MHz    | PASSED | 638.40 KB/s
-16 MHz    | PASSED | 709.14 KB/s
-17 MHz    | PASSED | 709.14 KB/s
-18 MHz    | PASSED | 709.14 KB/s
-19 MHz    | PASSED | 709.14 KB/s
 20 MHz    | PASSED | 797.51 KB/s
-21 MHz    | PASSED | 791.34 KB/s
-22 MHz    | PASSED | 797.51 KB/s
-23 MHz    | PASSED | 797.51 KB/s
-24 MHz    | PASSED | 797.51 KB/s
 25 MHz    | PASSED | 727.27 KB/s
 26 MHz    | PASSED | 797.51 KB/s
 27 MHz    | FAILED | N/A
 --- LIMIT REACHED. SYSTEM UNSTABLE ABOVE THIS FREQ. ---
---- SWEEP FINISHED ---
 ```
+
+**Result:** 20 MHz was selected as the operating frequency, providing 797 KB/s write throughput — a 95% safety margin over the ~10 KB/s required for 100 Hz logging.
+
+### 9.3 Final Storage Decision
+
+- **Hardware:** The DIY 3.3V adapter (no level shifters or regulators) is the finalized hardware, bypassing unnecessary voltage conversions.
+- **SPI Clock:** 20 MHz (reduced from the initial 10 MHz cap after sweep validation proved 20 MHz stable).
+- **Library:** SdFat for low-level block access, accurate filesystem operations, and long-term FAT32 stability.
+- **Bandwidth Validation:** 100 Hz at 45 bytes/frame = 4.5 KB/s. At 797 KB/s write speed, the system has a massive safety margin.
 
 ---
 
 ## 10. High-Speed Binary Logging & Offline Data Pipeline
 
-### 4.1 Hardware Pinout Overhaul (Collision Avoidance)
+This phase defined the final logging format and the offline analysis workflow.  
+The main objective was to store data fast enough for 100 Hz acquisition without losing frames.
 
-To prevent hardware bus collisions between the high-speed SD card and the MPU9250 sensor, the SPI pins were migrated to the dedicated hardware FSPI bus of the ESP32-S3. 
+### 10.1 Hardware Pinout Overhaul
 
-- **MPU9250 (I2C):** GPIO 4 (SDA), GPIO 5 (SCL)
-- **SD Card (FSPI):** GPIO 10 (CS), GPIO 11 (MOSI), GPIO 12 (SCK), GPIO 13 (MISO)
-- **OLED (Software I2C):** GPIO 6 (SDA), GPIO 7 (SCL)
+To prevent hardware bus collisions, the SD card was moved to the dedicated FSPI bus:
 
-### 4.2 Binary Data Structure (`LogFrame`)
+| Peripheral   | Bus    | Pins                                                        |
+| ------------ | ------ | ----------------------------------------------------------- |
+| MPU9250      | I2C    | GPIO 4 (SDA), GPIO 5 (SCL)                                  |
+| SD Card      | FSPI   | GPIO 15 (CS), GPIO 11 (MOSI), GPIO 12 (SCK), GPIO 13 (MISO) |
+| OLED         | SW I2C | GPIO 6 (SDA), GPIO 7 (SCL)                                  |
+| Buttons      | GPIO   | GPIO 1 (SELECT), GPIO 2 (UP), GPIO 8 (DOWN), GPIO 14 (TAG)  |
+| Buzzer / LED | GPIO   | GPIO 21 (BUZZER), GPIO 17 (RED), GPIO 18 (GREEN)            |
 
-To maximize write speeds and prevent string conversion overhead, data is structured into a precise 48-byte C-struct:
+### 10.2 Binary Data Format
 
-- `uint32_t timestamp` (4 bytes)
-- `float q[4]` (16 bytes) - Quaternions
-- `float accel[3]` (12 bytes) - Linear Acceleration
-- `double gps_lat`, `gps_lng` (16 bytes) - Auxiliary GPS data
+The logging frame is 45 bytes long and contains one complete sensor snapshot with a union payload. Using binary frames removed the overhead of string conversion and reduced CPU load.
 
-### 4.3 Storage Strategy & File Generation
+### 10.3 Storage Strategy
 
-The system utilizes the `SdFat` library running on Core 1 at a locked SPI frequency of 20 MHz. The system generates three distinct binary files during operations:
+The logger writes continuous binary blocks to the SD card via SdFat at 20 MHz SPI. Sequential file naming (DR_LOG_XXX.BIN) prevents accidental overwriting across different missions. Recovery fragments use the XXXYYY.BIN naming scheme for deterministic reassociation.
 
-1. `SWEEP.BIN`: Used for finding the maximum stable SPI frequency (failed at 27MHz, stabilized at 20MHz).
-2. `STRESS.BIN`: Used for burst-writing 16KB buffers to test bandwidth capabilities.
-3. `DR_LOG.BIN`: The primary vault containing the 100Hz continuous 48-byte `LogFrame` data.
+### 10.4 Offline Analysis Shift
 
-### 4.4 Navigation Strategy Shift: Offline ZUPT
+Real-time double integration was rejected because MEMS bias would quickly explode the position error quadratically (\(Error = \frac{1}{2} a_{error} t^2\)). Instead, the project moved toward offline Pedestrian Dead Reckoning (PDR) using Zero Velocity Update (ZUPT) in MATLAB/Python.
 
-A critical architectural decision was made to **abandon real-time double integration on the ESP32**. Due to MEMS bias instability, live double integration leads to exponential quadratic drift. Instead, the project shifted to an **Offline Pedestrian Dead Reckoning (PDR)** approach using the **Zero Velocity Update (ZUPT)** technique via MATLAB/Python scripts.
+### 10.5 Phase Summary
 
-### Phase 4 Summary Table
+| Milestone / Task          | Status    | Detail / Specification                                       |
+|:------------------------- |:---------:|:------------------------------------------------------------ |
+| **I2C/SPI Pin Isolation** | Completed | MPU on GPIO 4/5, SD on FSPI 15/11/12/13, OLED on GPIO 6/7.   |
+| **Binary Data Struct**    | Completed | 45-byte union-based LogFrame optimized for write throughput. |
+| **SD Storage Pipeline**   | Completed | SdFat at 20 MHz, writing sequentially named binary files.    |
+| **Data Parsing Scripts**  | Completed | MATLAB and Python parsers for 45-byte frame decoding.        |
+| **Navigation Algorithm**  | Shifted   | From live MCU integration to offline ZUPT modeling.          |
 
-| Milestone / Task          | Status    | Detail / Specification                                           |
-|:------------------------- |:---------:|:---------------------------------------------------------------- |
-| **I2C/SPI Pin Isolation** | Completed | MPU on GPIO 4/5, SD on FSPI 10-13, OLED on GPIO 6/7.             |
-| **Binary Data Struct**    | Completed | 48-byte `LogFrame` structure optimized for RAM alignment.        |
-| **SD Storage Pipeline**   | Completed | `SdFat` library integration, writing `DR_LOG.BIN` continuously.  |
-| **Data Parsing Script**   | Completed | MATLAB/NumPy script developed to instantly parse 48-byte frames. |
-| **Navigation Algorithm**  | Shifted   | Moved from live MCU integration to Offline ZUPT modeling.        |
+### 10.6 Challenges & Solutions
 
----
+- **Challenge:** System crashing when accessing MPU9250 and SD Card simultaneously.  
+  **Solution:** Physically isolate SD on FSPI (pins 11-15) and keep MPU on I2C (pins 4-5). In ESP32-S3, sharing bus matrices for high-speed SPI (20 MHz) and I2C causes interrupt starvation.
 
-### Challenges & Solutions (Phase 4)
+- **Challenge:** Serial.print() to SD card (text logging) was too slow.  
+  **Solution:** Switched to binary block writes (logFile.write of raw struct). Float-to-ASCII conversion is extremely CPU-intensive; binary writing bypasses this bottleneck.
 
-- **Challenge:** System crashing/freezing when accessing the MPU9250 and SD Card simultaneously.
-  
-  - **Solution:** Moved SD card to pins 10-13 (FSPI) and kept MPU on pins 4-5. 
-  - **Educational Depth:** In ESP32-S3, sharing pins or internal bus matrices for high-speed SPI (20MHz) and delicate I2C logic causes interrupt starvation. Physical bus isolation is mandatory for stability in RTOS environments.
-
-- **Challenge:** `Serial.print()` to the SD card (saving as plain text) was too slow and caused data loss at 100Hz.
-  
-  - **Solution:** Switched to binary block writing (`logFile.write`) of a raw 48-byte structure.
-  - **Educational Depth:** Converting floating-point numbers to ASCII text is extremely CPU-intensive. Binary writing pushes raw zeroes and ones directly from RAM to the physical memory sectors, bypassing CPU calculation bottlenecks.
-
-- **Challenge:** Double integration of accelerometer data for displacement caused kilometers of error within minutes.
-  
-  - **Solution:** Delayed integration to the post-processing phase using the ZUPT algorithm in MATLAB.
-  - **Educational Depth:** MEMS sensors have inherent white noise. In double integration ($Error = \frac{1}{2} a_{error} t^2$), the error grows quadratically. ZUPT relies on the physical constraint of a foot hitting the ground to force the velocity back to absolute zero, thus killing the accumulated drift.
+- **Challenge:** Double integration of accelerometer data caused kilometers of error within minutes.  
+  **Solution:** Deferred integration to post-processing via ZUPT in MATLAB. MEMS white noise grows quadratically in double integration; ZUPT forces velocity to zero on each foot strike.
 
 ---
 
 ## 11. Advanced UI & Defensive UX
 
-To ensure system reliability in high-stress field operations, the legacy toggle-based menus were completely redesigned into a state-machine-driven interactive interface.
+The OLED interface was redesigned to make the system easier to use in the field.  
+The menu flow now emphasizes safety, clarity, and fast access to the most important options.
 
-* **Interactive Navigation & State Machine:** The UI now features cursor-driven (`>`) submenus. To minimize operational downtime, any selection made within the configuration menus instantly redirects the system back to the primary 'Live View'.
-* **Advanced SD Manager (Dynamic Scrolling):** Due to the physical limitations of the 128x32 OLED (displaying only 3 text lines), a *Scrolling Window Matrix* was implemented. The 7-item menu dynamically computes and displays:
-  * Total hardware storage capacity (GB)
-  * Free storage space (MB)
-  * Estimated continuous recording time remaining (Hours)
-  * Total count of valid binary log files currently on the disk
-* **Defensive UX (Confirmation Traps):** Destructive actions, such as executing a format or closing an active log to create a new one, are now protected by two-stage confirmation traps (`YES` / `> NO`). The cursor defaults to `NO` to prevent accidental data loss.
+### 11.1 Menu Design
+
+The interface uses cursor-driven navigation with submenus and small status pages. The system supports a **Live View** (real-time quaternion and temperature data), a 5-item **Main Menu**, and a dedicated **SD Manager Submenu**. Any selection within configuration menus instantly redirects back to Live View.
+
+### 11.2 SD Manager (Dynamic Scrolling)
+
+Due to the 128x32 OLED physical limit of 3 visible lines, an 8-item scrolling window matrix was implemented:
+
+1. Total: XX.X GB
+2. Free: XXX MB
+3. Time: XX.X Hrs
+4. Files Count: XXX
+5. Drops: XXX
+6. Create New File
+7. Format / Clear
+8. Back to Menu
+
+The cursor loops at boundaries, and the scroll offset adjusts dynamically. Drop frame count tracks queue overflow events.
+
+### 11.3 Defensive Controls
+
+Dangerous actions are protected by **two-stage confirmation traps** with the cursor defaulting to **NO**:
+
+- **Format / Clear:** Prompts "Clear All Logs?" with YES / >NO. On confirmation, suspends Core 0, wipes both parent logs (DR_LOG_XXX.BIN) and recovery fragments (XXXYYY.BIN), resets indices, and creates a fresh log file.
+- **Create New File:** Prompts "Create New File?" with YES / >NO. On confirmation, syncs and closes the current file, increments the log ID ceiling, and opens the next sequential file.
+
+### 11.4 OLED Power Management
+
+- **Auto-Sleep:** Display powers off after 20 seconds of inactivity.
+- **Wake:** Any button press wakes the display and resets to Live View.
+- **Display Mode Submenu:** Toggle between "Always ON" and "Auto Off 20s".
+
+### 11.5 Feedback & Indicators
+
+- **TAG Button:** Flashes green LED + short buzzer beep (50 ms). Even in stealth (muted) mode, the green LED still flashes.
+- **Safe Shutdown:** 3-second long press on SELECT triggers flush of remaining PSRAM frames, closes the file, and displays "SAFE TO POWER OFF" with solid green LED.
+- **Stealth Mode:** Mute submenu toggles all buzzer sounds ON/OFF.
+
+---
 
 ## 12. Advanced File System & Hardware Watchdogs
 
-### 12.1. Auto-Sequential Logging & Smart Delete
+The file system and fault monitoring layer were refined to prevent silent failures.  
+This part of the architecture protects both the active log and the operator.
 
-The storage pipeline was heavily upgraded to prevent accidental data overwrites across multiple power cycles.
+### 12.1 Auto-Sequential Logging
 
-* **Deprecation of Diagnostic Files:** The `SWEEP.BIN` and `STRESS.BIN` files, originally used for SPI bandwidth testing and diagnostics, have been fully deprecated. 
-* **Auto-Sequential Indexing:** The static `DR_LOG.BIN` approach was replaced. Upon boot-up, the MCU scans the FAT32 root directory, tallies the existing files, and automatically generates the next sequential file (e.g., `DR_LOG_001.BIN`, `DR_LOG_002.BIN`).
-* **Smart Delete Protocol:** Instead of executing a dangerous partition-level format, the system's "Clear All Logs" function intelligently scans for and removes only files matching the `DR_LOG_xxx.BIN` nomenclature, leaving other potential user files on the SD card intact.
-* **Boot-up Scan Report:** A transient boot screen (`-- SD Scanned --`) was added to provide immediate situational awareness, reporting the total number of previously logged files and the index of the newly created file.
+The logger scans the SD card root at boot and creates the next available log file automatically. A boot screen reports "Found: X Logs / Next: LOG_XXX" to the operator.
 
-### 12.2. Aerospace-Grade Hardware Watchdogs
+### 12.2 Smart Cleanup Behavior
 
-To prevent "silent failures" where the device appears to be logging but the sensor is physically disconnected:
+Instead of wiping the whole card, the cleanup function scans for and removes only files matching the DR_LOG_XXX.BIN and recovery XXXYYY.BIN naming patterns. Other user files on the SD card remain intact.
 
-* **Runtime MPU Watchdog:** A dedicated tracking timer in Core 0 (Sensor Task) monitors the I2C stream. If data acquisition ceases for >1000ms (e.g., a severed wire), a crash flag is raised.
-* **Emergency SOS Trap:** Upon detecting a hardware crash, Core 1 immediately flushes and safely closes the active SD log to prevent memory corruption. The OLED displays a `Cable Disconnected` error, and the system enters an infinite SOS loop (3 rapid buzzer beeps synchronized with a red LED strobe).
-* **I2C Bus Timeout:** Configured `Wire.setTimeOut(50)` to prevent the ESP32-S3's internal clock from freezing if the physical I2C lines are abruptly pulled low.
+### 12.3 MPU Watchdog
+
+A runtime timer on Core 0 monitors the I2C acquisition stream. If sensor data ceases for >500 ms, a critical error flag is raised. Core 1 immediately syncs and closes the active log file, then enters an SOS alert pattern.
+
+### 12.4 Dynamic SD Recovery
+
+If the SD card is disconnected during operation:
+
+1. Core 1 detects the write failure and sets sd_critical_error.
+2. Red LED + buzzer produce a 100 ms rhythmic SOS pattern.
+3. Every 3000 ms, the system attempts to reinitialize SPI and reopen the file.
+4. On success, a **gap frame** (event_flag = 0xAA) is injected to mark the discontinuity, and a new recovery file (XXXYYY.BIN) is created automatically.
+
+### 12.5 Emergency Response
+
+When a critical failure is detected:
+
+- The active file is synced and closed immediately.
+- OLED displays diagnostic information.
+- An SOS pattern (100 ms buzzer + red LED, repeated) runs until recovery or manual shutdown.
+- I2C bus timeout (50 ms) prevents hardware bus hangs if physical lines are pulled low during a fault.
+
+---
+
+## 13. Development Timeline (Engineering Milestones Only)
+
+The following timeline keeps the meaningful technical milestones and omits low-value checkpoint commits.  
+It shows how the architecture evolved from the earliest prototype to the current system.
+
+| Date       | Milestone                         | Summary                                                                             |
+| ---------- | --------------------------------- | ----------------------------------------------------------------------------------- |
+| 2025-05-11 | Initial commit                    | Repository created with early project skeleton.                                     |
+| 2025-05-12 | MPU6500 prototype start           | Initial MPU6500 library integration and STM32 CubeIDE setup.                        |
+| 2025-05-14 | MPU9250 DMP exploration           | DMP support, MPU9250 documentation, and register-level bring-up.                    |
+| 2025-05-17 | Linear acceleration & OLED fixes  | Corrected gravity-compensated acceleration; OLED display output functional.         |
+| 2025-07-12 | Repository reorganization         | Cleaned repo structure; NodeMCU ESP8266 firmware separated as primary target.       |
+| 2026-06-03 | ESP32-S3 migration                | Migrated from ESP8266 NodeMCU to ESP32-S3 N16R8 with new wiring diagram.            |
+| 2026-06-03 | Dual-core FreeRTOS                | Implemented producer-consumer architecture with queue-based inter-core comms.       |
+| 2026-06-03 | MPU9250 sanity check              | Validated IMU initialization and I2C communication on ESP32-S3.                     |
+| 2026-06-03 | OLED sanity check                 | Confirmed SSD1306 display initialization and rendering on 0.91-inch OLED.           |
+| 2026-06-04 | Static drift test                 | 15-minute stationary test: max roll 0.43°, pitch 0.39°, yaw 2.73°.                  |
+| 2026-06-04 | Dynamic return-to-zero test       | Aggressive 130° swing recovery: roll error 0.07°, yaw error 1.55°.                  |
+| 2026-06-04 | Vibration rejection test          | Heavy impact: max pitch deviation 0.57°; pen tapping: <0.1°.                        |
+| 2026-06-04 | Validation analysis tools         | MATLAB visualization scripts for drift, RTZ, and vibration analysis.                |
+| 2026-06-05 | SD card adapter investigation     | Added SD card diagrams; began cross-platform adapter comparison.                    |
+| 2026-06-05 | Standalone SD tests               | Validated commercial 5V module and DIY 3.3V adapter across multiple boards.         |
+| 2026-06-05 | SPI sweep completed               | 1–26 MHz sweep on DIY adapter: 20 MHz selected as stable operating point.           |
+| 2026-06-08 | SD card logging stress test       | Continuous binary logging validated at 100 Hz with zero frame loss.                 |
+| 2026-06-08 | MPU disconnect detection          | First implementation of runtime I2C watchdog and critical fault state.              |
+| 2026-06-08 | Boot-time SD scanning             | Auto-sequential log file numbering on startup with boot-screen report.              |
+| 2026-06-09 | MATLAB binary reader              | 48-byte LogFrame parser with quaternion and acceleration extraction.                |
+| 2026-06-09 | Storage benchmarking              | Measured 797 KB/s write speed at 20 MHz SPI; calculated 11.88 MB/hour rate.         |
+| 2026-06-09 | OLED phase UI                     | Initial menu system, SD info display, and multi-page navigation.                    |
+| 2026-06-09 | UI iteration: submenus            | Display mode, mute buzzer, and SD card submenus added.                              |
+| 2026-06-10 | PSRAM queue integration           | Allocated 50,000-frame buffer (2.14 MB) in external PSRAM for zero-loss queue.      |
+| 2026-06-10 | Union LogFrame optimization       | Payload union reduced frame size from 48 to 45 bytes.                               |
+| 2026-06-10 | SD runtime recovery               | Hot-plug detection, auto-reopen with recovery file (XXXYYY.BIN), gap frames.        |
+| 2026-06-10 | OLED auto-sleep & display modes   | Power-save after 20s; Always ON / Auto Off toggle; wake-on-button.                  |
+| 2026-06-10 | Confirmation traps                | YES/NO guards for Format and Create New File; default cursor = NO.                  |
+| 2026-06-10 | Stealth mode & TAG button         | Mute buzzer; TAG button with green LED + buzzer feedback.                           |
+| 2026-06-10 | Safe shutdown protocol            | 3-second long-press flush of 50,000 PSRAM frames; "SAFE TO POWER OFF".              |
+| 2026-06-10 | Drop frame counter                | Queue overflow counter displayed in SD submenu.                                     |
+| 2026-06-10 | TAG button inter-core handling    | Tag events transmitted via atomic flag across cores with spinlock protection.       |
+| 2026-06-10 | I2C calibration conflict fix      | Remove destructive xQueueReset; sensor task suspended during calibration only.      |
+| 2026-06-11 | EEPROM magic number validation    | 0xDEAD sentinel prevents corrupt calibration from loading.                          |
+| 2026-06-11 | Frame counter thread safety       | portMUX_TYPE critical sections for atomic 64-bit timebase reads across cores.       |
+| 2026-06-11 | SD file counting fix              | Switched to openNext() directory iteration; 10–100x faster than sequential probing. |
+| 2026-06-11 | 32-bit overflow protection        | 64-bit arithmetic for SD cards >32 GB.                                              |
+| 2026-06-11 | Smart delete protocol             | Format removes both parent logs (DR_LOG_XXX) and recovery fragments (XXXYYY).       |
+| 2026-06-11 | Recovery fragment naming          | Deterministic XXXYYY.BIN format linking log ID to recovery instance.                |
+| 2026-06-11 | Configurable MPU settings helper  | Extracted configureMPUSettings() for centralized sensor configuration.              |
+| 2026-06-11 | Redundant variable cleanup        | Removed unused STATE_SUBMENU_MSG, last_sd_recovery_attempt, dead code paths.        |
+| 2026-06-12 | Gap frame zero-initialization     | Fixed uninitialized event_flag in SD recovery gap marker.                           |
+| 2026-06-12 | Log file validation post-recovery | Null-check file pointer after MPU reconnection to prevent silent write loss.        |
+| 2026-06-12 | Recovery ID increment order fix   | Increment global_recovery_id only after successful file open confirmation.          |
+| 2026-06-12 | Project report generation         | Added project_summarizer tool; generated comprehensive architecture reports.        |
+| 2026-06-12 | Progress.md update                | Documented PSRAM, recovery protocol, UI features, and phase completion status.      |
+| 2026-06-15 | Final report merge                | Consolidated Report.md (v1.0.0) and Report2.md (v2.0.0) into single document.       |
+
+---
+
+## 14. Current Status
+
+The system is now a structured offline tracking platform with stable sensing, logging, and analysis layers.  
+The remaining major item is GNSS integration and the timing alignment between GPS and IMU data.
+
+| Subsystem                   | Status      |
+| --------------------------- | ----------- |
+| ESP32-S3 migration          | Complete    |
+| RTOS multi-core framework   | Complete    |
+| Calibration and I2C tuning  | Complete    |
+| Hardware validation         | Complete    |
+| SD card logging             | Complete    |
+| Binary file logging         | Complete    |
+| PSRAM buffering             | Complete    |
+| Fault handling and recovery | Complete    |
+| UI and monitoring           | Complete    |
+| Offline analysis tools      | Complete    |
+| GPS integration             | In progress |
+
+---
+
+## 15. Conclusion
+
+DeadReckoner evolved from a small IMU prototype into a multi-core offline tracking system.  
+The final architecture prioritizes real-time acquisition, safe logging, and reproducible offline analysis. The system features a dual-core FreeRTOS design with a PSRAM-backed 50,000-frame queue, dynamic SD recovery with gap-frame injection, an interactive OLED menu system with confirmation traps, and comprehensive offline analysis scripts in MATLAB and Python.
