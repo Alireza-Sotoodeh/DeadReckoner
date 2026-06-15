@@ -1,0 +1,1269 @@
+========================================================================
+  PROJECT REPORT : DeadReckoner
+  Generated      : 2026-06-15 17:22:14
+========================================================================
+
+1.  GIT COMMITS
+========================================================================
+    Total Commits: 162
+
+  Hash       Date                        Author               Message
+  ---------  --------------------------  -------------------  ------------------------------------------------------------
+  bc779b4    2026-06-15 15:13:39         Alireza Sotoodeh     Clean up To Do list.md: remove completed items, keep pend
+  d6fc8e6    2026-06-15 15:09:01         Alireza Sotoodeh     Add project_summarizer interactive report tool
+  b50fcc2    2026-06-15 13:32:42         Alireza Sotoodeh     Update Progress.md with storage, recovery, UI
+  71b59a6    2026-06-15 10:57:32         Alireza Sotoodeh     Fix timing, SD math, and logging robustness
+  1d7378d    2026-06-15 10:45:39         Alireza Sotoodeh     Relative timestamps, OLED reinit, buzzer beeps
+  0a27909    2026-06-14 18:04:57         Alireza Sotoodeh     Improve SD recovery and new log file creation
+  19e696d    2026-06-14 17:25:58         Alireza Sotoodeh     Expand SD menu to 8 items and fix actions
+  f734a62    2026-06-14 17:07:36         Alireza Sotoodeh     Track dropped frames and fix SD menu/UI
+  c809e2f    2026-06-14 16:58:24         Alireza Sotoodeh     Make frame sequence counter thread-safe
+  73cdf91    2026-06-14 15:35:43         Alireza Sotoodeh     Expand data frame & add O(1) log naming
+  0a1eadd    2026-06-14 15:17:04         Alireza Sotoodeh     Safely wipe logs: suspend sensor, purge SD
+  23ce3b7    2026-06-14 15:13:07         Alireza Sotoodeh     Remove unused STATE_SUBMENU_MSG and handlers
+  7385d3b    2026-06-14 14:59:50         Alireza Sotoodeh     Support recovery logs and use vTaskDelay
+  b528985    2026-06-14 14:56:35         Alireza Sotoodeh     Add configureMPUSettings helper
+  9cafc3e    2026-06-14 14:53:17         Alireza Sotoodeh     Remove unused SD recovery timer variable
+  4cb4971    2026-06-14 14:51:20         Alireza Sotoodeh     Validate log file after MPU recovery
+  baf3ece    2026-06-14 14:46:45         Alireza Sotoodeh     Zero-initialize gap LogFrame before SD write
+  b5937cf    2026-06-14 14:44:54         Alireza Sotoodeh     Fix runtime display and EEPROM offset
+  1795018    2026-06-14 14:32:29         Alireza Sotoodeh     Increment recovery ID after SD file open
+  23b0d02    2026-06-14 14:30:28         Alireza Sotoodeh     Improve SD space calc and file counting
+  50661c2    2026-06-14 14:26:36         Alireza Sotoodeh     Add timestamp to LogFrame and update frame size
+  3dba014    2026-06-14 14:20:13         Alireza Sotoodeh     Add EEPROM sentinel and robust calibration load/save
+  986aa4c    2026-06-14 12:02:47         Alireza Sotoodeh     Update Issues found by AI.md
+  96593bd    2026-06-14 12:02:43         Alireza Sotoodeh     Initialize SD gap LogFrame before write
+  82eaf99    2026-06-14 12:00:35         Alireza Sotoodeh     Add spinlocks for frame counter and tag events
+  40f38a9    2026-06-14 11:54:38         Alireza Sotoodeh     Add calibration prototypes and reorder globals
+  e184656    2026-06-14 11:36:52         Alireza Sotoodeh     Move OLED auto-off and trigger force UI update
+  e9e168c    2026-06-14 11:34:07         Alireza Sotoodeh     Add bandwidth metrics, PSRAM sizing & IMU temp
+  39aaedf    2026-06-14 11:06:37         Alireza Sotoodeh     Add AI-generated code review report
+  aaf1c56    2026-06-13 23:41:37         Alireza Sotoodeh     Rewrite To Do list with structured sections
+  5d6f761    2026-06-13 23:29:43         Alireza Sotoodeh     Purge dataQueue on log start and after wipe
+  d2947c3    2026-06-13 23:24:30         Alireza Sotoodeh     Yield to watchdog during SD flush; clarify SD calc
+  b898876    2026-06-13 22:51:50         Alireza Sotoodeh     Adjust SD remaining-hours calculation
+  d18b758    2026-06-13 22:47:05         Alireza Sotoodeh     Remove xQueueReset to avoid race condition
+  756fa36    2026-06-13 17:53:44         Alireza Sotoodeh     Fix SD capacity overflow on large cards
+  18df5bb    2026-06-13 17:51:07         Alireza Sotoodeh     Remove parent logs and nested recovery fragments
+  7c4c10b    2026-06-13 17:48:29         Alireza Sotoodeh     Use global frame counter and reset on log events
+  c2042e5    2026-06-13 17:33:15         Alireza Sotoodeh     Add safe long-press shutdown and SD flush
+  aae3057    2026-06-13 17:23:08         Alireza Sotoodeh     Display elapsed time instead of frame seq
+  276a5f4    2026-06-13 17:12:42         Alireza Sotoodeh     Improve SD runtime recovery and UI feedback
+  a2c7a71    2026-06-13 16:55:30         Alireza Sotoodeh     Move BinReader tests, add V5, tighten jump filter
+  49fc4a0    2026-06-13 16:54:36         Alireza Sotoodeh     Add global log/recovery IDs and improved recovery naming
+  a9abe2b    2026-06-13 16:53:58         Alireza Sotoodeh     Update To Do list.md
+  12969b5    2026-06-12 21:40:34         Alireza Sotoodeh     Mark Queue Overflow and 100Hz write fix done
+  72ea622    2026-06-12 20:45:04         Alireza Sotoodeh     Report: update To Do list tasks and notes
+  2c07c5a    2026-06-12 20:44:48         Alireza Sotoodeh     Optimize LogFrame, add PSRAM queue & SD recovery
+  f8cf9f5    2026-06-12 20:44:24         Alireza Sotoodeh     Move BinReader data to Tests and add v4
+  fba5d59    2026-06-12 20:40:06         Alireza Sotoodeh     Add PSRAM recovery test data and v3 MATLAB reader
+  d664e11    2026-06-12 19:39:13         Alireza Sotoodeh     Reorganize MATLAB files and add BIN parser
+  f401a2b    2026-06-12 18:38:40         Alireza Sotoodeh     SD runtime recovery and pin remap
+  5e9c419    2026-06-12 15:21:13         Alireza Sotoodeh     Update To Do list with finding the final issues
+  175ddba    2026-06-12 14:44:16         Alireza Sotoodeh     Update README.md
+  53ee269    2026-06-12 14:44:06         Alireza Sotoodeh     Update To Do list.md
+  ae8b760    2026-06-12 14:30:50         Alireza Sotoodeh     Add comprehensive project reports and TODO
+  109b15d    2026-06-11 22:18:56         Alireza Sotoodeh     DYNAMIC RECOVERY PROTOCOL for MPU reconnection
+  fff0137    2026-06-11 22:01:44         Alireza Sotoodeh     Update Progress & Architecture Report.md
+  61546f3    2026-06-11 21:09:23         Alireza Sotoodeh     implement MPU9250 critical disconnect trap and boot-time 
+  1e77d9b    2026-06-11 20:34:19         Alireza Sotoodeh     fix (Total: XX.X GB) in submenu SD card
+  cc09b6b    2026-06-11 20:26:26         Alireza Sotoodeh     update menu - SD card sub menu
+  2441549    2026-06-11 17:26:05         Alireza Sotoodeh     update menu - mute buzzer menu
+  82630a8    2026-06-11 17:16:46         Alireza Sotoodeh     update menu - display mode
+  34b6077    2026-06-11 16:49:15         Alireza Sotoodeh     added buzzer and LED for Tag and SD card failure
+  a19f32f    2026-06-10 22:22:11         Alireza Sotoodeh     try to update oled-phase 4
+  74f1cf1    2026-06-10 18:05:30         Alireza Sotoodeh     try to update oled- phase 3
+  a6f7e2a    2026-06-10 16:25:03         Alireza Sotoodeh     try to update oled phase 2
+  e0a9af6    2026-06-10 16:14:20         Alireza Sotoodeh     try to update oled- phase 1
+  20b4be7    2026-06-10 14:59:53         Alireza Sotoodeh     Update Progress & Architecture Report.md
+  0b6d062    2026-06-09 15:46:21         Alireza Sotoodeh     Create Lipo_VS_LIIon.png
+  06d4af0    2026-06-09 15:46:19         Alireza Sotoodeh     Create Li-ion-battery-discharge-voltage-curve.png
+  3a02459    2026-06-09 13:36:22         Alireza Sotoodeh     first version of a bin file reader (MATLAB code)
+  62a3aa7    2026-06-09 12:33:17         Alireza Sotoodeh     update for SD card logger
+  2d598a3    2026-06-09 11:40:52         Alireza Sotoodeh     speed test Sd card
+  63c2d1f    2026-06-08 17:22:48         Alireza Sotoodeh     added test analyzer for no SD card mode
+  b92c2d9    2026-06-08 16:57:49         Alireza Sotoodeh     Update Progress & Architecture Report.md
+  ff103ec    2026-06-08 16:32:36         Alireza Sotoodeh     Final SD card Test (success!)
+  f4be198    2026-06-08 16:32:09         Alireza Sotoodeh     SD card Test
+  56e2f99    2026-06-08 13:04:57         Alireza Sotoodeh     Create Chip_Identification_ESP.ino
+  571117f    2026-06-08 12:31:36         Alireza Sotoodeh     clean up and added some test for SD card
+  c64fab2    2026-06-08 11:04:07         Alireza Sotoodeh     added SD card test (all methods has been failed)
+  71b1203    2026-06-05 21:10:39         Alireza Sotoodeh     added SD card Diagram
+  38a5df4    2026-06-05 20:15:23         Alireza Sotoodeh     diagram SD card adaptors
+  d61bf42    2026-06-05 20:14:00         Alireza Sotoodeh     Standalone Sanity Check for SPI SD Card Module
+  95b4553    2026-06-05 03:57:14         Alireza Sotoodeh     Sanity Check for SPI SD Card Module
+  4770619    2026-06-04 22:18:46         Alireza Sotoodeh     Hardware & Filter Validation (Test Results)
+  49a098e    2026-06-04 22:18:32         Alireza Sotoodeh     Vibration Rejection test result
+  490ca10    2026-06-04 21:09:55         Alireza Sotoodeh     Clean up and add a second test (Dynamic Return-to-Zero)
+  3ff7a07    2026-06-04 16:28:32         Alireza Sotoodeh     Drift Test Visualizer
+  4fe7d7c    2026-06-04 16:28:10         Alireza Sotoodeh     Update Progress & Architecture Report.md
+  6db47c8    2026-06-04 15:41:16         Alireza Sotoodeh     fix OLED
+  e5a2f29    2026-06-04 15:33:59         Alireza Sotoodeh     ix issues before test
+  5fe3bf7    2026-06-04 15:31:49         Alireza Sotoodeh     Firmware Flashing Configuration (ESP32-S3 N16R8)
+  6b28855    2026-06-04 15:03:10         Alireza Sotoodeh     Update Progress & Architecture Report.md
+  66e7771    2026-06-04 14:59:02         Alireza Sotoodeh     Sanity Check for OLED 0.91
+  8a65805    2026-06-04 14:46:46         Alireza Sotoodeh     Basic I2C sanity check MPU9250
+  5b4c454    2026-06-04 13:05:46         Alireza Sotoodeh     Updated wiring diagram
+  b099dad    2026-06-04 13:05:08         Alireza Sotoodeh     Update Progress & Architecture Report.md
+  08459b3    2026-06-03 19:32:06         Alireza Sotoodeh     dual core with Free Atreus
+  0ee83a3    2026-06-03 19:09:52         Alireza Sotoodeh     Update Progress & Architecture Report.md
+  ef89423    2026-06-03 18:43:14         Alireza Sotoodeh     Create ESP32_S3.ino
+  d77ccbc    2026-06-03 18:42:35         Alireza Sotoodeh     Create Progress & Architecture Report.md
+  6ed1539    2026-06-03 17:00:09         Alireza Sotoodeh     added wiring diagram for ESP
+  92d4cb3    2026-06-03 16:34:13         Alireza Sotoodeh     init_project(again)
+  d7407d4    2026-06-03 15:53:09         Alireza Sotoodeh     Delete setup modules directory
+  863ff07    2026-06-03 15:52:57         Alireza Sotoodeh     Delete main code directory
+  196cec4    2026-06-03 15:52:38         Alireza Sotoodeh     Delete .metadata directory
+  3b96d1d    2025-08-09 11:17:13         Alireza Sotoodeh     Merge pull request #8 from Alireza-Sotoodeh/NodeMUC8266
+  3359107    2025-08-09 11:16:43         Alireza Sotoodeh     cleaning repo-05/18-11:16PM
+  2bc2774    2025-08-08 16:57:22         Alireza Sotoodeh     fixed the acceleration (linear acceleration)-05/17-4:57
+  b0166f0    2025-08-08 11:19:45         Alireza Sotoodeh     oled display fixed-05/17-11:19PM
+  ff11272    2025-08-07 12:26:53         Alireza Sotoodeh     05/16-12:26PM
+  04cdf7e    2025-08-06 14:43:03         Alireza Sotoodeh     05/15-2:42PM
+  9cbcf16    2025-08-06 14:17:22         Alireza Sotoodeh     05/15-2:17PM
+  d69f889    2025-08-05 20:33:51         Alireza Sotoodeh     05/14-8:33Pm
+  bd57081    2025-08-05 19:59:43         Alireza Sotoodeh     05/14-7:59PM
+  a18b783    2025-08-05 19:45:52         Alireza Sotoodeh     Merge pull request #7 from Alireza-Sotoodeh/NodeMUC8266
+  f623caf    2025-08-05 19:44:23         Alireza Sotoodeh     05/14-7:43PM
+  dac7043    2025-08-05 19:34:07         Alireza Sotoodeh     05/14_7:33PM
+  3e039ce    2025-08-05 17:19:11         Alireza Sotoodeh     05/14-5:19PM
+  8a9c9e9    2025-08-05 15:57:33         Alireza Sotoodeh     05/14
+  1b1623d    2025-08-04 10:20:12         Alireza Sotoodeh     05/13-10:20Pm
+  5e9d19f    2025-08-04 09:02:54         Alireza Sotoodeh     start
+  31c9ae8    2025-08-04 09:01:25         Alireza Sotoodeh     save before start
+  9dc8987    2025-08-03 15:42:08         Alireza Sotoodeh     removed the project
+  bba6109    2025-08-03 15:35:11         Alireza Sotoodeh     05/12-3:34PM
+  d44cee1    2025-08-02 14:05:01         Alireza Sotoodeh     05/11-2:04PM
+  b578859    2025-08-02 14:02:40         Alireza Sotoodeh     05/11-2:02PM
+  da3fe11    2025-07-25 16:48:20         Alireza Sotoodeh     Update workbench.xmi
+  0e84527    2025-07-25 16:34:39         Alireza Sotoodeh     Add DMP.c for MPU_9250 and update workspace state
+  3cb9f77    2025-07-25 16:31:47         Alireza Sotoodeh     Revert "05/03-3:53PM"
+  35e3c88    2025-07-25 15:53:44         Alireza Sotoodeh     05/03-3:53PM
+  527e4d0    2025-07-25 15:04:37         Alireza Sotoodeh     Merge branch 'MPU9250' of https://github.com/Alireza-Soto
+  8df6c0a    2025-07-25 15:04:30         Alireza Sotoodeh     Update MPU_9250.md
+  fccbc95    2025-07-25 15:02:46         Alireza Sotoodeh     05/03-3:02PM
+  e1c129e    2025-07-25 12:17:52         Alireza Sotoodeh     05/03-12:17PM
+  ac92d29    2025-07-25 12:17:27         Alireza Sotoodeh     05/03-12:17PM
+  cfa9612    2025-07-25 12:13:08         Alireza Sotoodeh     05/03-12:12PM
+  d7b0656    2025-07-25 12:11:14         Alireza Sotoodeh     05/03-12:10PM
+  27d3701    2025-07-25 11:23:10         Alireza Sotoodeh     05/03-11:22AM (save before start)
+  b869740    2025-07-24 19:39:06         Alireza Sotoodeh     05/02-7:38PM
+  0a7b903    2025-07-24 19:31:16         Alireza Sotoodeh     05/02-7:30PM
+  04bcf97    2025-07-23 20:54:00         Alireza Sotoodeh     05/01-8:53PM
+  3f6cd2f    2025-07-23 20:50:15         Alireza Sotoodeh     05/01-8:49
+  5b426fa    2025-07-23 11:05:54         Alireza Sotoodeh     Update README.md
+  0455e92    2025-07-20 21:44:39         Alireza Sotoodeh     04/29-9:44PM
+  3b1b5ac    2025-07-18 20:16:29         Alireza Sotoodeh     04/27- 8:15 PM
+  4305256    2025-07-18 18:04:53         Alireza Sotoodeh     04/27-6:03 PM
+  701ae4b    2025-07-18 10:48:51         Alireza Sotoodeh     04/27-10:48 AM
+  62df236    2025-07-17 22:30:28         Alireza Sotoodeh     04/26
+  768b21c    2025-07-16 08:01:08         Alireza Sotoodeh     now code has no error
+  ec842c7    2025-07-14 11:33:26         Alireza Sotoodeh     04/23 saving before going for a break!
+  2327c58    2025-07-14 10:47:22         Alireza Sotoodeh     before testing the MPU6500 commands
+  e532bc4    2025-07-13 20:11:22         Alireza Sotoodeh     added all necceasry files
+  8ac5a28    2025-07-13 15:01:44         Alireza Sotoodeh     save beffore going to my new brand branch
+  9b63d4f    2025-07-13 15:00:15         Alireza Sotoodeh     adding scr MPU6500
+  d95b49d    2025-07-13 14:56:47         Alireza Sotoodeh     setup CubeIDE
+  4239272    2025-07-13 14:52:23         Alireza Sotoodeh     added MPU6500 library
+  b31009d    2025-07-13 14:50:43         Alireza Sotoodeh     removing all file(from the top)
+  2f0ded6    2025-07-13 14:26:16         Alireza Sotoodeh     fixing readme file
+  adfc075    2025-07-13 14:24:16         Alireza Sotoodeh     initial MPU6500 and trying to test it
+  05d017f    2025-07-12 20:39:48         Alireza Sotoodeh     initial PJ
+  bed8a35    2025-07-12 19:01:00         Alireza Sotoodeh     modified readme file
+  d72b9ad    2025-07-12 18:41:59         Alireza Sotoodeh     Initial commit
+
+  Full Messages:
+------------------------------------------------------------------------
+  [1] bc779b4  2026-06-15 15:13:39  Alireza Sotoodeh
+  --------------------------------------------------------------------
+    Clean up To Do list.md: remove completed items, keep pending only
+
+  [2] d6fc8e6  2026-06-15 15:09:01  Alireza Sotoodeh
+  --------------------------------------------------------------------
+    Add project_summarizer interactive report tool
+    
+    Introduce project_summarizer.py â€” an interactive CLI tool to generate project documentation and machine-friendly context. It extracts git commit history, builds a directory tree, computes file stats and project summary (README, requirements), and performs code analysis (Python function/class signatures, import dependency graph, config file collection, optional file contents). Outputs include a human-readable text report, an LLM-optimized Markdown report, and a prompt-optimized XML export; optional token estimation via tiktoken. The script uses rich for UI and questionary for prompts, saves reports to an output folder, and includes spinner/progress UX and overwrite handling.
+
+  [3] b50fcc2  2026-06-15 13:32:42  Alireza Sotoodeh
+  --------------------------------------------------------------------
+    Update Progress.md with storage, recovery, UI
+    
+    Expand the project progress report to document extensive storage, logging, recovery, UI, and analysis improvements. Adds detailed binary LogFrame design (packed/union payloads), 64-bit timestamps, PSRAM-backed buffering and queue architecture, deterministic file naming, gap-frame markers, frame sequencing and dropped-frame accounting, SD recovery/fragment logging and write verification, watchdog-safe shutdowns, and FAT/performance fixes. Also documents UI/monitoring enhancements (OLED menus, storage dashboard, runtime recovery feedback, log management), a new Phase 8.5 (memory optimization & scalability), data-analysis toolchain updates (fragment reconstruction, garbage-frame filtering, quaternion/euler visualization), and reserved GPS payloads for future GNSS integration.
+
+  [4] 71b59a6  2026-06-15 10:57:32  Alireza Sotoodeh
+  --------------------------------------------------------------------
+    Fix timing, SD math, and logging robustness
+    
+    Address multiple stability and correctness issues:
+    
+    - Remove unused subMenuMsg variable.
+    - Prevent 64-bit torn reads across cores by atomically copying shared log_time_base into a local uint64_t inside a critical section and use that for timestamp calculation. This ensures high-precision esp_timer timestamps are computed relative to a consistent time base.
+    - Zero-initialize receivedFrame to avoid rendering garbage stack bytes before the first frame arrives.
+    - Use 64-bit casts when calculating free/total MB from cluster counts to avoid overflow on large SD cards (>32GB) and update related comments.
+    - Update bandwidth accounting comment to reflect 45-Byte packets and recalc remaining hours accordingly.
+    - Add periodic vTaskDelay yields during large PSRAM flushes (every 500 frames) to prevent RTOS watchdog resets; updated comment to reflect buffer size change.
+    - After wiping memory and reopening the log file, defensively check logFile and set sd_critical_error if allocation/opening fails to catch file errors immediately.
+    - Misc: minor comment/clarity refinements.
+    
+    These changes improve multi-core timestamp correctness, SD capacity math reliability, and runtime robustness during heavy I/O.
+
+  [5] 1d7378d  2026-06-15 10:45:39  Alireza Sotoodeh
+  --------------------------------------------------------------------
+    Relative timestamps, OLED reinit, buzzer beeps
+    
+    Introduce log_time_base (uint64_t) and record frame.timestamp as esp_timer_get_time() - log_time_base so timestamps are relative to the current log. Initialize log_time_base at initial boot and whenever the frame/ log counters are reset (inside critical sections). Add a two-beep audible pattern when entering the safety/green-LED state. Improve OLED resilience by calling u8g2.begin(), setFont() and setPowerSave(0) on wake and when entering the menu, and force a UI update to avoid stale displays. These changes improve timestamp consistency across log files and recoverability of the display/hardware feedback after hot-plug or power events.
+
+  [6] 0a27909  2026-06-14 18:04:57  Alireza Sotoodeh
+  --------------------------------------------------------------------
+    Improve SD recovery and new log file creation
+    
+    Disable hardware alarms (LED/buzzer) before calling blocking SD recovery to prevent continuous buzzer output. Ensure thread-safe capture and monotonic increment of the frame sequence counter and capture a 64-bit microsecond timestamp. After successful recovery, explicitly clear/reset hardware signals and provide user feedback. When creating a new log file, sync and close the previous file, safely bump the max_log_id to guarantee a new filename, reset recovery and frame counters within a critical section, and null-check the opened file to set a critical error if creation fails. Added clarifying comments and minor cleanup.
+
+  [7] 19e696d  2026-06-14 17:25:58  Alireza Sotoodeh
+  --------------------------------------------------------------------
+    Expand SD menu to 8 items and fix actions
+    
+    Add an 8th item to the SD submenu and correct navigation and action mappings to avoid off-by-one/select bugs. Adjust sdMenuCursor bounds (0..7) and remap SELECT behavior so the new "Drops" entry jumps to Live View; shift Create/Format/Back handling to the correct indices and default confirmation focus to NO for safety. Add a null-check after dynamic log file creation to set sd_critical_error on failure. Improve robustness during full card wipe: suspend the sensor task while wiping, insert small vTaskDelay yields to avoid WDT timeouts, reset max_log_id after format, reset the data queue, and reopen the initial log file. Minor whitespace/cleanup changes and UI update triggers retained.
+
+  [8] f734a62  2026-06-14 17:07:36  Alireza Sotoodeh
+  --------------------------------------------------------------------
+    Track dropped frames and fix SD menu/UI
+    
+    Add dropped_frames_count to global state and increment it when xQueueSend fails, providing LED_RED feedback on silent queue overflows to help diagnose missed frames. Zero-initialize gapFrame with memset before populating and perform global_frame_counter updates inside the frameCounterMux critical section to avoid uninitialized data and race conditions. Update SD submenu UI: expand the lines buffer, add a "Drops" entry, shift menu indices, and handle the new SD menu cursor case to return to the main menu. Misc: minor comment cleanup.
+
+  [9] c809e2f  2026-06-14 16:58:24  Alireza Sotoodeh
+  --------------------------------------------------------------------
+    Make frame sequence counter thread-safe
+    
+    Clear the LogFrame structure and protect capture/increment of global_frame_counter with a critical section (portENTER_CRITICAL/portEXIT_CRITICAL). This ensures the frame_seq is assigned atomically and monotonically to avoid race conditions and uninitialized/garbage bytes in the frame.
+
+  [10] 73cdf91  2026-06-14 15:35:43  Alireza Sotoodeh
+  --------------------------------------------------------------------
+    Expand data frame & add O(1) log naming
+    
+    Increase DATA_FRAME_SIZE from 41 to 45 and change frame timestamp from uint32_t to uint64_t to prevent the ~71-minute esp_timer overflow; corresponding timestamp assignments removed 32-bit casts. Add max_log_id to track the highest DR_LOG index and replace the sd.exists scanning loop with an O(1) instantaneous file creation path (increments max_log_id, capped at 999). Ensure new-file creation resets global_frame_counter under mutex and purges the dataQueue so new logs start from a sterile buffer. Initialize max_log_id in setup and apply small formatting/comment clarifications.
+
+  [11] 0a1eadd  2026-06-14 15:17:04  Alireza Sotoodeh
+  --------------------------------------------------------------------
+    Safely wipe logs: suspend sensor, purge SD
+    
+    During SD wipe confirmation the sensor task is now suspended/resumed to avoid concurrent access. The delete loop was enhanced to remove parent logs and orphaned recovery fragments, and a short vTaskDelay is added each iteration to feed the watchdog. After wiping the code resets current_log_filename, global_log_id, global_recovery_id and zeroes global_frame_counter inside a critical section, resets the data queue, reopens a fresh log file, and updates the UI. These changes prevent race conditions, watchdog resets, and stale frames leaking into the new session.
+
+  [12] 23ce3b7  2026-06-14 15:13:07  Alireza Sotoodeh
+  --------------------------------------------------------------------
+    Remove unused STATE_SUBMENU_MSG and handlers
+    
+    Delete the deprecated STATE_SUBMENU_MSG enum value and remove its navigation and rendering code in Code_deadreckoner/ESP32_S3/ESP32_S3.ino. This cleans up the UI state machine by eliminating an unused message submenu, removing the select/back handling and the drawStr rendering block, and simplifies conditional branches with no intended functional changes.
+
+  [13] 7385d3b  2026-06-14 14:59:50  Alireza Sotoodeh
+  --------------------------------------------------------------------
+    Support recovery logs and use vTaskDelay
+    
+    Detect recovery-style .BIN files (exactly 10 chars with first 6 digits) in addition to existing DR_LOG_ parent sessions and include them in totalFilesCount. Replace blocking delay() calls with FreeRTOS vTaskDelay(pdMS_TO_TICKS(...)) for the buzzer and the "All Logs Cleared!" pause to avoid blocking the logging task and potential watchdog starvation.
+
+  [14] b528985  2026-06-14 14:56:35  Alireza Sotoodeh
+  --------------------------------------------------------------------
+    Add configureMPUSettings helper
+    
+    Introduce configureMPUSettings(MPU9250Setting&) to centralize MPU9250 setting assignments (accel/gyro/mag/fifo/filter). Replace duplicated manual initialization in setup() and attemptMPURecovery() with the new helper to reduce code duplication and improve maintainability; no functional behavior changes.
+
+  [15] 9cafc3e  2026-06-14 14:53:17  Alireza Sotoodeh
+  --------------------------------------------------------------------
+    Remove unused SD recovery timer variable
+    
+    Delete the unused `last_sd_recovery_attempt` variable from sensorTask in ESP32_S3.ino. This cleans up an unnecessary local variable, avoiding potential compiler warnings and slightly reducing memory usage while keeping existing MPU recovery logic intact.
+
+  [16] 4cb4971  2026-06-14 14:51:20  Alireza Sotoodeh
+  --------------------------------------------------------------------
+    Validate log file after MPU recovery
+    
+    After recovering the MPU, validate the reopened log file and set sd_critical_error if the file pointer is invalid to avoid silent write failures (addresses FIX ISSUE 5). Also make minor loggingTask cleanup: ensure periodic sync sets sd_critical_error on failure and adjust closing braces/formatting for the loggingTask function.
+
+  [17] baf3ece  2026-06-14 14:46:45  Alireza Sotoodeh
+  --------------------------------------------------------------------
+    Zero-initialize gap LogFrame before SD write
+    
+    When recovering the SD card, fully clear the LogFrame used as a gap marker to eliminate any uninitialized/garbage bytes. Replace selective payload memsets with a single memset(&gapFrame, 0, sizeof(LogFrame)) and then assign frame_seq, timestamp and event_flag before writing the sterile block to the log file. This ensures consistent, deterministic gap records during SD recovery.
+
+  [18] b5937cf  2026-06-14 14:44:54  Alireza Sotoodeh
+  --------------------------------------------------------------------
+    Fix runtime display and EEPROM offset
+    
+    Compute displayed runtime from receivedFrame.timestamp (microseconds) instead of deriving seconds from frame_seq, ensuring the on-screen T: value reflects real elapsed time. Also fix EEPROM calibration storage by starting writes after the 16-bit magic (addr = sizeof(uint16_t)) and consolidating addr increments so each float is stored at the correct offset, preventing overlap with the magic value.
+
+  [19] 1795018  2026-06-14 14:32:29  Alireza Sotoodeh
+  --------------------------------------------------------------------
+    Increment recovery ID after SD file open
+    
+    Fixes Issue #9: generate the recovery filename from the current validated indices and only increment global_recovery_id after the SD file is successfully opened. Previously the index was incremented before verifying the file open, which could lead to skipped or mismatched filenames on failure. Also updates comments and cleans up minor whitespace.
+
+  [20] 23b0d02  2026-06-14 14:30:28  Alireza Sotoodeh
+  --------------------------------------------------------------------
+    Improve SD space calc and file counting
+    
+    Prevent arithmetic overflow for large SD cards by casting cluster calculations to uint64_t and compute sd_total_gb. Replace slow brute-force sd.exists() loop with a high-speed directory iteration (openNext) that filters for ".BIN" files and counts only files starting with "DR_LOG_". Add safer buffer sizes, explicit file/root closes, and ensure SD-related globals are zeroed in the fallback branch. These changes improve performance and correctness when scanning large cards and many log files.
+
+  [21] 50661c2  2026-06-14 14:26:36  Alireza Sotoodeh
+  --------------------------------------------------------------------
+    Add timestamp to LogFrame and update frame size
+    
+    Increase DATA_FRAME_SIZE to 41 and add a uint32_t timestamp to the packed LogFrame to capture a high-precision microsecond hardware timestamp. Populate frame.timestamp in sensorTask (using esp_timer_get_time()) and for SD gap frames in loggingTask, and ensure gap frames' payloads are zeroed to avoid garbage. Update display logic to compute runtime from the hardware timestamp (microseconds -> seconds) instead of frame_seq. Small comment and struct documentation updates to reflect the new parametric binary layout.
+
+  [22] 3dba014  2026-06-14 14:20:13  Alireza Sotoodeh
+  --------------------------------------------------------------------
+    Add EEPROM sentinel and robust calibration load/save
+    
+    Introduce an EEPROM magic sentinel (EEPROM_MAGIC_NUMBER / EEPROM_MAGIC_ADDR) and reserve space for it. saveCalibration() now writes the magic before calibration floats and loadCalibration() validates the magic first; if missing, it logs a warning, applies factory defaults (zero biases, unit scales) and aborts loading to avoid reading corrupt floats. Adjusts address offsets accordingly and adds a calibration header comment. This improves robustness of calibration persistence across reboots.
+
+  [23] 986aa4c  2026-06-14 12:02:47  Alireza Sotoodeh
+  --------------------------------------------------------------------
+    Update Issues found by AI.md
+
+  [24] 96593bd  2026-06-14 12:02:43  Alireza Sotoodeh
+  --------------------------------------------------------------------
+    Initialize SD gap LogFrame before write
+    
+    Fix SD recovery gap frame initialization to avoid writing garbage bytes. Previously the gap frame used 0xFFFFFFFF and left payload/identifiers uninitialized. Now the commit sets frame_seq to global_frame_counter, marks event_flag as 0xAA to identify the SD_GAP event, clears the IMU payload fields with memset, and forces a synced write to ensure a sterile gap marker and improve log integrity during SD recovery.
+
+  [25] 82eaf99  2026-06-14 12:00:35  Alireza Sotoodeh
+  --------------------------------------------------------------------
+    Add spinlocks for frame counter and tag events
+    
+    Introduce two portMUX_TYPE spinlocks (frameCounterMux, tagEventMux) and use portENTER_CRITICAL/portEXIT_CRITICAL around accesses to global_frame_counter and tag_event_triggered. Protects incrementing/initializing the frame sequence and setting/clearing the waypoint tag flag across cores (sensorTask and loggingTask) to prevent race conditions and inconsistent frame_seq or tag events on ESP32-S3 multicore operation. Comments added to clarify intent.
+
+  [26] 40f38a9  2026-06-14 11:54:38  Alireza Sotoodeh
+  --------------------------------------------------------------------
+    Add calibration prototypes and reorder globals
+    
+    Move and consolidate several preprocessor defines and global declarations for clarity, add forward declarations for calibration functions (performCalibration, print_calibration, saveCalibration, loadCalibration) to avoid scope issues, and reorder UI/menu-related globals (MENU_ITEMS_COUNT, menuItems, menuCursor, subMenuMsg) and log filename. Also cleaned up spacing/indentation and removed duplicated QUEUE_LENGTH define. No functional logic changes intendedâ€”just reorganization and preparatory prototypes.
+
+  [27] e184656  2026-06-14 11:36:52  Alireza Sotoodeh
+  --------------------------------------------------------------------
+    Move OLED auto-off and trigger force UI update
+    
+    Relocates the OLED auto-off power management check in loggingTask from before the graphics rendering phase to after rendering completes. When the timeout is hit the code now sets power save, updates currentState, and sets force_update_ui = true to ensure the UI state is refreshed when entering sleep. Also includes a tiny whitespace cleanup in setup().
+
+  [28] e9e168c  2026-06-14 11:34:07  Alireza Sotoodeh
+  --------------------------------------------------------------------
+    Add bandwidth metrics, PSRAM sizing & IMU temp
+    
+    Introduce a parametric bandwidth/memory engine (DATA_FRAME_SIZE, SAMPLING_RATE_HZ, BYTES_PER_SECOND, BYTES_PER_HOUR, MB_PER_HOUR, QUEUE_LENGTH, PSRAM_BUFFER_SIZE_MB) to compute PSRAM buffer sizing and dynamic bandwidth. Add imu.temp to LogFrame, populate it in sensorTask, and display the stored temperature on the OLED (use receivedFrame.payload.imu.temp instead of calling mpu.getTemperature() directly). Replace the hardcoded 11.88 MB/hr with MB_PER_HOUR when estimating remaining SD hours, move/clean up the QUEUE_LENGTH definition, and print the computed PSRAM buffer size at setup. Update struct size/comments and perform minor formatting/whitespace cleanups.
+
+  [29] 39aaedf  2026-06-14 11:06:37  Alireza Sotoodeh
+  --------------------------------------------------------------------
+    Add AI-generated code review report
+    
+    Add Report/Issues found by AI.md containing a comprehensive AI review of the ESP32-S3 DeadReckoner firmware. The document consolidates findings from multiple reviewers (deep seek, ChatGPT, Claude), enumerates critical/major/minor issues (thread-safety, SD recovery, timing, data integrity, UI and power handling), provides recommended fixes and improvements, and includes overall scores. This file is intended to guide remediation and prioritize reliability and performance fixes.
+
+  [30] aaf1c56  2026-06-13 23:41:37  Alireza Sotoodeh
+  --------------------------------------------------------------------
+    Rewrite To Do list with structured sections
+    
+    Rework the DeadReckoner To Do list: cleaned up formatting, reorganized and consolidated items into clear sections (Core Data Logging & Architecture, UI/UX, MATLAB/Postâ€‘processing, Hardware). Updated and checked completed tasks (SD dynamic recovery, PSRAM buffering, frame size reduction, gap frames, queue fixes, pin relocations, MATLAB stitcher, safe shutdown, etc.), added concrete hardware recommendations (decoupling caps, I2C pullups, button debouncing), and clarified outstanding action items (MPU9250 health tracking, GPS integration, BMP280, watchâ€‘dog evaluation, ZUPT/SHS/LSTM research). Removed older unstructured entries and improved readability for easier tracking and prioritization.
+
+  [31] 5d6f761  2026-06-13 23:29:43  Alireza Sotoodeh
+  --------------------------------------------------------------------
+    Purge dataQueue on log start and after wipe
+    
+    Call xQueueReset(dataQueue) in loggingTask when creating a new log file and after clearing all logs. This critical fix clears stale sensor frames that may accumulate during menu interactions or formatting, ensuring new recordings start from a clean buffer and preventing leaked frames from being written to new sessions. Also includes small comment/formatting tweaks around the reset logic.
+
+  [32] d2947c3  2026-06-13 23:24:30  Alireza Sotoodeh
+  --------------------------------------------------------------------
+    Yield to watchdog during SD flush; clarify SD calc
+    
+    Remove unused lastPrintMillis variable. Add a flushCount and periodic vTaskDelay during dataQueue flushing so the RTOS Task Watchdog is fed every 500 frames, preventing hard resets when emptying large PSRAM-backed buffers to SD. Clarify SD free/remaining capacity calculations and document the dynamic bandwidth assumption (33 bytes * 100 Hz = 11.88 MB/hour). Minor comment and spacing adjustments.
+
+  [33] b898876  2026-06-13 22:51:50  Alireza Sotoodeh
+  --------------------------------------------------------------------
+    Adjust SD remaining-hours calculation
+    
+    Update the remaining-hours estimate to reflect the new data rate/format by changing the divisor from 20.16 to 11.88 (matches the optimized 33-byte packed frame architecture at 100Hz). Also keep the 64-bit cast for cluster arithmetic to avoid overflow on large SD cards and add an explanatory inline comment.
+
+  [34] d18b758  2026-06-13 22:47:05  Alireza Sotoodeh
+  --------------------------------------------------------------------
+    Remove xQueueReset to avoid race condition
+    
+    Delete the call to xQueueReset(dataQueue) in loggingTask and add a comment explaining the reason: resetting the queue could race with Core 0 which is buffering valid pre-fusion IMU frames, causing those frames to be lost. This preserves recently produced data when resuming logging and documents the critical fix.
+
+  [35] 756fa36  2026-06-13 17:53:44  Alireza Sotoodeh
+  --------------------------------------------------------------------
+    Fix SD capacity overflow on large cards
+    
+    Cast cluster*sector multiplication to 64-bit to avoid 32-bit overflow on large SD cards (>32GB). sd_free_mb and sd_total_mb are now computed from (uint64_t)freeClusters/totalClusters before division, preventing incorrect capacity values. Kept existing remaining-hours and GB calculations unchanged. Also cleaned up minor stray whitespace and preserved existing file/count resets and menu cursor initialization.
+
+  [36] 18df5bb  2026-06-13 17:51:07  Alireza Sotoodeh
+  --------------------------------------------------------------------
+    Remove parent logs and nested recovery fragments
+    
+    Enhance log-sweeping routine to delete both parent log files (DR_LOG_%03d.BIN) and any sequential child recovery fragments (%03d%03d.BIN). Iterates parent IDs 1â€“999 and for each parent loops over child fragments incrementing j until no more fragments exist, removing each found file. This prevents orphaned recovery chunks from accumulating on the SD card after crashes or rollovers and then resets the current log filename and global log/recovery IDs.
+
+  [37] 7c4c10b  2026-06-13 17:48:29  Alireza Sotoodeh
+  --------------------------------------------------------------------
+    Use global frame counter and reset on log events
+    
+    Introduce a volatile global_frame_counter and remove the local shadowed variable in sensorTask to ensure a single frame counter shared across tasks. Reset global_frame_counter when starting a new log, after recovery/rollover, and during setup so frame numbering is consistent across sessions. Also includes minor whitespace/comment cleanups.
+
+  [38] c2042e5  2026-06-13 17:33:15  Alireza Sotoodeh
+  --------------------------------------------------------------------
+    Add safe long-press shutdown and SD flush
+    
+    Introduce a safe shutdown sequence triggered by a long press of the SELECT button. Added Press_to_ShutDown_MS (3000ms) and a volatile system_shutdown_requested flag; sensorTask will pause data generation when shutdown is requested. loggingTask now implements a smart long-press detector: holding SELECT for the threshold wakes the display, shows status, drains remaining frames from the PSRAM/data queue to the open log file, syncs and closes the file, updates LEDs/UI, and then halts the system loop to ensure it is safe to power off. Also adjusted short-press behavior to only trigger on quick releases to avoid accidental immediate actions.
+
+  [39] aae3057  2026-06-13 17:23:08  Alireza Sotoodeh
+  --------------------------------------------------------------------
+    Display elapsed time instead of frame seq
+    
+    Replace the raw frame sequence number with a human-readable elapsed time computed from frame_seq assuming a 100 Hz frame rate. The code now divides frame_seq by 100 to get total seconds, derives minutes and seconds, and formats them as T:MMM:SS (zero-padded) at the same display position. The MPU temperature display is left unchanged.
+
+  [40] 276a5f4  2026-06-13 17:12:42  Alireza Sotoodeh
+  --------------------------------------------------------------------
+    Improve SD runtime recovery and UI feedback
+    
+    Add a small SD_recoverd_signal_MS macro and rework the runtime SD-card recovery path to be non-blocking and more user-friendly. Introduces a hardware alarm layer that pulses the red LED and buzzer (100ms on every 1000ms) while in SD failure state, and keeps that rhythm independent of slower recovery attempts. Recovery attempts are gated by Attempt_Runtime_SD_recovery_MS to avoid repeated sd.begin() timeouts; when recovery runs it wakes the display, shows the active filename, resets LEDs to green briefly, and uses SD_recoverd_signal_MS for the brief user-visible pause. Loop yields reduced to 10ms to prevent watchdog starvation while preserving the recovery trap.
+
+  [41] a2c7a71  2026-06-13 16:55:30  Alireza Sotoodeh
+  --------------------------------------------------------------------
+    Move BinReader tests, add V5, tighten jump filter
+    
+    Reorganize BinReader test assets into Code_deadreckoner/Matlab/3-BinReader/Tests (many test files and images renamed/moved) and add a new set of recovery test artifacts. Reduce the garbage-filter jump threshold in v4.m (jumps > 50000 -> jumps > 500) to detect smaller sequence gaps. Add a new V5.m: a rewritten BinReader pipeline that chains DR_LOG and recovery files, decodes packed frames, computes diagnostics (drops, RMS, stats), plots session summaries, and includes robustness fixes (sessionData naming, drop detection, clamp helper).
+
+  [42] 49fc4a0  2026-06-13 16:54:36  Alireza Sotoodeh
+  --------------------------------------------------------------------
+    Add global log/recovery IDs and improved recovery naming
+    
+    Introduce global_log_id and global_recovery_id to track main log number (X) and recovery instance (Y). Use these to generate recovery filenames ("%03d%03d.BIN") during SD recovery for O(1) name generation, display the active recovery filename to the user, and increment/reset counters appropriately across startup, new-file creation, clearing, and recovery flows.
+    
+    Other changes: update SD root scan to use global_log_id, count both main and recovery-style files when estimating total files, reset/clear queues and UI flags at appropriate points, add a brief UI pause to show recovery feedback, and minor cleanup of comments and LED/buzzer control sequencing. These changes improve robustness and make recovered sessions easier to identify and resume safely.
+
+  [43] a9abe2b  2026-06-13 16:53:58  Alireza Sotoodeh
+  --------------------------------------------------------------------
+    Update To Do list.md
+
+  [44] 12969b5  2026-06-12 21:40:34  Alireza Sotoodeh
+  --------------------------------------------------------------------
+    Mark Queue Overflow and 100Hz write fix done
+    
+    Update Report/To Do list.md to mark the 'Queue Overflow' task and the 'remove 100HZ writing and fix it for 1HZ (memory usage issue)' task as completed. Minor formatting/spacing adjusted in the checklist; no functional code changes.
+
+  [45] 72ea622  2026-06-12 20:45:04  Alireza Sotoodeh
+  --------------------------------------------------------------------
+    Report: update To Do list tasks and notes
+    
+    Mark several checklist items as done and add MPU9250 recovery details. SD card runtime failure and GPIO9/10 pin change were checked off. MPU9250 section was expanded and partially completed: keep data by using Frame Sequence + Gap Frame, switch to PSRAM and a compact save format, and add MATLAB code to reassemble fragments. Added an OLED power-reset issue entry, cleaned up formatting and minor checklist reordering.
+
+  [46] 2c07c5a  2026-06-12 20:44:48  Alireza Sotoodeh
+  --------------------------------------------------------------------
+    Optimize LogFrame, add PSRAM queue & SD recovery
+    
+    Reduce LogFrame size by introducing a packed union payload to overlap IMU and GPS fields (forced 1-byte alignment), and update all producers/consumers to use the union layout. Add esp_heap_caps.h and implement a large PSRAM-backed static FreeRTOS queue (QUEUE_LENGTH = 50000) via heap_caps_malloc + xQueueCreateStatic, with fatal error handling if PSRAM allocation fails. Revise SD recovery to create REC_ prefixed recovery files and update current_log_filename, and adjust gap-frame clearing to zero the union payload correctly. Also update OLED display formatting for the new payload layout and minor housekeeping (last-edit comment).
+
+  [47] f8cf9f5  2026-06-12 20:44:24  Alireza Sotoodeh
+  --------------------------------------------------------------------
+    Move BinReader data to Tests and add v4
+    
+    Reorganize test artifacts by moving existing sample logs and MATLAB test scripts from data/... into Tests/... directories. Add a new test set (Tests/4-test recovery with PSRAM) containing additional .BIN and .png files, and introduce Code_deadreckoner/Matlab/BinReader/v4.m.
+    
+    v4.m implements an improved merge-and-decoding flow: replaces strict sequence matching with an Absolute Distance Minimizer for smart stitching, adds a garbage-frame filter to trim corrupted SD-card tails, supports overlap allowances for PSRAM cases, and produces payload decoding, diagnostics and plots (acceleration, orientation, frame continuity) with drop/gap detection.
+
+  [48] fba5d59  2026-06-12 20:40:06  Alireza Sotoodeh
+  --------------------------------------------------------------------
+    Add PSRAM recovery test data and v3 MATLAB reader
+    
+    Add test dataset and a new MATLAB reader for PSRAM recovery testing. Files added under data/3-test recovery with PSRAM: three PNGs, DR_LOG_001.BIN, REC_001.BIN, REC_002.BIN, ResutCommandWindow.txt (sample run output), and v3.m. The v3.m script implements a Relational Sequence Chaining (Greedy Stitcher) to automatically merge crashed SD sessions without an RTC, extracts frame metadata, stitches fragments by sequence numbers (with safety gap checks), decodes IMU/orientation payloads, computes session stats (merged frames, recovery gaps, missing frames) and generates diagnostic plots.
+
+  [49] d664e11  2026-06-12 19:39:13  Alireza Sotoodeh
+  --------------------------------------------------------------------
+    Reorganize MATLAB files and add BIN parser
+    
+    Restructure project layout and add tools for log analysis.
+    
+    - Move visualization scripts into Code_deadreckoner/Matlab/1-Visual (Visual.m, visual_v2.m) and add DR_LOG_001.BIN sample.
+    - Reorganize test result folders into Code_deadreckoner/Matlab/2-test result/ (Static_Drift, Dynamic Return-to-Zero, Vibration Rejection) to better group outputs.
+    - Relocate BinReader samples into Code_deadreckoner/Matlab/BinReader/data/1-first log/ and add a new recovery dataset under data/2-test the recovery (DR_LOG_001.BIN and 1-test the recovery.png).
+    - Add BinReader/data/2-test the recovery/v2.m: a new MATLAB parser/diagnostics script that decodes the 49-byte packed ESP32 log frames (sequence, quaternions, accel, GPS, event flags), detects SD gaps, user tags, dropped frames, and produces diagnostic plots.
+    
+    This change cleans up folder organization and introduces a dedicated binary-log parser for recovery and integrity analysis.
+
+  [50] f401a2b  2026-06-12 18:38:40  Alireza Sotoodeh
+  --------------------------------------------------------------------
+    SD runtime recovery and pin remap
+    
+    Implement dynamic SD-card runtime recovery and remap a few unsafe pins. Adds attemptSDRecovery() and an sd_critical_error interceptor that detects write/sync failures, retries SPI re-init, reopens the same filename for append, and injects a gap recovery frame into the log when recovery succeeds. Introduces current_log_filename, recovery timing macros (Attempt_Runtime_SD_recovery_MS, Recheck_SD_beforeBoot_MS), and UI/LED/buzzer feedback during SD error retries. Also reorganizes pin/setting blocks, moves SD CS from GPIO10 to GPIO15, moves TAG button from GPIO9 to GPIO14, refactors LogFrame to use frame_seq, adds a global frame counter and related MPU retry timing macro, and tweaks logging/open logic to preserve and reuse the active log filename. Misc: updated header comment and small timing/RTOS adjustments for more responsive recovery handling.
+
+  [51] 5e9c419  2026-06-12 15:21:13  Alireza Sotoodeh
+  --------------------------------------------------------------------
+    Update To Do list with finding the final issues
+    
+    Expand the project To Do list with runtime recovery items and hardware considerations. Added SD card "Runtime Failure" and SD Dynamic Recovery, MPU9250 Dynamic Recovery and an mpu_critical_error item for calibration; clarified safe shutdown and software solution. Added Queue Overflow handling suggestion (use frame_sequence_number instead of timestamp in LogFrame), GPS logging rate fix (100Hz -> 1Hz), watchdog consideration, BMP280 for Z-axis deficits, and change recommendation for GPIO9/10 (flash/strapping pins). New "Hardware challenges" section covers brownout mitigation (capacitance recommendations), I2C pull-up resistor (4.7k for MPU9250), and key debouncing (0.1ÂµF across key).
+
+  [52] 175ddba  2026-06-12 14:44:16  Alireza Sotoodeh
+  --------------------------------------------------------------------
+    Update README.md
+
+  [53] 53ee269  2026-06-12 14:44:06  Alireza Sotoodeh
+  --------------------------------------------------------------------
+    Update To Do list.md
+
+  [54] ae8b760  2026-06-12 14:30:50  Alireza Sotoodeh
+  --------------------------------------------------------------------
+    Add comprehensive project reports and TODO
+    
+    Add detailed documentation for the DeadReckoner project: new Progress.md (development phases and status), Report2.md (v2.0 full Progress & Architecture Report with hardware inventory, architecture, tests, binary logging format, and timeline), and To Do list.md (action items). Also rename/clean up existing report file to Report/Report.md and update firmware flashing configuration section. These changes consolidate design history, testing results, and next steps for development and GNSS integration.
+
+  [55] 109b15d  2026-06-11 22:18:56  Alireza Sotoodeh
+  --------------------------------------------------------------------
+    DYNAMIC RECOVERY PROTOCOL for MPU reconnection
+
+  [56] fff0137  2026-06-11 22:01:44  Alireza Sotoodeh
+  --------------------------------------------------------------------
+    Update Progress & Architecture Report.md
+
+  [57] 61546f3  2026-06-11 21:09:23  Alireza Sotoodeh
+  --------------------------------------------------------------------
+    implement MPU9250 critical disconnect trap and boot-time SD scanning
+    
+    Implemented a robust critical error handling mechanism for the MPU9250 sensor. The system now monitors I2C communication; upon a disconnection, it safely syncs/closes the log file and enters an infinite SOS loop with visual/audible alerts. Added a boot-time scanning sequence for the SD card to display existing log counts and the next filename, providing better pre-mission feedback. Removed legacy calibration prompts to streamline the startup sequence.
+
+  [58] 1e77d9b  2026-06-11 20:34:19  Alireza Sotoodeh
+  --------------------------------------------------------------------
+    fix (Total: XX.X GB) in submenu SD card
+
+  [59] cc09b6b  2026-06-11 20:26:26  Alireza Sotoodeh
+  --------------------------------------------------------------------
+    update menu - SD card sub menu
+    
+    Total: XX.X GB
+    Free: XXXX MB
+    Time: XX.X Hrs
+    Files Count: XX
+    Create New File
+    Format / Clear
+    Back to Menu
+    i should fix (Total: XX.X GB)
+
+  [60] 2441549  2026-06-11 17:26:05  Alireza Sotoodeh
+  --------------------------------------------------------------------
+    update menu - mute buzzer menu
+
+  [61] 82630a8  2026-06-11 17:16:46  Alireza Sotoodeh
+  --------------------------------------------------------------------
+    update menu - display mode
+
+  [62] 34b6077  2026-06-11 16:49:15  Alireza Sotoodeh
+  --------------------------------------------------------------------
+    added buzzer and LED for Tag and SD card failure
+
+  [63] a19f32f  2026-06-10 22:22:11  Alireza Sotoodeh
+  --------------------------------------------------------------------
+    try to update oled-phase 4
+    
+    1- added return home (if in sleep mode)
+    2- sleep oled after some time to save power
+
+  [64] 74f1cf1  2026-06-10 18:05:30  Alireza Sotoodeh
+  --------------------------------------------------------------------
+    try to update oled- phase 3
+    
+    added Sd card calculation sub menu
+
+  [65] a6f7e2a  2026-06-10 16:25:03  Alireza Sotoodeh
+  --------------------------------------------------------------------
+    try to update oled phase 2
+
+  [66] e0a9af6  2026-06-10 16:14:20  Alireza Sotoodeh
+  --------------------------------------------------------------------
+    try to update oled- phase 1
+
+  [67] 20b4be7  2026-06-10 14:59:53  Alireza Sotoodeh
+  --------------------------------------------------------------------
+    Update Progress & Architecture Report.md
+
+  [68] 0b6d062  2026-06-09 15:46:21  Alireza Sotoodeh
+  --------------------------------------------------------------------
+    Create Lipo_VS_LIIon.png
+
+  [69] 06d4af0  2026-06-09 15:46:19  Alireza Sotoodeh
+  --------------------------------------------------------------------
+    Create Li-ion-battery-discharge-voltage-curve.png
+
+  [70] 3a02459  2026-06-09 13:36:22  Alireza Sotoodeh
+  --------------------------------------------------------------------
+    first version of a bin file reader (MATLAB code)
+
+  [71] 62a3aa7  2026-06-09 12:33:17  Alireza Sotoodeh
+  --------------------------------------------------------------------
+    update for SD card logger
+
+  [72] 2d598a3  2026-06-09 11:40:52  Alireza Sotoodeh
+  --------------------------------------------------------------------
+    speed test Sd card
+
+  [73] 63c2d1f  2026-06-08 17:22:48  Alireza Sotoodeh
+  --------------------------------------------------------------------
+    added test analyzer for no SD card mode
+
+  [74] b92c2d9  2026-06-08 16:57:49  Alireza Sotoodeh
+  --------------------------------------------------------------------
+    Update Progress & Architecture Report.md
+
+  [75] ff103ec  2026-06-08 16:32:36  Alireza Sotoodeh
+  --------------------------------------------------------------------
+    Final SD card Test (success!)
+
+  [76] f4be198  2026-06-08 16:32:09  Alireza Sotoodeh
+  --------------------------------------------------------------------
+    SD card Test
+
+  [77] 56e2f99  2026-06-08 13:04:57  Alireza Sotoodeh
+  --------------------------------------------------------------------
+    Create Chip_Identification_ESP.ino
+
+  [78] 571117f  2026-06-08 12:31:36  Alireza Sotoodeh
+  --------------------------------------------------------------------
+    clean up and added some test for SD card
+
+  [79] c64fab2  2026-06-08 11:04:07  Alireza Sotoodeh
+  --------------------------------------------------------------------
+    added SD card test (all methods has been failed)
+
+  [80] 71b1203  2026-06-05 21:10:39  Alireza Sotoodeh
+  --------------------------------------------------------------------
+    added SD card Diagram
+
+  [81] 38a5df4  2026-06-05 20:15:23  Alireza Sotoodeh
+  --------------------------------------------------------------------
+    diagram SD card adaptors
+
+  [82] d61bf42  2026-06-05 20:14:00  Alireza Sotoodeh
+  --------------------------------------------------------------------
+    Standalone Sanity Check for SPI SD Card Module
+
+  [83] 95b4553  2026-06-05 03:57:14  Alireza Sotoodeh
+  --------------------------------------------------------------------
+    Sanity Check for SPI SD Card Module
+
+  [84] 4770619  2026-06-04 22:18:46  Alireza Sotoodeh
+  --------------------------------------------------------------------
+    Hardware & Filter Validation (Test Results)
+
+  [85] 49a098e  2026-06-04 22:18:32  Alireza Sotoodeh
+  --------------------------------------------------------------------
+    Vibration Rejection test result
+
+  [86] 490ca10  2026-06-04 21:09:55  Alireza Sotoodeh
+  --------------------------------------------------------------------
+    Clean up and add a second test (Dynamic Return-to-Zero)
+
+  [87] 3ff7a07  2026-06-04 16:28:32  Alireza Sotoodeh
+  --------------------------------------------------------------------
+    Drift Test Visualizer
+
+  [88] 4fe7d7c  2026-06-04 16:28:10  Alireza Sotoodeh
+  --------------------------------------------------------------------
+    Update Progress & Architecture Report.md
+
+  [89] 6db47c8  2026-06-04 15:41:16  Alireza Sotoodeh
+  --------------------------------------------------------------------
+    fix OLED
+
+  [90] e5a2f29  2026-06-04 15:33:59  Alireza Sotoodeh
+  --------------------------------------------------------------------
+    ix issues before test
+    
+    Fixed EEPROM load bug (added setters) and migrated OLED to Hardware I2C (Wire1).
+
+  [91] 5fe3bf7  2026-06-04 15:31:49  Alireza Sotoodeh
+  --------------------------------------------------------------------
+    Firmware Flashing Configuration (ESP32-S3 N16R8)
+
+  [92] 6b28855  2026-06-04 15:03:10  Alireza Sotoodeh
+  --------------------------------------------------------------------
+    Update Progress & Architecture Report.md
+
+  [93] 66e7771  2026-06-04 14:59:02  Alireza Sotoodeh
+  --------------------------------------------------------------------
+    Sanity Check for OLED 0.91
+
+  [94] 8a65805  2026-06-04 14:46:46  Alireza Sotoodeh
+  --------------------------------------------------------------------
+    Basic I2C sanity check MPU9250
+
+  [95] 5b4c454  2026-06-04 13:05:46  Alireza Sotoodeh
+  --------------------------------------------------------------------
+    Updated wiring diagram
+
+  [96] b099dad  2026-06-04 13:05:08  Alireza Sotoodeh
+  --------------------------------------------------------------------
+    Update Progress & Architecture Report.md
+
+  [97] 08459b3  2026-06-03 19:32:06  Alireza Sotoodeh
+  --------------------------------------------------------------------
+    dual core with Free Atreus
+
+  [98] 0ee83a3  2026-06-03 19:09:52  Alireza Sotoodeh
+  --------------------------------------------------------------------
+    Update Progress & Architecture Report.md
+
+  [99] ef89423  2026-06-03 18:43:14  Alireza Sotoodeh
+  --------------------------------------------------------------------
+    Create ESP32_S3.ino
+
+  [100] d77ccbc  2026-06-03 18:42:35  Alireza Sotoodeh
+  --------------------------------------------------------------------
+    Create Progress & Architecture Report.md
+
+  [101] 6ed1539  2026-06-03 17:00:09  Alireza Sotoodeh
+  --------------------------------------------------------------------
+    added wiring diagram for ESP
+
+  [102] 92d4cb3  2026-06-03 16:34:13  Alireza Sotoodeh
+  --------------------------------------------------------------------
+    init_project(again)
+
+  [103] d7407d4  2026-06-03 15:53:09  Alireza Sotoodeh
+  --------------------------------------------------------------------
+    Delete setup modules directory
+
+  [104] 863ff07  2026-06-03 15:52:57  Alireza Sotoodeh
+  --------------------------------------------------------------------
+    Delete main code directory
+
+  [105] 196cec4  2026-06-03 15:52:38  Alireza Sotoodeh
+  --------------------------------------------------------------------
+    Delete .metadata directory
+
+  [106] 3b96d1d  2025-08-09 11:17:13  Alireza Sotoodeh
+  --------------------------------------------------------------------
+    Merge pull request #8 from Alireza-Sotoodeh/NodeMUC8266
+    
+    Node muc8266
+
+  [107] 3359107  2025-08-09 11:16:43  Alireza Sotoodeh
+  --------------------------------------------------------------------
+    cleaning repo-05/18-11:16PM
+
+  [108] 2bc2774  2025-08-08 16:57:22  Alireza Sotoodeh
+  --------------------------------------------------------------------
+    fixed the acceleration (linear acceleration)-05/17-4:57
+
+  [109] b0166f0  2025-08-08 11:19:45  Alireza Sotoodeh
+  --------------------------------------------------------------------
+    oled display fixed-05/17-11:19PM
+
+  [110] ff11272  2025-08-07 12:26:53  Alireza Sotoodeh
+  --------------------------------------------------------------------
+    05/16-12:26PM
+    
+    fixed the MATLAB code (closing the serial on exit)
+
+  [111] 04cdf7e  2025-08-06 14:43:03  Alireza Sotoodeh
+  --------------------------------------------------------------------
+    05/15-2:42PM
+    
+    display and acceleration added
+
+  [112] 9cbcf16  2025-08-06 14:17:22  Alireza Sotoodeh
+  --------------------------------------------------------------------
+    05/15-2:17PM
+    
+    setup basic oled
+
+  [113] d69f889  2025-08-05 20:33:51  Alireza Sotoodeh
+  --------------------------------------------------------------------
+    05/14-8:33Pm
+    
+    now it can read from EEprom and save the callibration to it or load it
+
+  [114] bd57081  2025-08-05 19:59:43  Alireza Sotoodeh
+  --------------------------------------------------------------------
+    05/14-7:59PM
+    
+    fixd matlab code
+
+  [115] a18b783  2025-08-05 19:45:52  Alireza Sotoodeh
+  --------------------------------------------------------------------
+    Merge pull request #7 from Alireza-Sotoodeh/NodeMUC8266
+    
+    Node muc8266
+
+  [116] f623caf  2025-08-05 19:44:23  Alireza Sotoodeh
+  --------------------------------------------------------------------
+    05/14-7:43PM
+    
+    fixed MATLAB code (opening serial problem)
+
+  [117] dac7043  2025-08-05 19:34:07  Alireza Sotoodeh
+  --------------------------------------------------------------------
+    05/14_7:33PM
+    
+    fixed MPU9250 comments and settings
+
+  [118] 3e039ce  2025-08-05 17:19:11  Alireza Sotoodeh
+  --------------------------------------------------------------------
+    05/14-5:19PM
+    
+    added comments for understating
+
+  [119] 8a9c9e9  2025-08-05 15:57:33  Alireza Sotoodeh
+  --------------------------------------------------------------------
+    05/14
+    
+    start
+
+  [120] 1b1623d  2025-08-04 10:20:12  Alireza Sotoodeh
+  --------------------------------------------------------------------
+    05/13-10:20Pm
+    
+    codes working
+
+  [121] 5e9d19f  2025-08-04 09:02:54  Alireza Sotoodeh
+  --------------------------------------------------------------------
+    start
+
+  [122] 31c9ae8  2025-08-04 09:01:25  Alireza Sotoodeh
+  --------------------------------------------------------------------
+    save before start
+
+  [123] 9dc8987  2025-08-03 15:42:08  Alireza Sotoodeh
+  --------------------------------------------------------------------
+    removed the project
+
+  [124] bba6109  2025-08-03 15:35:11  Alireza Sotoodeh
+  --------------------------------------------------------------------
+    05/12-3:34PM
+    
+    test the MPU9250 and filter and 3d visualization by Arduino and MATLAB
+
+  [125] d44cee1  2025-08-02 14:05:01  Alireza Sotoodeh
+  --------------------------------------------------------------------
+    05/11-2:04PM
+    
+    adding the MPU9250 lib
+
+  [126] b578859  2025-08-02 14:02:40  Alireza Sotoodeh
+  --------------------------------------------------------------------
+    05/11-2:02PM
+    
+    remove unnecessary files
+
+  [127] da3fe11  2025-07-25 16:48:20  Alireza Sotoodeh
+  --------------------------------------------------------------------
+    Update workbench.xmi
+
+  [128] 0e84527  2025-07-25 16:34:39  Alireza Sotoodeh
+  --------------------------------------------------------------------
+    Add DMP.c for MPU_9250 and update workspace state
+    
+    Added the new DMP.c module for the MPU_9250 sensor in setup modules/DataSheets/MPU_9250/. Updated Eclipse workspace state to reflect recent file activity and editor state.
+
+  [129] 3cb9f77  2025-07-25 16:31:47  Alireza Sotoodeh
+  --------------------------------------------------------------------
+    Revert "05/03-3:53PM"
+    
+    This reverts commit 35e3c884d70004a60c4bb66b258b43bdf60dd482.
+
+  [130] 35e3c88  2025-07-25 15:53:44  Alireza Sotoodeh
+  --------------------------------------------------------------------
+    05/03-3:53PM
+    
+    found the DMP
+
+  [131] 527e4d0  2025-07-25 15:04:37  Alireza Sotoodeh
+  --------------------------------------------------------------------
+    Merge branch 'MPU9250' of https://github.com/Alireza-Sotoodeh/Navigation-STM32 into MPU9250
+
+  [132] 8df6c0a  2025-07-25 15:04:30  Alireza Sotoodeh
+  --------------------------------------------------------------------
+    Update MPU_9250.md
+
+  [133] fccbc95  2025-07-25 15:02:46  Alireza Sotoodeh
+  --------------------------------------------------------------------
+    05/03-3:02PM
+    
+    want to start working on DMP farmwear
+
+  [134] e1c129e  2025-07-25 12:17:52  Alireza Sotoodeh
+  --------------------------------------------------------------------
+    05/03-12:17PM
+    
+    Update MPU_9250.md
+
+  [135] ac92d29  2025-07-25 12:17:27  Alireza Sotoodeh
+  --------------------------------------------------------------------
+    05/03-12:17PM
+    
+    Update MPU_9250.md
+
+  [136] cfa9612  2025-07-25 12:13:08  Alireza Sotoodeh
+  --------------------------------------------------------------------
+    05/03-12:12PM
+    
+    fixed MPU9250.md
+
+  [137] d7b0656  2025-07-25 12:11:14  Alireza Sotoodeh
+  --------------------------------------------------------------------
+    05/03-12:10PM
+    
+    adding datasheet MPU9250 and MPU9250.md
+
+  [138] 27d3701  2025-07-25 11:23:10  Alireza Sotoodeh
+  --------------------------------------------------------------------
+    05/03-11:22AM (save before start)
+
+  [139] b869740  2025-07-24 19:39:06  Alireza Sotoodeh
+  --------------------------------------------------------------------
+    05/02-7:38PM
+    
+    ready for test need to modify main.c
+
+  [140] 0a7b903  2025-07-24 19:31:16  Alireza Sotoodeh
+  --------------------------------------------------------------------
+    05/02-7:30PM
+    
+    start working but need saving first
+
+  [141] 04bcf97  2025-07-23 20:54:00  Alireza Sotoodeh
+  --------------------------------------------------------------------
+    05/01-8:53PM
+    
+    updated version
+    found some GitHub library too
+    should improve it
+    need testing
+
+  [142] 3f6cd2f  2025-07-23 20:50:15  Alireza Sotoodeh
+  --------------------------------------------------------------------
+    05/01-8:49
+    
+    first step
+    needs improvments
+
+  [143] 5b426fa  2025-07-23 11:05:54  Alireza Sotoodeh
+  --------------------------------------------------------------------
+    Update README.md
+
+  [144] 0455e92  2025-07-20 21:44:39  Alireza Sotoodeh
+  --------------------------------------------------------------------
+    04/29-9:44PM
+    
+    fixing ReadME
+
+  [145] 3b1b5ac  2025-07-18 20:16:29  Alireza Sotoodeh
+  --------------------------------------------------------------------
+    04/27- 8:15 PM
+    
+    stopped working on MPu6500 because i need magnometer which can be found on MPU9250
+    just Updated README.md
+
+  [146] 4305256  2025-07-18 18:04:53  Alireza Sotoodeh
+  --------------------------------------------------------------------
+    04/27-6:03 PM
+    
+    - fixed readme file
+    - Optimize full-scale accelerometer/gyro ranges (set to Â±8g and Â±1000dps for dynamic environments)
+    - Increase sample rate to 200 Hz (and editing the driver_MPU6500_dmp.c)
+
+  [147] 701ae4b  2025-07-18 10:48:51  Alireza Sotoodeh
+  --------------------------------------------------------------------
+    04/27-10:48 AM
+    
+    Refactor and enhance MPU6500 inertial navigation code
+    
+    - Fixed duplicate `mpu6500_receive_callback` definition in `main.c` to resolve compilation error.
+    - Removed redundant `mpu6500_dmp_init` call in `main.c` for robust initialization with retry logic.
+    - Improved error handling in `main.c` and `driver_mpu6500_dmp.c` with detailed debug messages and context.
+    - Added FIFO overflow handling and sensor data validation in `mpu6500_receive_callback`.
+    - Implemented EXTI interrupt handler for MPU6500 data ready interrupts.
+    - Set MPU6500 low-pass filter to `MPU6500_LOW_PASS_FILTER_2` in `driver_mpu6500_dmp.c` for better dynamic response.
+    - Removed redundant FIFO configuration in `driver_mpu6500_dmp.c`.
+    - Added offset application in `driver_mpu6500_dmp.c` to ensure accurate sensor data.
+    - Streamlined `main.c` for clarity and compatibility with updated driver.
+    - Recommended Madgwick filter for orientation estimation to reduce drift, with implementation guidance.
+    
+    Fixes compilation errors, improves navigation accuracy, and prepares for future module integration (SD card, WiFi, Bluetooth).
+
+  [148] 62df236  2025-07-17 22:30:28  Alireza Sotoodeh
+  --------------------------------------------------------------------
+    04/26
+
+  [149] 768b21c  2025-07-16 08:01:08  Alireza Sotoodeh
+  --------------------------------------------------------------------
+    now code has no error
+
+  [150] ec842c7  2025-07-14 11:33:26  Alireza Sotoodeh
+  --------------------------------------------------------------------
+    04/23 saving before going for a break!
+
+  [151] 2327c58  2025-07-14 10:47:22  Alireza Sotoodeh
+  --------------------------------------------------------------------
+    before testing the MPU6500 commands
+    
+    all things has been set
+    file scr and interface are ready to go
+
+  [152] e532bc4  2025-07-13 20:11:22  Alireza Sotoodeh
+  --------------------------------------------------------------------
+    added all necceasry files
+
+  [153] 8ac5a28  2025-07-13 15:01:44  Alireza Sotoodeh
+  --------------------------------------------------------------------
+    save beffore going to my new brand branch
+
+  [154] 9b63d4f  2025-07-13 15:00:15  Alireza Sotoodeh
+  --------------------------------------------------------------------
+    adding scr MPU6500
+    
+    driver and interface files has been added
+
+  [155] d95b49d  2025-07-13 14:56:47  Alireza Sotoodeh
+  --------------------------------------------------------------------
+    setup CubeIDE
+    
+    now i have everything to get stated and working on MPU6500
+
+  [156] 4239272  2025-07-13 14:52:23  Alireza Sotoodeh
+  --------------------------------------------------------------------
+    added MPU6500 library
+
+  [157] b31009d  2025-07-13 14:50:43  Alireza Sotoodeh
+  --------------------------------------------------------------------
+    removing all file(from the top)
+
+  [158] 2f0ded6  2025-07-13 14:26:16  Alireza Sotoodeh
+  --------------------------------------------------------------------
+    fixing readme file
+
+  [159] adfc075  2025-07-13 14:24:16  Alireza Sotoodeh
+  --------------------------------------------------------------------
+    initial MPU6500 and trying to test it
+    
+    trying to work with the library i found online
+
+  [160] 05d017f  2025-07-12 20:39:48  Alireza Sotoodeh
+  --------------------------------------------------------------------
+    initial PJ
+    
+    1404/04/21
+
+  [161] bed8a35  2025-07-12 19:01:00  Alireza Sotoodeh
+  --------------------------------------------------------------------
+    modified readme file
+    
+    trying to describe the path
+
+  [162] d72b9ad  2025-07-12 18:41:59  Alireza Sotoodeh
+  --------------------------------------------------------------------
+    Initial commit
+
+2.  DIRECTORY STRUCTURE
+========================================================================
+
+DeadReckoner/
+├── Code_deadreckoner/
+│   ├── ESP32_S3/
+│   │   └── ESP32_S3.ino
+│   ├── Matlab/
+│   │   ├── 1-Visual/
+│   │   │   ├── DR_LOG_001.BIN
+│   │   │   ├── Visual.m
+│   │   │   └── visual_v2.m
+│   │   ├── 2-test result/
+│   │   │   ├── 1-Static_Drift/
+│   │   │   │   ├── 1- Static_Drift_Log.csv
+│   │   │   │   ├── 1- Static_Drift_Log.png
+│   │   │   │   └── Analyze_Static_Drift.m
+│   │   │   ├── 2-Dynamic Return-to-Zero/
+│   │   │   │   ├── 2_Dynamic_Return_to_Zero.csv
+│   │   │   │   ├── Analyze_Dynamic_RTZ.m
+│   │   │   │   ├── Dynamic_Return_to_Zero-1.png
+│   │   │   │   └── Dynamic_Return_to_Zero-2.png
+│   │   │   └── 3-Vibration Rejection/
+│   │   │       ├── 3_Vibration_Rejection.csv
+│   │   │       ├── Analyze_Vibration_Rejection.m
+│   │   │       ├── Vibration_Rejection_1.png
+│   │   │       └── Vibration_Rejection_2.png
+│   │   └── 3-BinReader/
+│   │       ├── Tests/
+│   │       │   ├── 1-first log/
+│   │       │   │   ├── DR_LOG.BIN
+│   │       │   │   └── v1.m
+│   │       │   ├── 2-test the recovery without PSRAM/
+│   │       │   │   ├── 1-test the recovery.png
+│   │       │   │   ├── DR_LOG_001.BIN
+│   │       │   │   └── v2.m
+│   │       │   ├── 3-test recovery with PSRAM- cant glue back/
+│   │       │   │   ├── 1.png
+│   │       │   │   ├── 2.png
+│   │       │   │   ├── 3.png
+│   │       │   │   ├── DR_LOG_001.BIN
+│   │       │   │   ├── REC_001.BIN
+│   │       │   │   ├── REC_002.BIN
+│   │       │   │   ├── ResutCommandWindow.txt
+│   │       │   │   └── v3.m
+│   │       │   ├── 4-test recovery with PSRAM/
+│   │       │   │   ├── 1.png
+│   │       │   │   └── 2.png
+│   │       │   └── 5-test recovery with PSRAM-make mistake/
+│   │       │       ├── 1.png
+│   │       │       ├── 2.png
+│   │       │       ├── 3.png
+│   │       │       ├── DR_LOG_001.BIN
+│   │       │       ├── DR_LOG_002.BIN
+│   │       │       ├── DR_LOG_003.BIN
+│   │       │       ├── REC_001.BIN
+│   │       │       ├── REC_002.BIN
+│   │       │       ├── REC_003.BIN
+│   │       │       ├── REC_004.BIN
+│   │       │       ├── REC_005.BIN
+│   │       │       ├── REC_006.BIN
+│   │       │       ├── REC_007.BIN
+│   │       │       ├── REC_008.BIN
+│   │       │       ├── REC_009.BIN
+│   │       │       ├── REC_010.BIN
+│   │       │       ├── REC_011.BIN
+│   │       │       └── v4.m
+│   │       ├── 001001.BIN
+│   │       ├── 002001.BIN
+│   │       ├── 002002.BIN
+│   │       ├── 002003.BIN
+│   │       ├── DR_LOG_001.BIN
+│   │       ├── DR_LOG_002.BIN
+│   │       ├── DeadReckoner_Parser.py
+│   │       ├── Mission_001.csv
+│   │       ├── Mission_001_Plot.png
+│   │       ├── Mission_001_Report.txt
+│   │       └── V5.m
+│   └── nodeMUC8266/
+│       └── nodeMUC8266.ino
+├── Diagram_deadreckoner/
+│   ├── Li-ion-battery-discharge-voltage-curve.png
+│   ├── Lipo_VS_LIIon.png
+│   ├── SD card adaptors-1.png
+│   ├── SD card adaptors-2.png
+│   ├── SD card adaptors-3.jpg
+│   ├── SD card adaptors-4.png
+│   └── pinsNodeMUC8266.jpg
+├── Repo_Report/
+├── Report/
+│   ├── Issues found by AI.md
+│   ├── Progress.md
+│   ├── Report.md
+│   ├── Report2.md
+│   └── To Do list.md
+├── Test- Sanity Check/
+│   ├── Chip_Identification_ESP/
+│   │   └── Chip_Identification_ESP.ino
+│   ├── MPU9250/
+│   │   └── MPU9250.ino
+│   ├── OLED/
+│   │   └── OLED.ino
+│   ├── Result Test/
+│   │   └── Result Test_MPU9250.txt
+│   └── SD card/
+│       ├── Final test/
+│       │   └── SDCard_ESP32S_DIY_addaptor/
+│       │       ├── Result.txt
+│       │       └── SDCard_ESP32S_DIY_addaptor.ino
+│       ├── SDCardModule3.3V_nanoVersion/
+│       │   └── SDCardModule3.3V_nanoVersion.ino
+│       ├── SpeedTestForDiyAdaptor/
+│       │   ├── Result speed test.txt
+│       │   └── SpeedTestForDiyAdaptor.ino
+│       ├── failed Tests/
+│       │   ├── DIY2_SDCardAdaptor/
+│       │   │   └── DIY2_SDCardAdaptor.ino
+│       │   ├── DIY_SDCardAdaptor/
+│       │   │   └── DIY_SDCardAdaptor.ino
+│       │   ├── SDCardModule3.3V/
+│       │   │   └── SDCardModule3.3V.ino
+│       │   ├── SDCardModule3.3V_ES32Version/
+│       │   │   └── SDCardModule3.3V_ES32Version.ino
+│       │   └── microSDCardModule5V_NodeMCUVersion/
+│       │       └── microSDCardModule5V_NodeMCUVersion.ino
+│       └── microSDCardModule5V_nanoVersion/
+│           └── microSDCardModule5V_nanoVersion.ino
+├── .gitattributes
+├── README.md
+└── project_summarizer.py
+
+3.  PROJECT SUMMARY
+========================================================================
+
+    Project Name     : DeadReckoner
+    Total Files      : 90
+    Total Lines      : 112583
+    Primary Language : MATLAB
+
+    Description:
+      # DeadReckoner
+      A real-time, offline dead-reckoning and data-logging system built around the **ESP32-S3 N16R8**, the **MPU9250 IMU**, and a **binary SD-card logging pipeline**.
+      The project started as a small IMU prototype and evolved into a multi-core embedded platform for high-rate sensing, safe storage, fault handling, and offline analysis.
+      ---
+
+    File Breakdown by Extension:
+      .BIN         26   file(s)  (Other)
+      .png         20   file(s)  (Other)
+      .ino         14   file(s)  (Other)
+      .m           10   file(s)  (MATLAB)
+      .md          6    file(s)  (Markdown)
+      .txt         5    file(s)  (Text)
+      .csv         4    file(s)  (Other)
+      .py          2    file(s)  (Python)
+      .jpg         2    file(s)  (Other)
+      (no ext)     1    file(s)  (Other)
+
+4.  CODE ANALYSIS
+========================================================================
+
+    Architecture Overview:
+      Project 'DeadReckoner' is a MATLAB project. Contains 2 source file(s) with 27 function(s) and 3 class(es). 2 file(s) have imports, referencing 14 external package(s). Repository has 90 total file(s) and ~112583 line(s) of code.
+
+    Function & Class Signatures:
+------------------------------------------------------------------------
+    File: Code_deadreckoner/Matlab/3-BinReader/DeadReckoner_Parser.py  (236 lines)
+      ─ def main
+      ─ class BinaryDecoder
+          ─ def parse_file @classmethod
+      ─ class DataScanner
+          ─ def scan_missions @staticmethod
+      ─ class DataExporter
+          ─ def export_csv @staticmethod
+          ─ def export_excel @staticmethod
+          ─ def generate_report @staticmethod
+          ─ def plot_data @staticmethod
+    File: project_summarizer.py  (1216 lines)
+      ─ def check_git_repo
+      ─ def get_git_commits
+      ─ def build_tree_dict
+      ─ def render_tree_text
+      ─ def get_file_stats
+      ─ def parse_readme
+      ─ def parse_requirements
+      ─ def get_project_summary
+      ─ def extract_source_signatures
+      ─ def extract_import_graph
+      ─ def collect_config_files
+      ─ def generate_architecture_summary
+      ─ def get_file_contents
+      ─ def estimate_tokens
+      ─ def generate_text_report
+      ─ def generate_llm_markdown_report
+      ─ def _xc  // XML-escape a string for use in attributes/text content.
+      ─ def generate_xml_report
+      ─ def show_welcome
+      ─ def get_config
+      ─ def run_with_spinner
+      ─ def show_data_overview
+      ─ def show_preview
+      ─ def _resolve_path  // If file exists, ask overwrite or auto-number. Return final Path.
+      ─ def feedback_loop
+      ─ def main
+
+    Import Dependency Graph:
+------------------------------------------------------------------------
+      Code_deadreckoner/Matlab/3-BinReader/DeadReckoner_Parser.py  ->  external: glob, matplotlib, os, pandas, questionary, struct
+      project_summarizer.py  ->  external: ast, collections, datetime, os, pathlib, re, subprocess, sys, xml
+
+========================================================================
+  Generated by project_summarizer.py
+========================================================================
