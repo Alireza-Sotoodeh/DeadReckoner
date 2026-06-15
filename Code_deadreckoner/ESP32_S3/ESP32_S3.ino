@@ -192,6 +192,7 @@ typedef struct {
   volatile bool system_shutdown_requested = false;
   volatile uint32_t global_frame_counter = 0;
   volatile uint32_t dropped_frames_count = 0;
+  volatile uint64_t log_time_base = 0;
 
 // Hardware spinlocks for multi-core thread safety
   portMUX_TYPE frameCounterMux = portMUX_INITIALIZER_UNLOCKED;
@@ -312,7 +313,7 @@ void sensorTask(void *pvParameters) {
       frame.frame_seq = global_frame_counter++;
       portEXIT_CRITICAL(&frameCounterMux);
       // === FIX ISSUE: Capture absolute high-precision microsecond hardware timestamp ===
-      frame.timestamp = esp_timer_get_time(); 
+      frame.timestamp = esp_timer_get_time() - log_time_base; 
       frame.event_flag = 0; // Default: 0 marks standard high-speed IMU packet
       
       // Updated syntax to target the optimized overlapping payload union
@@ -613,6 +614,12 @@ void loggingTask(void *pvParameters) {
                 // Hardware visual feedback: Solid Green LED signals absolute safety
                 digitalWrite(LED_RED_PIN, LOW);
                 digitalWrite(LED_GREEN_PIN, HIGH);
+                for(int i = 0; i < 2; i++) {
+                  digitalWrite(BUZZER_PIN, HIGH);
+                  delay(ALARM_BEEP_MS);
+                  digitalWrite(BUZZER_PIN, LOW);
+                  delay(ALARM_BEEP_MS);
+                }
                 digitalWrite(BUZZER_PIN, LOW);
                 
                 // Optional: Insert Power Latch GPIO clear command here to cut battery physically
@@ -659,8 +666,14 @@ void loggingTask(void *pvParameters) {
     if (is_oled_sleeping && (selectTriggered || upTriggered || downTriggered)) {
         // WAKE UP SEQUENCE
         is_oled_sleeping = false;
-        u8g2.setPowerSave(0); // Hardware wake-up command
-        currentState = STATE_LIVE_VIEW; // Return to Home Principle
+        
+        // Full hardware re-initialization to recover from hot-plug or power loss
+        u8g2.begin();
+        u8g2.setFont(font_8_pixel);
+        u8g2.setPowerSave(0);
+        
+        currentState = STATE_LIVE_VIEW;
+        // Return to Home Principle
         force_update_ui = true;
         // CONSUME the button presses so they don't leak into Phase 2 (Menu)
         selectTriggered = false;
@@ -671,8 +684,14 @@ void loggingTask(void *pvParameters) {
     // === PHASE 2: UI State Machine ===
     if (currentState == STATE_LIVE_VIEW) {
       if (selectTriggered) {
+        // Re-initialize OLED hardware on entering menu to recover lost connection instantly
+        u8g2.begin();
+        u8g2.setFont(font_8_pixel);
+        u8g2.setPowerSave(0);
+        
         currentState = STATE_MENU;
         menuCursor = 0;
+        force_update_ui = true;
       }
     } 
     else if (currentState == STATE_MENU) {
@@ -903,6 +922,7 @@ void loggingTask(void *pvParameters) {
           
           portENTER_CRITICAL(&frameCounterMux);
           global_frame_counter = 0;
+          log_time_base = esp_timer_get_time();
           portEXIT_CRITICAL(&frameCounterMux);
           
           // Queue acts as a seamless bridge. Unwritten old frames will simply 
@@ -992,6 +1012,7 @@ void loggingTask(void *pvParameters) {
           // Thread-safe initialization of sequence tracker on memory wipe
           portENTER_CRITICAL(&frameCounterMux);
           global_frame_counter = 0;
+          log_time_base = esp_timer_get_time();
           portEXIT_CRITICAL(&frameCounterMux);
           
           // Purge the queue after memory wipe to prevent leaking stale data
@@ -1204,6 +1225,7 @@ void setup()
   max_log_id = global_log_id;       // Store the baseline for O(1) instantaneous dynamic creations
   global_recovery_id = 1;           // Reset recovery counter 
   global_frame_counter = 0;         // Reset frame counter
+  log_time_base = esp_timer_get_time(); // Set baseline for the very first boot log file
   strcpy(current_log_filename, filename); 
   logFile = sd.open(current_log_filename, FILE_WRITE);
 
