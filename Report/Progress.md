@@ -96,15 +96,44 @@ This phase focused on selecting and validating a reliable storage subsystem for 
 The storage subsystem was expanded into a structured binary data-logging architecture.
 
 - [x] **LogFrame Definition:** Design a fixed-size binary telemetry structure.
+
 - [x] **Timestamp Integration:** Store acquisition timestamps for every sample.
+
 - [x] **Quaternion Logging:** Record fused orientation estimates.
+
 - [x] **Linear Acceleration Logging:** Record gravity-compensated acceleration vectors.
+
 - [x] **Binary Block Writing:** Replace text-based logging with binary storage.
+
 - [x] **Continuous SD Streaming:** Implement sustained high-rate data recording.
+
 - [x] **Sequential Log File Naming:** Generate unique mission log files automatically.
+
 - [x] **Boot-Time Log Discovery:** Scan storage and determine the next available log index.
+
 - [x] **Mission File Management:** Track active and future log identifiers.
+
 - [x] **Storage Capacity Monitoring:** Display available storage information to the user.
+
+- [x] LogFrame Memory Optimization: Redesign the telemetry structure using a compact union-based memory layout.
+
+- [x] PSRAM Logging Buffer: Implement high-capacity external PSRAM buffering for sustained logging operations.
+
+- [x] Deterministic File Naming Scheme: Develop O(1) mission and recovery file generation logic.
+
+- [x] Gap Frame Injection: Record SD-card disconnection events using dedicated marker frames.
+
+- [x] Frame Counter Synchronization: Add thread-safe frame tracking across acquisition and logging tasks.
+
+- [x] **LogFrame Memory Optimization:** Redesign the logging structure using packed memory layout and union-based payload sharing.
+
+- [x] **64-bit Timestamp Support:** Replace overflow-prone timestamps with microsecond-resolution 64-bit hardware timestamps.
+
+- [x] **Frame Sequence Tracking:** Add monotonic frame numbering for drop detection and recovery analysis.
+
+- [x] **Dropped Frame Accounting:** Monitor queue overflows and track lost samples during runtime.
+
+- [x] **PSRAM Queue Architecture:** Introduce a large PSRAM-backed logging queue to decouple acquisition and storage workloads.
 
 ---
 
@@ -113,16 +142,58 @@ The storage subsystem was expanded into a structured binary data-logging archite
 A dedicated fault-management layer was added to increase system robustness during field operation.
 
 - [x] **MPU9250 Disconnect Detection:** Detect unexpected sensor communication failures.
+
 - [x] **Sensor Timeout Monitoring:** Monitor acquisition timing and communication health.
+
 - [x] **Critical Fault State Machine:** Introduce centralized fault handling.
+
 - [x] **Safe Logging Shutdown:** Protect recorded data during failures.
+
 - [x] **Automatic File Synchronization:** Flush pending data before shutdown.
+
 - [x] **Boot-Time SD Validation:** Verify storage availability during startup.
+
 - [x] **OLED Fault Reporting:** Display diagnostic information to the operator.
+
 - [x] **Audible Fault Alerts:** Add buzzer-based alarm notifications.
+
 - [x] **Visual Fault Alerts:** Add LED-based warning indicators.
+
 - [x] **Dynamic Recovery Protocol:** Attempt automatic recovery after sensor reconnection.
+
+- [x] Runtime SD Card Recovery: Detect and recover from SD-card removal and reinsertion events during operation.
+
+- [x] Recovery Fragment Logging: Create recovery log segments automatically after storage restoration.
+
+- [x] Queue Integrity Protection: Eliminate stale queue data and cross-session frame contamination.
+
+- [x] FAT Filesystem Performance Optimization: Prevent UI freezes caused by large directory traversal operations.
+
+- [x] Storage Capacity Overflow Protection: Correct calculations for high-capacity SD cards (>32 GB).
+
+- [x] Sensor Reconnection Stability Improvements: Remove queue-reset race conditions during MPU9250 recovery.
+
+- [x] Safe Shutdown Protocol: Gracefully stop logging and synchronize pending data before power-off.
+
+- [x] Watchdog-Safe Buffer Flushing: Prevent watchdog resets during large shutdown write operations.
+
 - [x] **Mission Safety Mechanisms:** Prevent operation under unsafe sensor conditions.
+
+- [x] **Runtime SD Card Recovery:** Automatically attempt SD-card reinitialization after storage failures.
+
+- [x] **Recovery Log Fragment System:** Create recovery files automatically after successful SD reconnection.
+
+- [x] **Logging Gap Markers:** Insert dedicated gap records into the binary stream after recovery events.
+
+- [x] **MPU9250 Automatic Reinitialization:** Reconfigure the sensor and reload calibration after reconnection.
+
+- [x] **Write Verification Layer:** Validate every SD write operation and detect silent storage failures.
+
+- [x] **Recovery State Isolation:** Prevent corrupted file handles from resuming normal logging.
+
+- [x] **Safe Power-Off Procedure:** Flush queued telemetry and synchronize storage before shutdown.
+
+- [x] **Watchdog-Safe Queue Draining:** Prevent resets while flushing large buffered datasets.
 
 ---
 
@@ -131,12 +202,54 @@ A dedicated fault-management layer was added to increase system robustness durin
 This phase improved usability and runtime observability.
 
 - [x] **Multi-Page OLED Interface:** Develop operational display screens.
+
 - [x] **Runtime Status Visualization:** Present sensor and system status information.
+
 - [x] **Storage Monitoring Interface:** Display SD card statistics and capacity information.
+
 - [x] **Display Mode Selection:** Implement selectable display modes.
+
 - [x] **Buzzer Control Interface:** Add runtime buzzer enable/disable functionality.
+
 - [x] **SD Card Management Menu:** Add dedicated storage-management screens.
+
 - [x] **System Diagnostics Display:** Present fault and recovery information.
+
+- [x] Recording Time Visualization: Replace raw frame counters with mission elapsed time display.
+
+- [x] OLED Power Management: Implement automatic display sleep and wake-up functionality.
+
+- [x] Runtime Recovery Feedback: Present SD-card recovery and fault status information to the user.
+
+- [x] **Hierarchical Menu System:** Implement multi-level OLED menu navigation.
+
+- [x] **SD Card Information Dashboard:** Display storage capacity, free space, remaining recording time, file count, and frame-drop statistics.
+
+- [x] **Runtime Log Management:** Allow creation of new mission log files directly from the device UI.
+
+- [x] **Log Cleanup Utility:** Add on-device deletion and formatting workflow for recorded logs.
+
+- [x] **OLED Power Management:** Implement automatic display sleep and wake-up behavior.
+
+- [x] **Display Mode Configuration:** Support always-on and auto-off display modes.
+
+- [x] **Runtime Audio Configuration:** Allow enabling and disabling audible notifications.
+
+- [x] **Waypoint Tagging Interface:** Add dedicated user event markers with visual and audible feedback.
+
+- [x] **Recovery Status Visualization:** Display real-time recovery progress and fault diagnostics.
+
+---
+
+#### Phase 8.5: Memory Optimization & Scalability [COMPLETED]
+
+This phase focused on improving memory efficiency, scalability, and long-duration mission support.
+
+- [x] Union-Based Telemetry Architecture: Share memory between future sensor payload types.
+- [x] Packed Binary Structures: Reduce memory footprint and storage bandwidth requirements.
+- [x] PSRAM Buffer Integration: Utilize external PSRAM for large-scale telemetry buffering.
+- [x] Concurrent Data Protection: Introduce synchronization mechanisms for shared counters and event tagging.
+- [x] Scalable Logging Foundation: Prepare the logging framework for future GPS integration.
 
 ---
 
@@ -145,11 +258,24 @@ This phase improved usability and runtime observability.
 Tools were developed to analyze recorded datasets and verify system performance.
 
 - [x] **MATLAB Binary Reader:** Develop an offline decoder for recorded log files.
+
 - [x] **Quaternion Visualization:** Plot recorded orientation data.
+
 - [x] **Acceleration Visualization:** Analyze recorded acceleration signals.
+
 - [x] **Drift Analysis Workflow:** Evaluate long-term navigation stability.
+
 - [x] **Performance Validation Pipeline:** Create a repeatable testing methodology.
+
 - [x] **Experimental Result Verification:** Correlate recorded data with physical tests.
+
+- [x] Binary Fragment Reconstruction: Automatically stitch fragmented recovery logs into continuous datasets.
+
+- [x] Garbage Frame Filtering: Remove corrupted trailing frames generated by interrupted writes.
+
+- [x] Quaternion-to-Euler Conversion: Add orientation visualization in roll, pitch, and yaw form.
+
+- [x] Statistical Signal Analysis: Calculate RMS, mean, peak, and noise metrics from recorded data.
 
 ---
 
@@ -158,10 +284,21 @@ Tools were developed to analyze recorded datasets and verify system performance.
 This phase will extend the inertial logger into a complete GNSS-assisted navigation platform.
 
 - [x] **GPS Fields Reserved in LogFrame:** Prepare the logging structure for GNSS data.
+
+- [x] **GPS Payload Reservation:** Reserve binary payload space for future GNSS records through a shared LogFrame union architecture.
+
+- [x] **Future-Proof Log Structure:** Design the logging format to support mixed IMU and GPS event packets without breaking compatibility.
+
 - [ ] **Dedicated UART Configuration:** Configure a hardware UART for the S6MV2 GNSS receiver.
+
 - [ ] **NMEA Parsing Engine:** Decode GNSS position and timing messages.
+
 - [ ] **Coordinate Injection:** Insert GPS coordinates into the logging pipeline.
+
 - [ ] **GNSS Status Monitoring:** Track satellite lock and navigation status.
+
 - [ ] **Time Synchronization Algorithm:** Align 1 Hz GNSS updates with the 100 Hz IMU stream.
+
 - [ ] **Trajectory Reconstruction Validation:** Verify synchronized IMU/GPS datasets.
+
 - [ ] **Dead-Reckoning Fusion Layer:** Integrate GNSS corrections into the navigation framework.
