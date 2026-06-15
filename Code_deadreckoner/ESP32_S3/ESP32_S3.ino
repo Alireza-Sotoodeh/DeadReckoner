@@ -183,7 +183,6 @@ typedef struct {
       "5.Exit Menu"
   };
   int8_t menuCursor = 0; // Tracks selected menu item
-  char subMenuMsg[20] = ""; 
 
 // Inter-Core Communication Flags
   volatile bool tag_event_triggered = false;
@@ -309,11 +308,15 @@ void sensorTask(void *pvParameters) {
 
     if (mpu.update()) {
       last_mpu_data_time = millis(); // Reset timeout counter
+      // Thread-safe atomic read of multi-core shared variables to prevent 64-bit torn reads
+      uint64_t local_time_base;
       portENTER_CRITICAL(&frameCounterMux);
       frame.frame_seq = global_frame_counter++;
+      local_time_base = log_time_base;
       portEXIT_CRITICAL(&frameCounterMux);
-      // === FIX ISSUE: Capture absolute high-precision microsecond hardware timestamp ===
-      frame.timestamp = esp_timer_get_time() - log_time_base; 
+      
+      // Calculate high-precision timestamp relative to calibrated log time base
+      frame.timestamp = esp_timer_get_time() - local_time_base;
       frame.event_flag = 0; // Default: 0 marks standard high-speed IMU packet
       
       // Updated syntax to target the optimized overlapping payload union
@@ -355,7 +358,8 @@ void sensorTask(void *pvParameters) {
 // For OLED, Buttons, and heavy Flash/SD writing
 // =========================================================================
 void loggingTask(void *pvParameters) {
-  LogFrame receivedFrame;
+ // Zero-initialize the structure to prevent rendering garbage stack bytes before the first frame arrives
+  LogFrame receivedFrame = {};
   unsigned long lastDisplayMillis = 0;
   unsigned long lastFlushMillis = 0;
   unsigned long lastBtnCheckMillis = 0; 
@@ -592,7 +596,7 @@ void loggingTask(void *pvParameters) {
                     
                     flushCount++;
                     // CRITICAL INDUSTRIAL FIX: Yield every 500 frames to feed the RTOS Watchdog.
-                    // Prevents a hard system reset/crash during massive 1.6MB PSRAM buffer flushing.
+                    // Prevents a hard system reset/crash during massive 2.14MB PSRAM buffer flushing.
                     if (flushCount % 500 == 0) {
                         vTaskDelay(pdMS_TO_TICKS(5)); 
                     }
@@ -731,16 +735,15 @@ void loggingTask(void *pvParameters) {
                 uint32_t totalClusters = sd.vol()->clusterCount();
                 uint32_t sectorsPerCluster = sd.vol()->sectorsPerCluster();
                 
-                // CRITICAL FIX: Cast to 64-bit unsigned integer to prevent arithmetic overflow on large SD cards (>32GB)
+                // Cast to 64-bit unsigned integer to prevent arithmetic overflow on large SD cards (>32GB)
                 sd_free_mb = (uint32_t)(((uint64_t)freeClusters * sectorsPerCluster) / 2048);
-                
-                // Fixed parametric bandwidth tracking based on 41-Byte packets
+                // Fixed parametric bandwidth tracking based on 45-Byte packets
                 sd_remain_hours = (float)sd_free_mb / MB_PER_HOUR; 
                 
                 uint32_t sd_total_mb = (uint32_t)(((uint64_t)totalClusters * sectorsPerCluster) / 2048);
                 sd_total_gb = (float)sd_total_mb / 1024.0;
 
-                // === FIX ISSUE 7 & 8: High-Speed Filtered Directory Iteration via openNext() ===
+                // === High-Speed Filtered Directory Iteration via openNext() ===
                 totalFilesCount = 0;
                 File rootDir;
                 if (rootDir.open("/", O_RDONLY)) {
@@ -1018,7 +1021,10 @@ void loggingTask(void *pvParameters) {
           // Purge the queue after memory wipe to prevent leaking stale data
           xQueueReset(dataQueue);
           logFile = sd.open(current_log_filename, FILE_WRITE);
-          
+          // Defensive null-check to capture file allocation failures instantly after memory wipe
+          if (!logFile) {
+              sd_critical_error = true;
+          }
           u8g2.clearBuffer();
           u8g2.drawStr((u8g2.getDisplayWidth() - u8g2.getStrWidth("All Logs Cleared!")) / 2, 20, "All Logs Cleared!");
           u8g2.sendBuffer();
