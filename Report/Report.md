@@ -272,6 +272,7 @@ The recorded datasets were made usable through offline analysis tools.
 - [x] **Python BinReader:** Alternative parser (DeadReckoner_Parser.py) for platform-independent log inspection.
 - [x] **Recovery Fragment Stitching:** Seamlessly merge recovery chunks across file boundaries using frame_seq continuity.
 - [x] **Garbage Frame Filtering:** Isolate and discard hardware-interrupted sector dumps during analysis.
+- [x] **Project Documentation Generator:** Develop project_summarizer.py (1216 lines, 26 functions) for auto-generated architecture reports in MD/TXT/XML formats, including full git history, directory tree, and source signature analysis.
 
 #### Phase 10: PSRAM Buffering & Memory Architecture [COMPLETED]
 
@@ -650,6 +651,25 @@ It shows how the architecture evolved from the earliest prototype to the current
 | 2026-06-12 | Recovery ID increment order fix   | Increment global_recovery_id only after successful file open confirmation.          |
 | 2026-06-12 | Project report generation         | Added project_summarizer tool; generated comprehensive architecture reports.        |
 | 2026-06-12 | Progress.md update                | Documented PSRAM, recovery protocol, UI features, and phase completion status.      |
+| 2026-06-12 | AI code review report             | Added Issues found by AI.md from DeepSeek, ChatGPT, Claude, and Grok reviews.       |
+| 2026-06-14 | Expand data frame & O(1) naming   | Increased LogFrame to 45 bytes; added max_log_id for instant file creation.          |
+| 2026-06-14 | Thread-safe frame counter         | Added portMUX_TYPE critical sections for atomic global_frame_counter increments.     |
+| 2026-06-14 | Dropped frame tracking            | Added dropped_frames_count with red LED feedback on queue overflow.                  |
+| 2026-06-14 | Expand SD menu to 8 items         | Added 8th menu entry (Drops); fixed navigation and action mappings.                  |
+| 2026-06-14 | Safe log wipe protocol            | Suspend sensor task during format; purge both parent logs and recovery fragments.    |
+| 2026-06-14 | Recovery log & vTaskDelay support | Detect recovery-style .BIN files; replace delay() with vTaskDelay.                   |
+| 2026-06-14 | Remove dead STATE_SUBMENU_MSG     | Deleted unused message submenu enum, handlers, and rendering code.                   |
+| 2026-06-14 | MPU settings helper               | Extracted configureMPUSettings() to eliminate duplicate initialization blocks.       |
+| 2026-06-14 | Log file validation post-recovery | Null-check reopened log file after MPU reconnection; set sd_critical_error on fail.  |
+| 2026-06-14 | Gap frame zero-init               | memset gap LogFrame before SD write to prevent uninitialized event_flag.             |
+| 2026-06-14 | Recovery ID increment order fix   | Increment global_recovery_id only after file open succeeds.                          |
+| 2026-06-15 | Timing & SD math robustness       | Fix 64-bit torn reads, SD capacity overflow (>32 GB), flush watchdog yields.        |
+| 2026-06-15 | Relative timestamps & OLED reinit | Introduce log_time_base; reinit OLED on wake/menu entry for hot-plug resilience.     |
+| 2026-06-15 | Progress.md update                | Expanded to document storage, recovery, UI, and memory optimization phases.          |
+| 2026-06-15 | To Do list cleanup                | Removed completed items; kept only pending tasks.                                    |
+| 2026-06-15 | Project summarizer tool           | Added project_summarizer.py (1216 lines) for auto-generated architecture reports.    |
+| 2026-06-15 | Generated project report          | Produced comprehensive LLM-optimized reports in MD/TXT/XML formats.                  |
+| 2026-06-15 | .gitignore configuration          | Created .gitignore excluding Repo_Report/ directory from version control.            |
 | 2026-06-15 | Final report merge                | Consolidated Report.md (v1.0.0) and Report2.md (v2.0.0) into single document.       |
 
 ---
