@@ -1,11 +1,11 @@
-// Last Edit: 2026-06-12 19:05:00
-// Reason for Last Edit: Implemented Union structure for memory optimization and prepared PSRAM integration.
+// Last Edit: 2026-06-19
+// Reason for Last Edit: CRC-16 per frame, EEPROM CRC, 100 Hz rate limiter, gap timestamp fix, vTaskDelay conversion, WDT-safe format yields, SPI recovery delay, EEPROM user notification, comment cleanup.
 // Author: Alireza Sotoodeh
 
 /*
  * =========================================================================
  * PROJECT: DeadReckoner
- * VERSION: 1.9 (Advanced SD Manager UI + Stealth Mode + CC LED & Active Buzzer)
+ * VERSION: 2.0 (CRC-16, EEPROM CRC, 100 Hz rate limit, gap timestamp fix, WDT-safe format)
  * * WIRING DIAGRAM
  * -------------------------------------------------------------------------
  * Component Pin | MCU Pin       | Note / Hardware Reasoning
@@ -114,7 +114,7 @@
   #define TAG_BLINK_MS 100                                  
   // buttons 
   #define Press_to_ShutDown_MS 3000
-  // menue 
+  // menu 
   #define MENU_ITEMS_COUNT 5
 // =========================================================================
 // PARAMETRIC BANDWIDTH & MEMORY ENGINE
@@ -127,7 +127,7 @@
   #define QUEUE_LENGTH               50000  
   #define PSRAM_BUFFER_SIZE_MB       ((float)(QUEUE_LENGTH * DATA_FRAME_SIZE) / (1024.0 * 1024.0))
 // =========================================================================
-// Calabiriation
+// Calibration
 // =========================================================================
   #define EEPROM_MAGIC_NUMBER       0xDEAD
   #define EEPROM_MAGIC_ADDR         0
@@ -144,7 +144,7 @@ uint16_t calcCRC16(const uint8_t* data, uint16_t len);
 // Optimized Parametric Binary structure using Union 
 typedef struct {
     uint32_t frame_seq;  // 4 Bytes: Monotonic sequential index for frame drop tracking
-    uint64_t timestamp;  // 8 Bytes: Absolute hardware microsecond timestamp from boot-up (Prevents 71-min overflow)
+    uint64_t timestamp;  // 8 Bytes: Relative microsecond timestamp from log start (esp_timer_get_time() - log_time_base)
     uint8_t event_flag;  // 1 Byte: 0=IMU, 1=TAG, 0xAA=SD_GAP, 0xBB=GPS
     
     // Memory Overlap: Total payload size strictly 32 Bytes
@@ -308,7 +308,7 @@ void sensorTask(void *pvParameters) {
   for(;;) {
     vTaskDelayUntil(&xLastWakeTime, pdMS_TO_TICKS(10)); // Enforce 100 Hz sampling
 
-    // === f shutdown is initiated ===
+    // === If shutdown is initiated ===
     if (system_shutdown_requested) {
         vTaskDelay(pdMS_TO_TICKS(100));
         continue;
@@ -383,7 +383,7 @@ void loggingTask(void *pvParameters) {
   int8_t displayCursor = 0; // Tracks selection inside Display Mode submenu
   int8_t muteCursor = 0; // Tracks selection inside Mute Sounds submenu
   int8_t confirmCursor = 1; // Tracks choice in Format Confirm menu (Default: 1 = NO)
-  int8_t sdMenuCursor = 0; // Tracks selection inside the 7-item SD Submenu
+  int8_t sdMenuCursor = 0; // Tracks selection inside the 8-item SD Submenu
   int8_t sdScrollOffset = 0; // Manages the scrolling window for 128x32 OLED
   uint16_t totalFilesCount = 0; // Stores computed BIN files count on SD
 
@@ -757,7 +757,7 @@ void loggingTask(void *pvParameters) {
                 
                 // Cast to 64-bit unsigned integer to prevent arithmetic overflow on large SD cards (>32GB)
                 sd_free_mb = (uint32_t)(((uint64_t)freeClusters * sectorsPerCluster) / 2048);
-                // Fixed parametric bandwidth tracking based on 45-Byte packets
+                // Fixed parametric bandwidth tracking based on 47-Byte packets
                 sd_remain_hours = (float)sd_free_mb / MB_PER_HOUR; 
                 
                 uint32_t sd_total_mb = (uint32_t)(((uint64_t)totalClusters * sectorsPerCluster) / 2048);
