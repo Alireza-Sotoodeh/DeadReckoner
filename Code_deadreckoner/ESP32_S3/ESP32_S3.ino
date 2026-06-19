@@ -1415,6 +1415,12 @@ void saveCalibration() {
   EEPROM.put(addr, mpu.getMagScaleX()); addr += sizeof(float);
   EEPROM.put(addr, mpu.getMagScaleY()); addr += sizeof(float);
   EEPROM.put(addr, mpu.getMagScaleZ()); addr += sizeof(float);
+  
+  // CRC over magic + all floats to detect silent corruption
+  uint8_t calData[46];
+  for (int i = 0; i < 46; i++) calData[i] = EEPROM.read(i);
+  uint16_t crc = calcCRC16(calData, 46);
+  EEPROM.put(46, crc);
   EEPROM.commit();
 }
 
@@ -1430,6 +1436,19 @@ void loadCalibration() {
     mpu.setMagBias(0.0, 0.0, 0.0);
     mpu.setMagScale(1.0, 1.0, 1.0);
     return; // Abort loading to protect the Madgwick filter from corrupt floats
+  }
+
+  uint16_t storedCrc;
+  EEPROM.get(46, storedCrc);
+  uint8_t calData[46];
+  for (int i = 0; i < 46; i++) calData[i] = EEPROM.read(i);
+  if (calcCRC16(calData, 46) != storedCrc) {
+    Serial.println("WARNING: Calibration CRC mismatch! Data corrupted. Using factory defaults.");
+    mpu.setAccBias(0.0, 0.0, 0.0);
+    mpu.setGyroBias(0.0, 0.0, 0.0);
+    mpu.setMagBias(0.0, 0.0, 0.0);
+    mpu.setMagScale(1.0, 1.0, 1.0);
+    return;
   }
 
   int addr = sizeof(uint16_t);
