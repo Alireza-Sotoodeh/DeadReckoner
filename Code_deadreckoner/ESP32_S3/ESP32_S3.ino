@@ -300,8 +300,10 @@ void sensorTask(void *pvParameters) {
   LogFrame frame;
   unsigned long last_mpu_data_time = millis();  // Track last successful read
   unsigned long last_recovery_attempt = 0;      // Tracks MPU9250 recovery intervals
+  TickType_t xLastWakeTime = xTaskGetTickCount();
 
   for(;;) {
+    vTaskDelayUntil(&xLastWakeTime, pdMS_TO_TICKS(10)); // Enforce 100 Hz sampling
 
     // === f shutdown is initiated ===
     if (system_shutdown_requested) {
@@ -362,8 +364,6 @@ void sensorTask(void *pvParameters) {
           mpu_critical_error = true;
       }
     }
-    // Yield to scheduler to avoid Watchdog timeout
-    vTaskDelay(pdMS_TO_TICKS(5));
   }
 }
 
@@ -445,13 +445,15 @@ void loggingTask(void *pvParameters) {
                 // Fully clear the entire structure to prevent uninitialized temp/garbage bytes
                 memset(&gapFrame, 0, sizeof(LogFrame));
                 
-                // Thread-safe capture and monotonic increment of the sequence counter
+                // Thread-safe capture of sequence counter and timebase
+                uint64_t local_time_base;
                 portENTER_CRITICAL(&frameCounterMux);
                 gapFrame.frame_seq = global_frame_counter++;
+                local_time_base = log_time_base;
                 portEXIT_CRITICAL(&frameCounterMux);
                 
-                // Capture high-precision 64-bit microsecond hardware timestamp
-                gapFrame.timestamp = esp_timer_get_time();    
+                // Relative timestamp consistent with IMU frames
+                gapFrame.timestamp = esp_timer_get_time() - local_time_base;    
                 gapFrame.event_flag = 0xAA;
                 gapFrame.crc = calcCRC16((uint8_t*)&gapFrame, sizeof(LogFrame) - sizeof(gapFrame.crc));
                 
