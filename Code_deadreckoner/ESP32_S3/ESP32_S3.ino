@@ -119,7 +119,7 @@
 // =========================================================================
 // PARAMETRIC BANDWIDTH & MEMORY ENGINE
 // =========================================================================
-  #define DATA_FRAME_SIZE            45     
+  #define DATA_FRAME_SIZE            47     
   #define SAMPLING_RATE_HZ           100    
   #define BYTES_PER_SECOND           (DATA_FRAME_SIZE * SAMPLING_RATE_HZ)
   #define BYTES_PER_HOUR             ((uint64_t)BYTES_PER_SECOND * 3600)
@@ -137,10 +137,11 @@ void performCalibration();
 void print_calibration();
 void saveCalibration();
 void loadCalibration();
+uint16_t calcCRC16(const uint8_t* data, uint16_t len);
 /*//////////////////////////// RTOS Data Structures ////////////////////////////*/
 
 #pragma pack(push, 1) // Force absolute 1-byte alignment for all enclosed structures
-// Optimized Parametric Binary structure using Union (Guaranteed Exactly 45 Bytes)
+// Optimized Parametric Binary structure using Union 
 typedef struct {
     uint32_t frame_seq;  // 4 Bytes: Monotonic sequential index for frame drop tracking
     uint64_t timestamp;  // 8 Bytes: Absolute hardware microsecond timestamp from boot-up (Prevents 71-min overflow)
@@ -160,6 +161,7 @@ typedef struct {
         } gps;
     } payload;
     
+    uint16_t crc;
 } LogFrame;
 #pragma pack(pop) // Restore default compiler alignment
 
@@ -213,6 +215,17 @@ typedef struct {
 // SD Card Handlers
   SdFat sd;
   File logFile;
+
+uint16_t calcCRC16(const uint8_t* data, uint16_t len) {
+    uint16_t crc = 0xFFFF;
+    while (len--) {
+        crc ^= *data++;
+        for (uint8_t i = 0; i < 8; i++) {
+            crc = (crc & 1) ? (crc >> 1) ^ 0xA001 : (crc >> 1);
+        }
+    }
+    return crc;
+}
 
 /*//////////////////////////// FreeRTOS Tasks ////////////////////////////*/
 
@@ -335,6 +348,7 @@ void sensorTask(void *pvParameters) {
           tag_event_triggered = false; 
       }
       portEXIT_CRITICAL(&tagEventMux);
+      frame.crc = calcCRC16((uint8_t*)&frame, sizeof(LogFrame) - sizeof(frame.crc));
       // Monitor Queue Health and Track Silent Overflows
       if (xQueueSend(dataQueue, &frame, 0) != pdPASS) {
           dropped_frames_count++;
@@ -438,7 +452,8 @@ void loggingTask(void *pvParameters) {
                 
                 // Capture high-precision 64-bit microsecond hardware timestamp
                 gapFrame.timestamp = esp_timer_get_time();    
-                gapFrame.event_flag = 0xAA;        
+                gapFrame.event_flag = 0xAA;
+                gapFrame.crc = calcCRC16((uint8_t*)&gapFrame, sizeof(LogFrame) - sizeof(gapFrame.crc));
                 
                 // Force secure block write of the sterile gap marker
                 logFile.write((uint8_t*)&gapFrame, sizeof(LogFrame));
@@ -1330,13 +1345,13 @@ void performCalibration() {
   u8g2.drawStr(0, 25, "Keep Still 5s");
   u8g2.sendBuffer();
   mpu.verbose(true);
-  delay(5000);
+  vTaskDelay(pdMS_TO_TICKS(5000));
   mpu.calibrateAccelGyro();
   u8g2.clearBuffer();
   u8g2.drawStr(0, 15, "Mag Cal");
   u8g2.drawStr(0, 25, "Figure 8 - 5s");
   u8g2.sendBuffer();
-  delay(5000);
+  vTaskDelay(pdMS_TO_TICKS(5000));
   mpu.calibrateMag();
   mpu.verbose(false);
 }
@@ -1375,7 +1390,7 @@ void print_calibration() {
            mpu.getGyroBiasZ() / (float)MPU9250::CALIB_GYRO_SENSITIVITY);
   u8g2.drawStr(0, 25, buf);
   u8g2.sendBuffer();
-  delay(2000); 
+  vTaskDelay(pdMS_TO_TICKS(2000));
 }
 
 void saveCalibration() {
