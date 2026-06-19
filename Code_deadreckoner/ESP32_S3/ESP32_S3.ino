@@ -1016,12 +1016,12 @@ void loggingTask(void *pvParameters) {
                 break;
               }
               
-              // Yield execution inside the nested loop to prevent WDT timeout during heavy fragment wipes
-              vTaskDelay(pdMS_TO_TICKS(1));
+              // Yield to feed WDT between recovery file deletes
+              vTaskDelay(pdMS_TO_TICKS(2));
             }
             
-            // Baseline heartbeat yield for empty parent slots
-            vTaskDelay(pdMS_TO_TICKS(1));
+            // Yield to feed WDT on every parent iteration
+            vTaskDelay(pdMS_TO_TICKS(3));
           }
           
           strcpy(current_log_filename, "DR_LOG_001.BIN");
