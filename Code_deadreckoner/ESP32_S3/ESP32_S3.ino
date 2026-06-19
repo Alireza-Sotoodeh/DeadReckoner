@@ -1431,6 +1431,18 @@ void loadCalibration() {
   // Defensive Check: Validate if EEPROM has been calibrated before
   if (loadedMagic != EEPROM_MAGIC_NUMBER) {
     Serial.println("WARNING: No valid calibration found in EEPROM. Using factory defaults.");
+    u8g2.clearBuffer();
+    u8g2.drawStr(10, 12, "No Valid Cal");
+    u8g2.drawStr(5, 28, "Using Defaults");
+    u8g2.sendBuffer();
+    digitalWrite(LED_RED_PIN, HIGH);
+    for(int i = 0; i < 2; i++) {
+        digitalWrite(BUZZER_PIN, HIGH);
+        delay(ALARM_BEEP_MS);
+        digitalWrite(BUZZER_PIN, LOW);
+        delay(ALARM_BEEP_MS);
+    }
+    digitalWrite(LED_RED_PIN, LOW);
     mpu.setAccBias(0.0, 0.0, 0.0);
     mpu.setGyroBias(0.0, 0.0, 0.0);
     mpu.setMagBias(0.0, 0.0, 0.0);
@@ -1444,6 +1456,18 @@ void loadCalibration() {
   for (int i = 0; i < 46; i++) calData[i] = EEPROM.read(i);
   if (calcCRC16(calData, 46) != storedCrc) {
     Serial.println("WARNING: Calibration CRC mismatch! Data corrupted. Using factory defaults.");
+    u8g2.clearBuffer();
+    u8g2.drawStr(10, 12, "Cal CRC Error");
+    u8g2.drawStr(5, 28, "Using Defaults");
+    u8g2.sendBuffer();
+    digitalWrite(LED_RED_PIN, HIGH);
+    for(int i = 0; i < 2; i++) {
+        digitalWrite(BUZZER_PIN, HIGH);
+        delay(ALARM_BEEP_MS);
+        digitalWrite(BUZZER_PIN, LOW);
+        delay(ALARM_BEEP_MS);
+    }
+    digitalWrite(LED_RED_PIN, LOW);
     mpu.setAccBias(0.0, 0.0, 0.0);
     mpu.setGyroBias(0.0, 0.0, 0.0);
     mpu.setMagBias(0.0, 0.0, 0.0);
