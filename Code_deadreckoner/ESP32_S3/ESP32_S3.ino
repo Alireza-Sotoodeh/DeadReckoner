@@ -275,6 +275,9 @@ bool attemptSDRecovery() {
     logFile.close();
     SPI.end();
     
+    // Allow SPI hardware to power-cycle before reinitialization
+    vTaskDelay(pdMS_TO_TICKS(10));
+    
     SPI.begin(SD_SCK_PIN, SD_MISO_PIN, SD_MOSI_PIN, SD_CS_PIN);
     
     if (sd.begin(SD_CS_PIN, SD_SCK_MHZ(SPI_FREQ_MHZ))) {
