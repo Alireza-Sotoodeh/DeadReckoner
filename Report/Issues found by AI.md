@@ -1,6 +1,6 @@
 # Issues found by AI — Remaining Action Items
 
-> `[x]` = resolved in ESP32_S3.ino v1.9. Unchecked items remain open.
+> `[x]` = resolved in ESP32_S3.ino v2.0. Unchecked items remain open.
 
 ---
 
