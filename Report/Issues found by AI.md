@@ -22,7 +22,8 @@
 
 - [ ] **UI rendering depends on sensor data** — Button handling and OLED refresh are tied to `xQueueReceive`. If the queue stalls, the UI freezes. Move UI tasks outside the receive block.
 
-- [ ] **`delay()` calls outside RTOS context** — `delay(2000)` in setup and `delay(1000)` in calibration functions are safe but should be converted to `vTaskDelay` where possible for consistency.
+- [x] **`delay()` calls outside RTOS context** — `delay(2000)` in setup and `delay(1000)` in calibration functions are safe but should be converted to `vTaskDelay` where possible for consistency.
+  *[PARTIAL: calibration `delay()` calls (×3) replaced with `vTaskDelay()` at lines 1348, 1354, 1393. Setup delays remain as-is (pre-RTOS context).]*
 
 ## 2. Redundant / Dead Code
 
@@ -34,7 +35,8 @@
 
 - [ ] **No internal watchdog configured** — No `esp_task_wdt_init` or task-level watchdog reset. A stuck task can hang the system silently.
 
-- [ ] **CRC/checksum per frame** — Logged frames have no integrity check. Corrupted records cannot be detected during offline analysis. Add a 2-byte CRC16 to `LogFrame`.
+- [x] **CRC/checksum per frame** — Logged frames have no integrity check. Corrupted records cannot be detected during offline analysis. Add a 2-byte CRC16 to `LogFrame`.
+  *[FIXED: CRC-16-IBM (poly 0xA001) added as `uint16_t crc` field in `LogFrame`. Computed before every `xQueueSend` in `sensorTask` and every gap-frame SD write in `loggingTask`. `DATA_FRAME_SIZE` updated 45→47.]*
 
 - [ ] **File metadata header** — No header stores firmware version, sampling rate, calibration version, or session info at the start of log files.
 
