@@ -1325,7 +1325,7 @@ void setup()
   Serial.println(PSRAM_BUFFER_SIZE_MB);
 
   // Pin Sensor Task to Core 0 (Highest Priority)
-  xTaskCreatePinnedToCore(sensorTask, "SensorTask", 4096, NULL, 2, &sensorTaskHandle, 0);
+  xTaskCreatePinnedToCore(sensorTask, "SensorTask", 8192, NULL, 2, &sensorTaskHandle, 0);
   // Pin Logging Task to Core 1
   xTaskCreatePinnedToCore(loggingTask, "LoggingTask", 8192, NULL, 1, &loggingTaskHandle, 1);
 }
