@@ -31,11 +31,10 @@
 
 ## 4. Hardware & Electrical Engineering Challenges
 
-- [ ] **SD Card Inrush Current Protection:** Add $10\mu\text{F}$ or $47\mu\text{F}$ decoupling capacitors in parallel with $0.1\mu\text{F}$ right at the SD slot to prevent Brownout resets.
+- [x] **SD Card Inrush Current Protection:** Add $10\mu\text{F}$ or $47\mu\text{F}$ decoupling capacitors in parallel with $0.1\mu\text{F}$ right at the SD slot to prevent Brownout resets.
 - [ ] **I2C Signal Integrity:** Mount rigid $4.7\text{k}\Omega$ external pull-up resistors on SDA/SCL lines to guard MPU9250 against logging noise.
 - [ ] **Hardware Button Debouncing:** Solder a $0.1\mu\text{F}$ ceramic capacitor in parallel across tactile switch lines to absorb mechanical bouncing noise.
 
 ---
 
 ## 
-

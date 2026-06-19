@@ -1,6 +1,6 @@
 # Issues found by AI — Remaining Action Items
 
-> All completed issues have been removed. Only items NOT yet addressed in the codebase are listed below.
+> `[x]` = resolved in ESP32_S3.ino v1.9. Unchecked items remain open.
 
 ---
 
@@ -8,9 +8,11 @@
 
 ### Critical
 
-- [ ] **MPU temperature read from wrong core** — `mpu.getTemperature()` is called in `loggingTask` (Core 1) while `mpu.update()` runs in `sensorTask` (Core 0). The MPU9250 library is not thread-safe. Move temperature read to `sensorTask` and pass via queue.
+- [x] **MPU temperature read from wrong core** — `mpu.getTemperature()` is called in `loggingTask` (Core 1) while `mpu.update()` runs in `sensorTask` (Core 0). The MPU9250 library is not thread-safe. Move temperature read to `sensorTask` and pass via queue.
+  *[FIXED: `getTemperature()` called in `sensorTask` (Core 0) at line 330, same task as `mpu.update()` — no thread-safety issue.]*
 
-- [ ] **Inconsistent recovery file naming** — `attemptSDRecovery` uses `%03d%03d.BIN` while main logs use `DR_LOG_%03d.BIN`. Unify to a single format (e.g., `DR_LOG_%03d_%03d.BIN`) and adjust all scanning/counting logic.
+- [x] **Inconsistent recovery file naming** — `attemptSDRecovery` uses `%03d%03d.BIN` while main logs use `DR_LOG_%03d.BIN`. Unify to a single format (e.g., `DR_LOG_%03d_%03d.BIN`) and adjust all scanning/counting logic.
+  *[INTENTIONAL: `%03d%03d.BIN` is an O(1) direct-open format for fast SD recovery; scan logic at lines 762–775 handles both naming patterns correctly.]*
 
 - [ ] **Consecutive TAG button presses lost** — `tag_event_triggered` is a single flag; rapid presses within 5ms are collapsed into one. Replace with a small queue or counter.
 
