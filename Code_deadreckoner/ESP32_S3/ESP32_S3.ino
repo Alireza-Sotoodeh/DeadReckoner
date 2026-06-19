@@ -562,7 +562,7 @@ void loggingTask(void *pvParameters) {
             tag_event_triggered = true;
             portEXIT_CRITICAL(&tagEventMux);
             tagWasPressed = true;
-            last_interaction_millis = currentMillis; 
+            if (!selectWasPressed) last_interaction_millis = currentMillis; 
             
             // Trigger Fast Feedback (Non-Blocking)
             if (!is_muted) { 
@@ -667,7 +667,7 @@ void loggingTask(void *pvParameters) {
         if (!upWasPressed) { 
             upTriggered = true;
             force_update_ui = true; upWasPressed = true;
-            last_interaction_millis = currentMillis; 
+            if (!selectWasPressed) last_interaction_millis = currentMillis; 
         }
       } else { upWasPressed = false; }
 
@@ -676,7 +676,7 @@ void loggingTask(void *pvParameters) {
         if (!downWasPressed) { 
             downTriggered = true;
             force_update_ui = true; downWasPressed = true;
-            last_interaction_millis = currentMillis; 
+            if (!selectWasPressed) last_interaction_millis = currentMillis; 
         }
       } else { downWasPressed = false; }
 
