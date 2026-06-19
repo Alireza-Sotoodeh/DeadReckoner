@@ -131,6 +131,8 @@ The storage subsystem was expanded into a structured binary data-logging archite
 
 - [x] **Frame Sequence Tracking:** Add monotonic frame numbering for drop detection and recovery analysis.
 
+- [x] **CRC-16 Per-Frame Integrity:** Add bit-by-bit CRC-16-IBM checksum to every `LogFrame` for silent corruption detection during offline analysis.
+
 - [x] **Dropped Frame Accounting:** Monitor queue overflows and track lost samples during runtime.
 
 - [x] **PSRAM Queue Architecture:** Introduce a large PSRAM-backed logging queue to decouple acquisition and storage workloads.
@@ -279,9 +281,9 @@ Tools were developed to analyze recorded datasets and verify system performance.
 
 ---
 
-#### Phase 10: GPS Integration & Time Synchronization [PLANNED]
+#### Phase 10: Offline PDR Pipeline & Post-Processing [PLANNED]
 
-This phase will extend the inertial logger into a complete GNSS-assisted navigation platform.
+This phase will develop the Python-based Pedestrian Dead Reckoning pipeline to reconstruct the traveled path from logged IMU data.
 
 - [x] **GPS Fields Reserved in LogFrame:** Prepare the logging structure for GNSS data.
 
@@ -289,16 +291,22 @@ This phase will extend the inertial logger into a complete GNSS-assisted navigat
 
 - [x] **Future-Proof Log Structure:** Design the logging format to support mixed IMU and GPS event packets without breaking compatibility.
 
+- [ ] Binary Parser & CRC Verification: Read 47-byte frames, validate CRC-16, extract timestamps + quaternions + acceleration.
+
+- [ ] World-Frame Acceleration Rotation: Transform body-frame acceleration using stored quaternions.
+
+- [ ] Step Detection: Peak-finding on acceleration magnitude for footstep identification.
+
+- [ ] Step Length Estimation: Weinberg empirical formula.
+
+- [ ] Heading from Quaternions: Extract magnetometer-stabilized yaw for each step.
+
+- [ ] ZUPT + RTS Smoother: Bidirectional batch optimization over entire walk for minimal drift.
+
+- [ ] Trajectory Visualization: 2D path plot and distance metrics with matplotlib.
+
 - [ ] **Dedicated UART Configuration:** Configure a hardware UART for the S6MV2 GNSS receiver.
 
 - [ ] **NMEA Parsing Engine:** Decode GNSS position and timing messages.
 
-- [ ] **Coordinate Injection:** Insert GPS coordinates into the logging pipeline.
-
-- [ ] **GNSS Status Monitoring:** Track satellite lock and navigation status.
-
-- [ ] **Time Synchronization Algorithm:** Align 1 Hz GNSS updates with the 100 Hz IMU stream.
-
-- [ ] **Trajectory Reconstruction Validation:** Verify synchronized IMU/GPS datasets.
-
-- [ ] **Dead-Reckoning Fusion Layer:** Integrate GNSS corrections into the navigation framework.
+- [ ] **Coordinate Injection & GPS-IMU Fusion:** Align 1 Hz GPS with 100 Hz IMU for absolute position anchoring.

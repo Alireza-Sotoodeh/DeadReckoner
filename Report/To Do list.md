@@ -20,12 +20,17 @@
 
 ---
 
-## 3. Software Engineering & Post-Processing (MATLAB)
+## 3. Offline PDR Pipeline (Python Post-Processing)
 
-- [ ] Research and implement the primary Dead Reckoning localization filter:
-  - [ ] Zero Velocity Update (ZUPT)
-  - [ ] Step Hunter / Step Length Estimation (SHS)
-  - [ ] LSTM / Deep Learning Sequence Modeling
+- [ ] **Phase 1: Binary parser** — Read 47-byte frames from .BIN, verify CRC-16, extract timestamps + quaternions + linear acceleration
+- [ ] **Phase 2: World-frame rotation** — Rotate body-frame linear acceleration to world frame using firmware Madgwick quaternions
+- [ ] **Phase 3: Step detection** — Peak detection on acceleration magnitude
+- [ ] **Phase 4: Step length** — Weinberg empirical formula
+- [ ] **Phase 5: Heading** — Yaw angle from firmware quaternions (magnetometer-corrected)
+- [ ] **Phase 6: ZUPT + RTS smoother** — Bidirectional batch optimization over entire walk for sub-3% drift
+- [ ] **Phase 7: Path visualization** — 2D trajectory plot with matplotlib
+- [ ] (Future) BMP280 barometric altitude for 3D tracking
+- [ ] (Future) GPS correction for absolute position anchoring
 
 ---
 

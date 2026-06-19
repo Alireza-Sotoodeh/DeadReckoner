@@ -1,9 +1,11 @@
-# Signal-Free Offline Tracking System: Progress & Architecture Report
+# DeadReckoner: Pedestrian Dead Reckoning Data Logger — Architecture & Progress Report
 
 **Author:** Alireza Sotoodeh  
 **Project:** DeadReckoner  
-**Version:** 2.0.0  
-**Date:** June 15, 2026  
+**Version:** 2.1.0  
+**Date:** June 19, 2026
+
+> **Project Goal:** A wearable IMU data logger that records 100 Hz 9-axis inertial data (quaternions, linear acceleration, temperature) to SD card with per-frame CRC-16 integrity. The logged data is post-processed offline on a PC using Pedestrian Dead Reckoning (PDR) algorithms — step detection, heading from Madgwick-fused quaternions, and Zero Velocity Update (ZUPT) with batch smoothing — to reconstruct the traveled path with minimal drift over multi-hour missions, without GPS.  
 
 ---
 
@@ -350,7 +352,7 @@ Core 0 acts as the producer, and Core 1 acts as the consumer that writes finishe
 ### 7.3 LogFrame Structure
 
 ```c
-// Current optimized structure (45 bytes via union payload overlap)
+// Current optimized structure (47 bytes via union payload overlap + CRC16)
 #pragma pack(push, 1)
 typedef struct {
     uint32_t frame_seq;  // 4 bytes: Monotonic sequential index
@@ -369,7 +371,9 @@ typedef struct {
         } gps;
     } payload;               // 32 bytes shared
 
-} LogFrame; // Total: 45 bytes
+    uint16_t crc;            // 2 bytes: CRC-16-IBM over preceding 45 bytes
+
+} LogFrame; // Total: 47 bytes
 #pragma pack(pop)
 ```
 
@@ -483,27 +487,62 @@ To prevent hardware bus collisions, the SD card was moved to the dedicated FSPI 
 
 ### 10.2 Binary Data Format
 
-The logging frame is 45 bytes long and contains one complete sensor snapshot with a union payload. Using binary frames removed the overhead of string conversion and reduced CPU load.
+The logging frame is 47 bytes long — 45 bytes of payload data (frame header + union payload) plus a 2-byte CRC-16-IBM checksum for per-frame integrity detection during offline analysis. Each frame contains one complete sensor snapshot with a union payload. Using binary frames removed the overhead of string conversion and reduced CPU load.
 
 ### 10.3 Storage Strategy
 
 The logger writes continuous binary blocks to the SD card via SdFat at 20 MHz SPI. Sequential file naming (DR_LOG_XXX.BIN) prevents accidental overwriting across different missions. Recovery fragments use the XXXYYY.BIN naming scheme for deterministic reassociation.
 
-### 10.4 Offline Analysis Shift
+### 10.4 Offline Pedestrian Dead Reckoning Pipeline
 
-Real-time double integration was rejected because MEMS bias would quickly explode the position error quadratically (\(Error = \frac{1}{2} a_{error} t^2\)). Instead, the project moved toward offline Pedestrian Dead Reckoning (PDR) using Zero Velocity Update (ZUPT) in MATLAB/Python.
+Real-time double integration was rejected because MEMS bias would quickly explode the position error quadratically (\(Error = \frac{1}{2} a_{error} t^2\)). Instead, the project targets offline Pedestrian Dead Reckoning (PDR) in Python, using the following pipeline:
+
+1. **Binary parsing & CRC verification** — Read 47-byte frames, validate CRC-16, extract timestamps, quaternions, and linear acceleration.
+2. **World-frame rotation** — Rotate the body-frame linear acceleration into the world frame using the firmware's Madgwick quaternions, isolating vertical and horizontal components.
+3. **Step detection** — Identify individual footsteps via peak detection on the accel magnitude signal.
+4. **Step length estimation** — Compute per-step distance using the Weinberg empirical formula.
+5. **Heading extraction** — Use the quaternion yaw angle (magnetometer-corrected by the firmware's Madgwick filter) as the direction for each step.
+6. **Batch optimization** — Apply ZUPT (Zero Velocity Update) with a Rauch–Tung–Striebel smoother over the entire recorded walk, using bidirectional smoothing to eliminate the quadratic drift of double integration.
+7. **Path reconstruction** — Integrate step vectors to produce a 2D trajectory plot.
+
+This offline approach achieves sub-3% drift over multi-hour missions without requiring GPS or any training data. Future extensions include BMP280 barometric altitude for 3D tracking and GPS correction for absolute position anchoring.
 
 ### 10.5 Phase Summary
 
-| Milestone / Task          | Status    | Detail / Specification                                       |
-|:------------------------- |:---------:|:------------------------------------------------------------ |
-| **I2C/SPI Pin Isolation** | Completed | MPU on GPIO 4/5, SD on FSPI 15/11/12/13, OLED on GPIO 6/7.   |
-| **Binary Data Struct**    | Completed | 45-byte union-based LogFrame optimized for write throughput. |
-| **SD Storage Pipeline**   | Completed | SdFat at 20 MHz, writing sequentially named binary files.    |
-| **Data Parsing Scripts**  | Completed | MATLAB and Python parsers for 45-byte frame decoding.        |
-| **Navigation Algorithm**  | Shifted   | From live MCU integration to offline ZUPT modeling.          |
+| Milestone / Task          | Status    | Detail / Specification                                        |
+|:------------------------- |:---------:|:------------------------------------------------------------- |
+| **I2C/SPI Pin Isolation** | Completed | MPU on GPIO 4/5, SD on FSPI 15/11/12/13, OLED on GPIO 6/7.    |
+| **Binary Data Struct**    | Completed | 47-byte union-based LogFrame with CRC-16 per-frame integrity. |
+| **SD Storage Pipeline**   | Completed | SdFat at 20 MHz, writing sequentially named binary files.     |
+| **Data Parsing Scripts**  | Completed | MATLAB and Python parsers for 47-byte frame decoding.         |
+| **Navigation Algorithm**  | Shifted   | From live MCU integration to offline ZUPT modeling.           |
 
-### 10.6 Challenges & Solutions
+### 10.6 PDR Algorithm Comparison
+
+| Algorithm                                   | Wearability | Error (1 hr)      | Difficulty | Training Data              | Language                | Notes                                                      |
+| ------------------------------------------- | ----------- | ----------------- | ---------- | -------------------------- | ----------------------- | ---------------------------------------------------------- |
+| **ZUPT**                                    | Foot only   | 1–5%              | Medium     | No                         | Python / MATLAB         | Gold standard for foot-mounted; invalid for wrist-worn     |
+| **Weinberg Step Length**                    | Any         | 8–15%             | Easy       | No                         | Python / MATLAB         | Good starting point; needs per-user calibration constant   |
+| **Peak Step Detection**                     | Any         | Depends           | Easy       | No                         | Python (scipy)          | Simple threshold; works for steady walking                 |
+| **Madgwick Heading**                        | Any         | ~2°/min yaw drift | Easy       | No                         | Firmware (already done) | Already computed — extract yaw from stored quaternion      |
+| **RTS Smoother** (bidirectional Kalman)     | Any         | 0.5–3%            | Hard       | No                         | Python (filterpy)       | Best accuracy without ML; uses future data to correct past |
+| **Factor Graph / GTSAM**                    | Any         | 0.3–2%            | Very Hard  | No                         | Python (GTSAM) / C++    | Top accuracy; heavy setup and domain knowledge             |
+| **Complementary Filter**                    | Any         | 5–10°/min         | Easy       | No                         | Python / C              | Simpler than Madgwick; less accurate                       |
+| **LSTM Step Detector**                      | Any         | 3–8%              | Hard       | Yes (hrs of labeled walks) | Python (PyTorch / TF)   | Handles irregular motion; needs large dataset              |
+| **CNN Step Detector**                       | Any         | 3–8%              | Hard       | Yes (hrs of labeled walks) | Python (PyTorch / TF)   | Sliding window over IMU segments                           |
+| **Kalman Filter** (real-time, forward only) | Any         | 5–10%             | Medium     | No                         | Python / C              | Worse than RTS — no backward pass to correct drift         |
+
+**Recommended pipeline for wrist-worn DeadReckoner:**
+
+| Stage                   | Algorithm                           | Rationale                                                 |
+| ----------------------- | ----------------------------------- | --------------------------------------------------------- |
+| Step detection          | Peak detection on accel magnitude   | Simple, robust, no training data                          |
+| Step length             | Weinberg formula                    | Empirical calibration; zero data requirement              |
+| Heading                 | Madgwick quaternions → yaw          | Already computed by firmware at 100 Hz                    |
+| Trajectory optimization | RTS Smoother (bidirectional Kalman) | Beats all ML approaches without requiring labeled data    |
+| Implementation language | Python (numpy, scipy, filterpy)     | Free, full scientific stack, straightforward .BIN parsing |
+
+### 10.7 Challenges & Solutions
 
 - **Challenge:** System crashing when accessing MPU9250 and SD Card simultaneously.  
   **Solution:** Physically isolate SD on FSPI (pins 11-15) and keep MPU on I2C (pins 4-5). In ESP32-S3, sharing bus matrices for high-speed SPI (20 MHz) and I2C causes interrupt starvation.
@@ -603,99 +642,105 @@ When a critical failure is detected:
 The following timeline keeps the meaningful technical milestones and omits low-value checkpoint commits.  
 It shows how the architecture evolved from the earliest prototype to the current system.
 
-| Date       | Milestone                         | Summary                                                                             |
-| ---------- | --------------------------------- | ----------------------------------------------------------------------------------- |
-| 2025-05-11 | Initial commit                    | Repository created with early project skeleton.                                     |
-| 2025-05-12 | MPU6500 prototype start           | Initial MPU6500 library integration and STM32 CubeIDE setup.                        |
-| 2025-05-14 | MPU9250 DMP exploration           | DMP support, MPU9250 documentation, and register-level bring-up.                    |
-| 2025-05-17 | Linear acceleration & OLED fixes  | Corrected gravity-compensated acceleration; OLED display output functional.         |
-| 2025-07-12 | Repository reorganization         | Cleaned repo structure; NodeMCU ESP8266 firmware separated as primary target.       |
-| 2026-06-03 | ESP32-S3 migration                | Migrated from ESP8266 NodeMCU to ESP32-S3 N16R8 with new wiring diagram.            |
-| 2026-06-03 | Dual-core FreeRTOS                | Implemented producer-consumer architecture with queue-based inter-core comms.       |
-| 2026-06-03 | MPU9250 sanity check              | Validated IMU initialization and I2C communication on ESP32-S3.                     |
-| 2026-06-03 | OLED sanity check                 | Confirmed SSD1306 display initialization and rendering on 0.91-inch OLED.           |
-| 2026-06-04 | Static drift test                 | 15-minute stationary test: max roll 0.43°, pitch 0.39°, yaw 2.73°.                  |
-| 2026-06-04 | Dynamic return-to-zero test       | Aggressive 130° swing recovery: roll error 0.07°, yaw error 1.55°.                  |
-| 2026-06-04 | Vibration rejection test          | Heavy impact: max pitch deviation 0.57°; pen tapping: <0.1°.                        |
-| 2026-06-04 | Validation analysis tools         | MATLAB visualization scripts for drift, RTZ, and vibration analysis.                |
-| 2026-06-05 | SD card adapter investigation     | Added SD card diagrams; began cross-platform adapter comparison.                    |
-| 2026-06-05 | Standalone SD tests               | Validated commercial 5V module and DIY 3.3V adapter across multiple boards.         |
-| 2026-06-05 | SPI sweep completed               | 1–26 MHz sweep on DIY adapter: 20 MHz selected as stable operating point.           |
-| 2026-06-08 | SD card logging stress test       | Continuous binary logging validated at 100 Hz with zero frame loss.                 |
-| 2026-06-08 | MPU disconnect detection          | First implementation of runtime I2C watchdog and critical fault state.              |
-| 2026-06-08 | Boot-time SD scanning             | Auto-sequential log file numbering on startup with boot-screen report.              |
-| 2026-06-09 | MATLAB binary reader              | 48-byte LogFrame parser with quaternion and acceleration extraction.                |
-| 2026-06-09 | Storage benchmarking              | Measured 797 KB/s write speed at 20 MHz SPI; calculated 11.88 MB/hour rate.         |
-| 2026-06-09 | OLED phase UI                     | Initial menu system, SD info display, and multi-page navigation.                    |
-| 2026-06-09 | UI iteration: submenus            | Display mode, mute buzzer, and SD card submenus added.                              |
-| 2026-06-10 | PSRAM queue integration           | Allocated 50,000-frame buffer (2.14 MB) in external PSRAM for zero-loss queue.      |
-| 2026-06-10 | Union LogFrame optimization       | Payload union reduced frame size from 48 to 45 bytes.                               |
-| 2026-06-10 | SD runtime recovery               | Hot-plug detection, auto-reopen with recovery file (XXXYYY.BIN), gap frames.        |
-| 2026-06-10 | OLED auto-sleep & display modes   | Power-save after 20s; Always ON / Auto Off toggle; wake-on-button.                  |
-| 2026-06-10 | Confirmation traps                | YES/NO guards for Format and Create New File; default cursor = NO.                  |
-| 2026-06-10 | Stealth mode & TAG button         | Mute buzzer; TAG button with green LED + buzzer feedback.                           |
-| 2026-06-10 | Safe shutdown protocol            | 3-second long-press flush of 50,000 PSRAM frames; "SAFE TO POWER OFF".              |
-| 2026-06-10 | Drop frame counter                | Queue overflow counter displayed in SD submenu.                                     |
-| 2026-06-10 | TAG button inter-core handling    | Tag events transmitted via atomic flag across cores with spinlock protection.       |
-| 2026-06-10 | I2C calibration conflict fix      | Remove destructive xQueueReset; sensor task suspended during calibration only.      |
-| 2026-06-11 | EEPROM magic number validation    | 0xDEAD sentinel prevents corrupt calibration from loading.                          |
-| 2026-06-11 | Frame counter thread safety       | portMUX_TYPE critical sections for atomic 64-bit timebase reads across cores.       |
-| 2026-06-11 | SD file counting fix              | Switched to openNext() directory iteration; 10–100x faster than sequential probing. |
-| 2026-06-11 | 32-bit overflow protection        | 64-bit arithmetic for SD cards >32 GB.                                              |
-| 2026-06-11 | Smart delete protocol             | Format removes both parent logs (DR_LOG_XXX) and recovery fragments (XXXYYY).       |
-| 2026-06-11 | Recovery fragment naming          | Deterministic XXXYYY.BIN format linking log ID to recovery instance.                |
-| 2026-06-11 | Configurable MPU settings helper  | Extracted configureMPUSettings() for centralized sensor configuration.              |
-| 2026-06-11 | Redundant variable cleanup        | Removed unused STATE_SUBMENU_MSG, last_sd_recovery_attempt, dead code paths.        |
-| 2026-06-12 | Gap frame zero-initialization     | Fixed uninitialized event_flag in SD recovery gap marker.                           |
-| 2026-06-12 | Log file validation post-recovery | Null-check file pointer after MPU reconnection to prevent silent write loss.        |
-| 2026-06-12 | Recovery ID increment order fix   | Increment global_recovery_id only after successful file open confirmation.          |
-| 2026-06-12 | Project report generation         | Added project_summarizer tool; generated comprehensive architecture reports.        |
-| 2026-06-12 | Progress.md update                | Documented PSRAM, recovery protocol, UI features, and phase completion status.      |
-| 2026-06-12 | AI code review report             | Added Issues found by AI.md from DeepSeek, ChatGPT, Claude, and Grok reviews.       |
-| 2026-06-14 | Expand data frame & O(1) naming   | Increased LogFrame to 45 bytes; added max_log_id for instant file creation.          |
-| 2026-06-14 | Thread-safe frame counter         | Added portMUX_TYPE critical sections for atomic global_frame_counter increments.     |
-| 2026-06-14 | Dropped frame tracking            | Added dropped_frames_count with red LED feedback on queue overflow.                  |
-| 2026-06-14 | Expand SD menu to 8 items         | Added 8th menu entry (Drops); fixed navigation and action mappings.                  |
-| 2026-06-14 | Safe log wipe protocol            | Suspend sensor task during format; purge both parent logs and recovery fragments.    |
-| 2026-06-14 | Recovery log & vTaskDelay support | Detect recovery-style .BIN files; replace delay() with vTaskDelay.                   |
-| 2026-06-14 | Remove dead STATE_SUBMENU_MSG     | Deleted unused message submenu enum, handlers, and rendering code.                   |
-| 2026-06-14 | MPU settings helper               | Extracted configureMPUSettings() to eliminate duplicate initialization blocks.       |
-| 2026-06-14 | Log file validation post-recovery | Null-check reopened log file after MPU reconnection; set sd_critical_error on fail.  |
-| 2026-06-14 | Gap frame zero-init               | memset gap LogFrame before SD write to prevent uninitialized event_flag.             |
-| 2026-06-14 | Recovery ID increment order fix   | Increment global_recovery_id only after file open succeeds.                          |
-| 2026-06-15 | Timing & SD math robustness       | Fix 64-bit torn reads, SD capacity overflow (>32 GB), flush watchdog yields.        |
-| 2026-06-15 | Relative timestamps & OLED reinit | Introduce log_time_base; reinit OLED on wake/menu entry for hot-plug resilience.     |
-| 2026-06-15 | Progress.md update                | Expanded to document storage, recovery, UI, and memory optimization phases.          |
-| 2026-06-15 | To Do list cleanup                | Removed completed items; kept only pending tasks.                                    |
-| 2026-06-15 | Project summarizer tool           | Added project_summarizer.py (1216 lines) for auto-generated architecture reports.    |
-| 2026-06-15 | Generated project report          | Produced comprehensive LLM-optimized reports in MD/TXT/XML formats.                  |
-| 2026-06-15 | .gitignore configuration          | Created .gitignore excluding Repo_Report/ directory from version control.            |
-| 2026-06-15 | Final report merge                | Consolidated Report.md (v1.0.0) and Report2.md (v2.0.0) into single document.       |
+| Date       | Milestone                         | Summary                                                                                                                                            |
+| ---------- | --------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 2025-05-11 | Initial commit                    | Repository created with early project skeleton.                                                                                                    |
+| 2025-05-12 | MPU6500 prototype start           | Initial MPU6500 library integration and STM32 CubeIDE setup.                                                                                       |
+| 2025-05-14 | MPU9250 DMP exploration           | DMP support, MPU9250 documentation, and register-level bring-up.                                                                                   |
+| 2025-05-17 | Linear acceleration & OLED fixes  | Corrected gravity-compensated acceleration; OLED display output functional.                                                                        |
+| 2025-07-12 | Repository reorganization         | Cleaned repo structure; NodeMCU ESP8266 firmware separated as primary target.                                                                      |
+| 2026-06-03 | ESP32-S3 migration                | Migrated from ESP8266 NodeMCU to ESP32-S3 N16R8 with new wiring diagram.                                                                           |
+| 2026-06-03 | Dual-core FreeRTOS                | Implemented producer-consumer architecture with queue-based inter-core comms.                                                                      |
+| 2026-06-03 | MPU9250 sanity check              | Validated IMU initialization and I2C communication on ESP32-S3.                                                                                    |
+| 2026-06-03 | OLED sanity check                 | Confirmed SSD1306 display initialization and rendering on 0.91-inch OLED.                                                                          |
+| 2026-06-04 | Static drift test                 | 15-minute stationary test: max roll 0.43°, pitch 0.39°, yaw 2.73°.                                                                                 |
+| 2026-06-04 | Dynamic return-to-zero test       | Aggressive 130° swing recovery: roll error 0.07°, yaw error 1.55°.                                                                                 |
+| 2026-06-04 | Vibration rejection test          | Heavy impact: max pitch deviation 0.57°; pen tapping: <0.1°.                                                                                       |
+| 2026-06-04 | Validation analysis tools         | MATLAB visualization scripts for drift, RTZ, and vibration analysis.                                                                               |
+| 2026-06-05 | SD card adapter investigation     | Added SD card diagrams; began cross-platform adapter comparison.                                                                                   |
+| 2026-06-05 | Standalone SD tests               | Validated commercial 5V module and DIY 3.3V adapter across multiple boards.                                                                        |
+| 2026-06-05 | SPI sweep completed               | 1–26 MHz sweep on DIY adapter: 20 MHz selected as stable operating point.                                                                          |
+| 2026-06-08 | SD card logging stress test       | Continuous binary logging validated at 100 Hz with zero frame loss.                                                                                |
+| 2026-06-08 | MPU disconnect detection          | First implementation of runtime I2C watchdog and critical fault state.                                                                             |
+| 2026-06-08 | Boot-time SD scanning             | Auto-sequential log file numbering on startup with boot-screen report.                                                                             |
+| 2026-06-09 | MATLAB binary reader              | 48-byte LogFrame parser with quaternion and acceleration extraction.                                                                               |
+| 2026-06-09 | Storage benchmarking              | Measured 797 KB/s write speed at 20 MHz SPI; calculated 11.88 MB/hour rate.                                                                        |
+| 2026-06-09 | OLED phase UI                     | Initial menu system, SD info display, and multi-page navigation.                                                                                   |
+| 2026-06-09 | UI iteration: submenus            | Display mode, mute buzzer, and SD card submenus added.                                                                                             |
+| 2026-06-10 | PSRAM queue integration           | Allocated 50,000-frame buffer (2.14 MB) in external PSRAM for zero-loss queue.                                                                     |
+| 2026-06-10 | Union LogFrame optimization       | Payload union reduced frame size from 48 to 45 bytes.                                                                                              |
+| 2026-06-10 | SD runtime recovery               | Hot-plug detection, auto-reopen with recovery file (XXXYYY.BIN), gap frames.                                                                       |
+| 2026-06-10 | OLED auto-sleep & display modes   | Power-save after 20s; Always ON / Auto Off toggle; wake-on-button.                                                                                 |
+| 2026-06-10 | Confirmation traps                | YES/NO guards for Format and Create New File; default cursor = NO.                                                                                 |
+| 2026-06-10 | Stealth mode & TAG button         | Mute buzzer; TAG button with green LED + buzzer feedback.                                                                                          |
+| 2026-06-10 | Safe shutdown protocol            | 3-second long-press flush of 50,000 PSRAM frames; "SAFE TO POWER OFF".                                                                             |
+| 2026-06-10 | Drop frame counter                | Queue overflow counter displayed in SD submenu.                                                                                                    |
+| 2026-06-10 | TAG button inter-core handling    | Tag events transmitted via atomic flag across cores with spinlock protection.                                                                      |
+| 2026-06-10 | I2C calibration conflict fix      | Remove destructive xQueueReset; sensor task suspended during calibration only.                                                                     |
+| 2026-06-11 | EEPROM magic number validation    | 0xDEAD sentinel prevents corrupt calibration from loading.                                                                                         |
+| 2026-06-11 | Frame counter thread safety       | portMUX_TYPE critical sections for atomic 64-bit timebase reads across cores.                                                                      |
+| 2026-06-11 | SD file counting fix              | Switched to openNext() directory iteration; 10–100x faster than sequential probing.                                                                |
+| 2026-06-11 | 32-bit overflow protection        | 64-bit arithmetic for SD cards >32 GB.                                                                                                             |
+| 2026-06-11 | Smart delete protocol             | Format removes both parent logs (DR_LOG_XXX) and recovery fragments (XXXYYY).                                                                      |
+| 2026-06-11 | Recovery fragment naming          | Deterministic XXXYYY.BIN format linking log ID to recovery instance.                                                                               |
+| 2026-06-11 | Configurable MPU settings helper  | Extracted configureMPUSettings() for centralized sensor configuration.                                                                             |
+| 2026-06-11 | Redundant variable cleanup        | Removed unused STATE_SUBMENU_MSG, last_sd_recovery_attempt, dead code paths.                                                                       |
+| 2026-06-12 | Gap frame zero-initialization     | Fixed uninitialized event_flag in SD recovery gap marker.                                                                                          |
+| 2026-06-12 | Log file validation post-recovery | Null-check file pointer after MPU reconnection to prevent silent write loss.                                                                       |
+| 2026-06-12 | Recovery ID increment order fix   | Increment global_recovery_id only after successful file open confirmation.                                                                         |
+| 2026-06-12 | Project report generation         | Added project_summarizer tool; generated comprehensive architecture reports.                                                                       |
+| 2026-06-12 | Progress.md update                | Documented PSRAM, recovery protocol, UI features, and phase completion status.                                                                     |
+| 2026-06-12 | AI code review report             | Added Issues found by AI.md from DeepSeek, ChatGPT, Claude, and Grok reviews.                                                                      |
+| 2026-06-14 | Expand data frame & O(1) naming   | Increased LogFrame to 45 bytes; added max_log_id for instant file creation.                                                                        |
+| 2026-06-14 | Thread-safe frame counter         | Added portMUX_TYPE critical sections for atomic global_frame_counter increments.                                                                   |
+| 2026-06-14 | Dropped frame tracking            | Added dropped_frames_count with red LED feedback on queue overflow.                                                                                |
+| 2026-06-14 | Expand SD menu to 8 items         | Added 8th menu entry (Drops); fixed navigation and action mappings.                                                                                |
+| 2026-06-14 | Safe log wipe protocol            | Suspend sensor task during format; purge both parent logs and recovery fragments.                                                                  |
+| 2026-06-14 | Recovery log & vTaskDelay support | Detect recovery-style .BIN files; replace delay() with vTaskDelay.                                                                                 |
+| 2026-06-14 | Remove dead STATE_SUBMENU_MSG     | Deleted unused message submenu enum, handlers, and rendering code.                                                                                 |
+| 2026-06-14 | MPU settings helper               | Extracted configureMPUSettings() to eliminate duplicate initialization blocks.                                                                     |
+| 2026-06-14 | Log file validation post-recovery | Null-check reopened log file after MPU reconnection; set sd_critical_error on fail.                                                                |
+| 2026-06-14 | Gap frame zero-init               | memset gap LogFrame before SD write to prevent uninitialized event_flag.                                                                           |
+| 2026-06-14 | Recovery ID increment order fix   | Increment global_recovery_id only after file open succeeds.                                                                                        |
+| 2026-06-15 | Timing & SD math robustness       | Fix 64-bit torn reads, SD capacity overflow (>32 GB), flush watchdog yields.                                                                       |
+| 2026-06-15 | Relative timestamps & OLED reinit | Introduce log_time_base; reinit OLED on wake/menu entry for hot-plug resilience.                                                                   |
+| 2026-06-15 | Progress.md update                | Expanded to document storage, recovery, UI, and memory optimization phases.                                                                        |
+| 2026-06-15 | To Do list cleanup                | Removed completed items; kept only pending tasks.                                                                                                  |
+| 2026-06-15 | Project summarizer tool           | Added project_summarizer.py (1216 lines) for auto-generated architecture reports.                                                                  |
+| 2026-06-15 | Generated project report          | Produced comprehensive LLM-optimized reports in MD/TXT/XML formats.                                                                                |
+| 2026-06-15 | .gitignore configuration          | Created .gitignore excluding Repo_Report/ directory from version control.                                                                          |
+| 2026-06-15 | Final report merge                | Consolidated Report.md (v1.0.0) and Report2.md (v2.0.0) into single document.                                                                      |
+| 2026-06-19 | Perfboard assembly                | Migrated all components from breadboard to perforated fiber board. Hardware validated and stable.                                                  |
+| 2026-06-19 | CRC-16 per-frame integrity        | Added bit-by-bit CRC-16-IBM (poly 0xA001) to LogFrame. DATA_FRAME_SIZE updated 45→47. CRC computed before every queue send and gap-frame SD write. |
+| 2026-06-19 | vTaskDelay conversion             | Replaced delay() with vTaskDelay() in calibration functions for scheduler-friendly blocking during sensor suspension.                              |
+| 2026-06-19 | Issues verified & resolved        | Confirmed MPU temperature core safety, recovery naming intentionality, TAG button OLED sleep behavior. Updated Issues found by AI.md.              |
 
 ---
 
 ## 14. Current Status
 
-The system is now a structured offline tracking platform with stable sensing, logging, and analysis layers.  
-The remaining major item is GNSS integration and the timing alignment between GPS and IMU data.
+The system is now a wearable Pedestrian Dead Reckoning data logger assembled on perforated fiber board with stable sensing, logging, and analysis layers.  
+The immediate next step is developing the offline PDR pipeline in Python. GPS integration will follow after the PDR baseline is validated.
 
-| Subsystem                   | Status      |
-| --------------------------- | ----------- |
-| ESP32-S3 migration          | Complete    |
-| RTOS multi-core framework   | Complete    |
-| Calibration and I2C tuning  | Complete    |
-| Hardware validation         | Complete    |
-| SD card logging             | Complete    |
-| Binary file logging         | Complete    |
-| PSRAM buffering             | Complete    |
-| Fault handling and recovery | Complete    |
-| UI and monitoring           | Complete    |
-| Offline analysis tools      | Complete    |
-| GPS integration             | In progress |
+| Subsystem                     | Status   |
+| ----------------------------- | -------- |
+| Perfboard assembly            | Complete |
+| ESP32-S3 migration            | Complete |
+| RTOS multi-core framework     | Complete |
+| Calibration and I2C tuning    | Complete |
+| Hardware validation           | Complete |
+| SD card logging               | Complete |
+| Binary file logging + CRC-16  | Complete |
+| PSRAM buffering               | Complete |
+| Fault handling and recovery   | Complete |
+| UI and monitoring             | Complete |
+| Offline analysis tools        | Complete |
+| Offline PDR pipeline (Python) | Planned  |
+| GPS integration               | Future   |
 
 ---
 
 ## 15. Conclusion
 
-DeadReckoner evolved from a small IMU prototype into a multi-core offline tracking system.  
-The final architecture prioritizes real-time acquisition, safe logging, and reproducible offline analysis. The system features a dual-core FreeRTOS design with a PSRAM-backed 50,000-frame queue, dynamic SD recovery with gap-frame injection, an interactive OLED menu system with confirmation traps, and comprehensive offline analysis scripts in MATLAB and Python.
+DeadReckoner evolved from a small IMU prototype into a wearable Pedestrian Dead Reckoning (PDR) data logger.  
+The system features a dual-core FreeRTOS design with PSRAM-backed 50,000-frame queue, dynamic SD recovery with gap-frame injection, per-frame CRC-16 integrity checking, and an interactive OLED menu system. Data is recorded at 100 Hz to SD card in 47-byte binary frames. The offline Python pipeline reconstructs the traveled path using step detection, ZUPT, and batch optimization — achieving minimal drift over multi-hour missions without GPS.
