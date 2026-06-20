@@ -93,11 +93,11 @@
   #define MPU9250_Accelerometer_Rang  A2G 								//select: A2G, A4G, A8G, A16G
   #define MPU9250_Gyroscope_Rang  G500DPS 								//select: G250DPS, G500DPS, G1000DPS, G2000DPS
   #define MPU9250_Magnetometer_resolution  M16BITS 				//select: M14BITS, M16BITS
-  #define MPU9250_fifo_sample_rate  SMPL_1000HZ 					//select: SMPL_1000HZ, SMPL_500HZ, SMPL_333HZ, SMPL_250HZ, SMPL_200HZ, SMPL_167HZ, SMPL_143HZ, SMPL_125HZ
+  #define MPU9250_fifo_sample_rate  SMPL_1000HZ 					// Must be >= SAMPLING_RATE_HZ. Options: 1000, 500, 333, 250, 200, 167, 143, 125 Hz
   #define MPU9250_Gyroscope_filter_choice  0x01						//select: 0x00: Enables DLPF with 8kHz sample rate|0x01: Enables DLPF with 1kHz sample rate|0x02 or 0x03: Bypasses DLPF
-  #define MPU9250_Gyroscope_DLPF_cutoff  DLPF_41HZ 				//select: DLPF_250HZ, DLPF_184HZ, DLPF_92HZ, DLPF_41HZ, DLPF_20HZ, DLPF_10HZ, DLPF_5HZ, DLPF_3600HZ
+  #define MPU9250_Gyroscope_DLPF_cutoff  DLPF_41HZ 				// Should be <= SAMPLING_RATE_HZ/2 (Nyquist). Options: 250, 184, 92, 41, 20, 10, 5, 3600 Hz
   #define MPU9250_Accelerometer_filter_choice  0x01				//select: 0x01 Enable, 0x00 bypass
-  #define MPU9250_Accelerometer_DLPF_cutoff  DLPF_5HZ 		//select: DLPF_218HZ_0, DLPF_218HZ_1, DLPF_99HZ, DLPF_45HZ, DLPF_21HZ, DLPF_10HZ, DLPF_5HZ, DLPF_420HZ
+  #define MPU9250_Accelerometer_DLPF_cutoff  DLPF_5HZ 		// Should be <= SAMPLING_RATE_HZ/2 (Nyquist). Options: 218, 99, 45, 21, 10, 5, 420 Hz
   #define MPU9250_filter_algorithm	MADGWICK 							//select: MADGWICK, MAHONY, NONE
   #define MPU9250_filter_iterations	10										//select: 1-50 higher better but may slow down
   #define attempt_recovery_MPU9250_MS 2000
@@ -121,6 +121,9 @@
 // =========================================================================
   #define DATA_FRAME_SIZE            47     
   #define SAMPLING_RATE_HZ           100    
+  #if SAMPLING_RATE_HZ < 1 || SAMPLING_RATE_HZ > 1000
+    #error "SAMPLING_RATE_HZ must be between 1 and 1000 (MPU9250 max FIFO rate)"
+  #endif
   #define BYTES_PER_SECOND           (DATA_FRAME_SIZE * SAMPLING_RATE_HZ)
   #define BYTES_PER_HOUR             ((uint64_t)BYTES_PER_SECOND * 3600)
   #define MB_PER_HOUR                ((float)BYTES_PER_HOUR / (1024.0 * 1024.0)) 
@@ -306,7 +309,7 @@ void sensorTask(void *pvParameters) {
   TickType_t xLastWakeTime = xTaskGetTickCount();
 
   for(;;) {
-    vTaskDelayUntil(&xLastWakeTime, pdMS_TO_TICKS(10)); // Enforce 100 Hz sampling
+    vTaskDelayUntil(&xLastWakeTime, pdMS_TO_TICKS(1000 / SAMPLING_RATE_HZ));
 
     // === If shutdown is initiated ===
     if (system_shutdown_requested) {
