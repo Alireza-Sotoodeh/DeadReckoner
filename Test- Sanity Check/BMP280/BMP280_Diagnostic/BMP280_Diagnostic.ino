@@ -92,13 +92,13 @@ void setup() {
   Serial.print(F("TEST 3: Reading temperature... "));
   float temp = bmp.readTemperature();
   Serial.print(temp);
-  Serial.print(F(" \x30C... "));
+  Serial.print(F(" \xB0C... "));
   if (isnan(temp)) {
     Serial.println(F("FAILED! (returned NaN)"));
     while (1) { delay(10); }
   }
   if (temp < -40.0 || temp > 85.0) {
-    Serial.println(F("WARNING: Value outside expected range (-40..+85 \x30C)."));
+    Serial.println(F("WARNING: Value outside expected range (-40..+85 \xB0C)."));
     Serial.println(F("  Sensor may be faulty or in extreme environment."));
   } else {
     Serial.println(F("PASSED."));
@@ -236,7 +236,7 @@ void setup() {
     printModeName(i);
     Serial.print(F(" :  "));
     Serial.print(t);
-    Serial.print(F(" \x30C,  "));
+    Serial.print(F(" \xB0C,  "));
     Serial.print(p);
     Serial.println(F(" hPa"));
   }
@@ -275,13 +275,13 @@ void setup() {
 
   Serial.print(F("  Temperature:  mean = "));
   Serial.print(tMean, 2);
-  Serial.print(F(" \x30C,  min = "));
+  Serial.print(F(" \xB0C,  min = "));
   Serial.print(tMin, 2);
   Serial.print(F(",  max = "));
   Serial.print(tMax, 2);
-  Serial.print(F(",  \xE3 = "));
+  Serial.print(F(",  SD = "));
   Serial.print(tSigma, 3);
-  Serial.println(F(" \x30C"));
+  Serial.println(F(" \xB0C"));
 
   Serial.print(F("  Pressure:     mean = "));
   Serial.print(pMean, 1);
@@ -289,7 +289,7 @@ void setup() {
   Serial.print(pMin, 1);
   Serial.print(F(",  max = "));
   Serial.print(pMax, 1);
-  Serial.print(F(",  \xE3 = "));
+  Serial.print(F(",  SD = "));
   Serial.print(pSigma, 3);
   Serial.println(F(" hPa"));
 
@@ -297,7 +297,7 @@ void setup() {
   bool pNoisy = (pSigma > 1.5);
   if (tNoisy || pNoisy) {
     if (tNoisy) {
-      Serial.println(F("  WARNING: Temperature noise exceeds 0.3 \x30C threshold."));
+      Serial.println(F("  WARNING: Temperature noise exceeds 0.3 \xB0C threshold."));
     }
     if (pNoisy) {
       Serial.println(F("  WARNING: Pressure noise exceeds 1.5 hPa threshold."));

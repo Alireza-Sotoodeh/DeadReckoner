@@ -3,8 +3,8 @@
 ===============================================
 TEST 1: Initializing BMP280 at address 0x76... PASSED.
 TEST 2: Reading Chip ID register (0xD0)... 0x58... PASSED. (BMP280)
-TEST 3: Reading temperature... 33.27 ... PASSED.
-TEST 4: Reading pressure... 827.01 hPa... PASSED.
+TEST 3: Reading temperature... 33.76 ... PASSED.
+TEST 4: Reading pressure... 827.05 hPa... PASSED.
 TEST 5: Scanning I2C bus for connected devices...
   Device found at 0x76
   Scan complete: 1 device(s) found.
@@ -20,14 +20,14 @@ TEST 6: Configuration register dump...
   � measuring: conversion in progress
   PASSED.
 TEST 7: Mode and oversampling sweep...
-  Sleep :  33.41 ,  827.04 hPa
-  Forced x16 :  33.42 ,  827.05 hPa
-  Normal x4 :  33.42 ,  827.03 hPa
-  Normal x16 :  33.38 ,  827.04 hPa
+  Sleep :  33.89 ,  827.06 hPa
+  Forced x16 :  33.90 ,  827.09 hPa
+  Normal x4 :  33.91 ,  827.12 hPa
+  Normal x16 :  33.87 ,  827.06 hPa
   PASSED.
 TEST 8: Measuring noise floor (100 samples)...
-  Temperature:  mean = 33.48 ,  min = 33.48,  max = 33.48,  � = 0.049 
-  Pressure:     mean = 827.0 hPa,  min = 827.0,  max = 827.0,  � = 1.146 hPa
+  Temperature:  mean = 33.95 ,  min = 33.95,  max = 33.95,  SD = 0.038 
+  Pressure:     mean = 827.1 hPa,  min = 827.1,  max = 827.1,  SD = 0.829 hPa
   Noise levels within expected range.
   PASSED.
 ===============================================
