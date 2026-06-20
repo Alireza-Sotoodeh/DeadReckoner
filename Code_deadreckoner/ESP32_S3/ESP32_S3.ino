@@ -143,9 +143,19 @@ void print_calibration();
 void saveCalibration();
 void loadCalibration();
 uint16_t calcCRC16(const uint8_t* data, uint16_t len);
+void writeLogFileHeader(File& file);
 /*//////////////////////////// RTOS Data Structures ////////////////////////////*/
 
 #pragma pack(push, 1) // Force absolute 1-byte alignment for all enclosed structures
+// File header written at the start of every DR_LOG_xxx.BIN file for self-describing binary parsing
+typedef struct {
+    uint32_t magic;        // 4 Bytes: Validation magic 0xDEADC0DE
+    uint8_t  version;      // 1 Byte:  Format version (1)
+    uint8_t  frame_size;   // 1 Byte:  sizeof(LogFrame) for forward compatibility
+    uint16_t sample_rate;  // 2 Bytes: SAMPLING_RATE_HZ at file creation
+    uint64_t epoch_ms;     // 8 Bytes: millis() at file creation for absolute time anchoring
+} FileHeader;  // 16 bytes total
+
 // Optimized Parametric Binary structure using Union 
 typedef struct {
     uint32_t frame_seq;  // 4 Bytes: Monotonic sequential index for frame drop tracking
@@ -271,6 +281,19 @@ void attemptMPURecovery() {
         loadCalibration(); // Re-apply EEPROM values
         mpu_critical_error = false; // Flag system as recovered
     }
+}
+
+// =========================================================================
+// FILE HEADER WRITER
+// =========================================================================
+void writeLogFileHeader(File& file) {
+    FileHeader h;
+    h.magic = 0xDEADC0DE;
+    h.version = 1;
+    h.frame_size = sizeof(LogFrame);
+    h.sample_rate = SAMPLING_RATE_HZ;
+    h.epoch_ms = millis();
+    file.write((uint8_t*)&h, sizeof(h));
 }
 
 // =========================================================================
@@ -965,6 +988,8 @@ void loggingTask(void *pvParameters) {
           // Null-check file pointer to prevent silent logging failures
           if (!logFile) {
               sd_critical_error = true;
+          } else {
+              writeLogFileHeader(logFile);
           }
 
           // Render instant feedback to the user on screen
@@ -1052,6 +1077,8 @@ void loggingTask(void *pvParameters) {
           // Defensive null-check to capture file allocation failures instantly after memory wipe
           if (!logFile) {
               sd_critical_error = true;
+          } else {
+              writeLogFileHeader(logFile);
           }
           u8g2.clearBuffer();
           u8g2.drawStr((u8g2.getDisplayWidth() - u8g2.getStrWidth("All Logs Cleared!")) / 2, 20, "All Logs Cleared!");
@@ -1264,6 +1291,7 @@ void setup()
   logFile = sd.open(current_log_filename, FILE_WRITE);
 
   if (logFile) {
+    writeLogFileHeader(logFile);
     Serial.print("Success: Opened new log file -> ");
     Serial.println(filename);
     

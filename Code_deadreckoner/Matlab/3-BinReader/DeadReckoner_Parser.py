@@ -7,14 +7,15 @@ import questionary
 
 # =========================================================================
 # DeadReckoner Advanced Binary Decoder & Analyzer
-# Version: 1.0
-# Architecture: 45-Byte Sequential Parsing
+# Version: 2.0
+# Architecture: 47-Byte Sequential Parsing (V2.1: FileHeader support)
 # =========================================================================
 
 class BinaryDecoder:
-    FRAME_SIZE = 45
+    FRAME_SIZE = 47
+    FILE_HEADER_MAGIC = 0xDEADC0DE
     HEADER_FMT = '< I Q B'  # 4 bytes (uint32), 8 bytes (uint64), 1 byte (uint8)
-    IMU_FMT = '< 4f 3f f'   # 32 bytes: 4x float (Quat), 3x float (Accel), 1x float (Temp)
+    IMU_FMT = '< 4f 3f f H' # 32 bytes: 4x float (Quat), 3x float (Accel), 1x float (Temp), 2 bytes CRC
     
     FLAG_IMU = 0x00
     FLAG_TAG = 0x01
@@ -29,10 +30,20 @@ class BinaryDecoder:
 
         try:
             with open(filepath, 'rb') as f:
+                # Detect and skip FileHeader (16 bytes) if present
+                magic_bytes = f.read(4)
+                if len(magic_bytes) < 4:
+                    return data, dropped_frames_total
+                magic = struct.unpack('<I', magic_bytes)[0]
+                if magic == cls.FILE_HEADER_MAGIC:
+                    f.read(12)  # skip rest of 16-byte header
+                else:
+                    f.seek(0)  # legacy file, no header
+
                 while True:
                     chunk = f.read(cls.FRAME_SIZE)
                     if len(chunk) < cls.FRAME_SIZE:
-                        break  
+                        break
                     
                     header_bytes = chunk[:13]
                     payload_bytes = chunk[13:]
@@ -44,7 +55,7 @@ class BinaryDecoder:
                     last_seq = frame_seq
 
                     if event_flag in (cls.FLAG_IMU, cls.FLAG_TAG, cls.FLAG_GAP):
-                        q0, q1, q2, q3, ax, ay, az, temp = struct.unpack(cls.IMU_FMT, payload_bytes)
+                        q0, q1, q2, q3, ax, ay, az, temp, crc = struct.unpack(cls.IMU_FMT, payload_bytes)
                         
                         data.append({
                             'Frame_Sequence': frame_seq,
