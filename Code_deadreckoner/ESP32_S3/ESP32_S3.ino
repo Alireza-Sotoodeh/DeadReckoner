@@ -202,7 +202,7 @@ typedef struct {
   int8_t menuCursor = 0; // Tracks selected menu item
 
 // Inter-Core Communication Flags
-  volatile bool tag_event_triggered = false;
+  volatile uint8_t tag_event_pending = 0;  // counter to catch consecutive TAG presses
   volatile bool mpu_critical_error = false;
   volatile bool sd_critical_error = false;
   volatile bool system_shutdown_requested = false;
@@ -376,9 +376,9 @@ void sensorTask(void *pvParameters) {
       frame.payload.imu.temp = mpu.getTemperature();
       // Thread-safe isolation for inter-core Waypoint Tagging flags
       portENTER_CRITICAL(&tagEventMux);
-      if (tag_event_triggered) {
+      if (tag_event_pending > 0) {
           frame.event_flag = 1; // 1 marks user button interaction event
-          tag_event_triggered = false; 
+          tag_event_pending--;
       }
       portEXIT_CRITICAL(&tagEventMux);
       frame.crc = calcCRC16((uint8_t*)&frame, sizeof(LogFrame) - sizeof(frame.crc));
@@ -590,7 +590,7 @@ void loggingTask(void *pvParameters) {
         if (!tagWasPressed) { 
             // Protect writing to shared variable across cores
             portENTER_CRITICAL(&tagEventMux);
-            tag_event_triggered = true;
+            if (tag_event_pending < 255) tag_event_pending++; // cap at 255 to avoid overflow
             portEXIT_CRITICAL(&tagEventMux);
             tagWasPressed = true;
             if (!selectWasPressed) last_interaction_millis = currentMillis; 
