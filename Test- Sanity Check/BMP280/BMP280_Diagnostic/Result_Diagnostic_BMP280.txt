@@ -1,0 +1,35 @@
+===============================================
+ BMP280 Barometric Sensor � Diagnostic Suite
+===============================================
+TEST 1: Initializing BMP280 at address 0x76... PASSED.
+TEST 2: Reading Chip ID register (0xD0)... 0x58... PASSED. (BMP280)
+TEST 3: Reading temperature... 33.27 ... PASSED.
+TEST 4: Reading pressure... 827.01 hPa... PASSED.
+TEST 5: Scanning I2C bus for connected devices...
+  Device found at 0x76
+  Scan complete: 1 device(s) found.
+  PASSED.
+TEST 6: Configuration register dump...
+  ctrl_meas (0xF4): 0x10110111
+    osrs_t (temperature oversampling): x16
+    osrs_p (pressure oversampling): x16
+    mode (power mode): normal
+  config (0xF5): 0x00  � t_sb (standby): 0.5 ms
+    filter (IIR coefficient): off
+  status (0xF3): 0x01100  � im_update: idle
+  � measuring: conversion in progress
+  PASSED.
+TEST 7: Mode and oversampling sweep...
+  Sleep :  33.41 ,  827.04 hPa
+  Forced x16 :  33.42 ,  827.05 hPa
+  Normal x4 :  33.42 ,  827.03 hPa
+  Normal x16 :  33.38 ,  827.04 hPa
+  PASSED.
+TEST 8: Measuring noise floor (100 samples)...
+  Temperature:  mean = 33.48 ,  min = 33.48,  max = 33.48,  � = 0.049 
+  Pressure:     mean = 827.0 hPa,  min = 827.0,  max = 827.0,  � = 1.146 hPa
+  Noise levels within expected range.
+  PASSED.
+===============================================
+ ALL TESTS PASSED. BMP280 is healthy.
+===============================================
