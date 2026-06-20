@@ -53,6 +53,17 @@
 #include <SdFat.h>   // SdFat library for high-speed logging
 #include "esp_heap_caps.h" // Required for explicit PSRAM memory allocation
 
+// ESP32's FS.h (pulled by WebServer below) defines a conflicting `File` class
+// and overrides FILE_WRITE with "w". The macro rename makes FS.h define its
+// class as SdFat_File_ instead, avoiding the name clash with SdFat's File.
+#define File SdFat_File_
+#include <WiFi.h>    // WiFi AP for phone GPS pairing
+#include <WebServer.h> // HTTP server for GPS web page
+#include <DNSServer.h> // Captive portal DNS redirection
+#undef File
+#undef FILE_WRITE
+#define FILE_WRITE (O_RDWR | O_CREAT | O_AT_END)
+
 /*////////////////////////////defines////////////////////////////*/
 
 // =========================================================================
@@ -118,6 +129,13 @@
   #define Press_to_ShutDown_MS 3000
   // menu 
   #define MENU_ITEMS_COUNT 5
+  // Phone GPS Pairing via WiFi AP
+  #define GPS_AP_SSID   "DeadReckoner-S3"
+  #define GPS_AP_PASS   "deadreckoner"
+  #define GPS_AP_IP     192, 168, 4, 1
+  #define GPS_AP_CHANNEL 1
+  #define GPS_AP_HIDDEN  0
+  #define GPS_AP_MAX_CONN 1
 // =========================================================================
 // PARAMETRIC BANDWIDTH & MEMORY ENGINE
 // =========================================================================
@@ -144,6 +162,12 @@ void saveCalibration();
 void loadCalibration();
 uint16_t calcCRC16(const uint8_t* data, uint16_t len);
 void writeLogFileHeader(File& file);
+void startGPSAP();
+void stopGPSAP();
+void handleGPSRoot();
+void handleGPSPost();
+void handleGPSNotFound();
+void writeGPSFrame(uint8_t event_flag, double lat, double lon, float alt, uint32_t time);
 /*//////////////////////////// RTOS Data Structures ////////////////////////////*/
 
 #pragma pack(push, 1) // Force absolute 1-byte alignment for all enclosed structures
@@ -173,6 +197,8 @@ typedef struct {
         struct {
             double lat;
             double lng;
+            float  alt;
+            uint32_t epoch; // Unix epoch seconds from phone
         } gps;
     } payload;
     
@@ -188,7 +214,11 @@ typedef struct {
       STATE_SUBMENU_DISPLAY,
       STATE_SUBMENU_MUTE,
       STATE_CONFIRM_FORMAT,
-      STATE_CONFIRM_CREATE_FILE      
+      STATE_CONFIRM_CREATE_FILE,
+      STATE_GPS_PROMPT_START,    // Ask "Get GPS start?" at boot / new file / format
+      STATE_GPS_PROMPT_END,      // Ask "Get GPS end?" during shutdown
+      STATE_GPS_WAITING,         // WiFi AP active, waiting for phone data
+      STATE_GPS_CONFIRM_EXIT     // "Exit GPS pairing?" [YES/NO]
   };
   volatile UIState currentState = STATE_LIVE_VIEW;
 
@@ -200,6 +230,16 @@ typedef struct {
       "5.Exit Menu"
   };
   int8_t menuCursor = 0; // Tracks selected menu item
+
+// GPS Pairing globals
+  bool gps_start_needed = false;   // Set true when a new file needs start GPS
+  bool gps_end_needed = false;     // Set true during shutdown for end GPS
+  bool gps_pending_file_creation = false; // Set true when file must be created after GPS prompt
+  int8_t gps_prompt_cursor = 1;    // Cursor for YES/NO prompt (default NO)
+  volatile bool gps_data_received = false; // Flag set by HTTP handler
+  IPAddress gps_ap_ip(GPS_AP_IP);
+  DNSServer gps_dns;
+  WebServer gps_server(80);
 
 // Inter-Core Communication Flags
   volatile uint8_t tag_event_pending = 0;  // counter to catch consecutive TAG presses
@@ -219,6 +259,21 @@ typedef struct {
   uint16_t global_recovery_id = 1;  // Y: Recovery Instance Number (e.g., 002)
   uint16_t max_log_id = 1;          // Tracks the highest existing DR_LOG_xxx.BIN index
   char current_log_filename[20] = "DR_LOG_001.BIN";
+
+// Phone GPS data for start/end anchoring via WiFi AP pairing
+  typedef struct {
+      bool     has_start;
+      double   start_lat;
+      double   start_lon;
+      float    start_alt;
+      uint32_t start_time;   // UNIX epoch seconds from phone
+      bool     has_end;
+      double   end_lat;
+      double   end_lon;
+      float    end_alt;
+      uint32_t end_time;
+  } PhoneGPSData;
+  PhoneGPSData phone_gps = {false, 0, 0, 0, 0, false, 0, 0, 0, 0};
 
 // FreeRTOS Handles & PSRAM Queue
   QueueHandle_t dataQueue;
@@ -294,6 +349,148 @@ void writeLogFileHeader(File& file) {
     h.sample_rate = SAMPLING_RATE_HZ;
     h.epoch_ms = millis();
     file.write((uint8_t*)&h, sizeof(h));
+}
+
+// =========================================================================
+// PHONE GPS PAIRING VIA WiFi AP
+// =========================================================================
+
+// Embedded HTML page for GPS manual entry (auto-fills date/time from browser JS)
+const char gps_html[] PROGMEM = R"rawliteral(
+<!DOCTYPE html><html><head><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>DeadReckoner GPS</title>
+<style>
+body{font-family:sans-serif;text-align:center;margin:20px;background:#222;color:#fff}
+input{width:90%%;padding:8px;margin:5px;font-size:16px;border-radius:4px;border:1px solid #555;background:#333;color:#fff}
+button{width:90%%;padding:12px;margin:10px;font-size:18px;background:#4CAF50;color:#fff;border:none;border-radius:5px;cursor:pointer}
+button:hover{background:#45a049}
+#status{padding:10px;margin:10px;border-radius:4px}
+.ok{color:#8f8;background:#252}
+.err{color:#f88;background:#522}
+.info{color:#aaa;font-size:14px}
+</style></head><body>
+<h2>DeadReckoner GPS</h2>
+<p class="info">Open your map app, long-press start location, copy lat/lon, and paste below.</p>
+<p id="status" class="info">Enter GPS data and tap SET</p>
+<form id="gpsForm" onsubmit="return sendGPS()">
+<label>Latitude:</label><input type="text" id="lat" placeholder="e.g. 35.689506" required>
+<label>Longitude:</label><input type="text" id="lon" placeholder="e.g. 51.389046" required>
+<label>Altitude (m, optional):</label><input type="text" id="alt" placeholder="e.g. 1800">
+<label>Date/Time (auto-filled, editable):</label><input type="text" id="time" placeholder="YYYY-MM-DD HH:MM:SS">
+<button type="submit">SET LOCATION</button>
+</form>
+<p class="info">After SET, you can close this page and disconnect WiFi.</p>
+<script>
+function pad(n){return n.toString().padStart(2,'0')}
+var d=new Date();
+document.getElementById('time').value = d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate())+' '+pad(d.getHours())+':'+pad(d.getMinutes())+':'+pad(d.getSeconds());
+function sendGPS(){var lat=parseFloat(document.getElementById('lat').value);var lon=parseFloat(document.getElementById('lon').value);var alt=parseFloat(document.getElementById('alt').value)||0;var parts=(document.getElementById('time').value).split(/[- :]/);var t=new Date(parts[0],parts[1]-1,parts[2],parts[3]||0,parts[4]||0,parts[5]||0);var time=Math.floor(t.getTime()/1000);var xhr=new XMLHttpRequest();xhr.open('POST','/gps',true);xhr.setRequestHeader('Content-Type','application/json');xhr.onload=function(){if(xhr.status==200){document.getElementById('status').innerHTML='GPS SET! You can close this page and disconnect WiFi.';document.getElementById('status').className='ok'}else{document.getElementById('status').innerHTML='Error: '+xhr.responseText;document.getElementById('status').className='err'}};xhr.onerror=function(){document.getElementById('status').innerHTML='Connection error';document.getElementById('status').className='err'};xhr.send(JSON.stringify({lat:lat,lon:lon,alt:alt,time:time}));return false}
+</script></body></html>
+)rawliteral";
+
+void startGPSAP() {
+    // Start WiFi in soft-AP mode with password
+    WiFi.mode(WIFI_AP);
+    WiFi.softAPConfig(gps_ap_ip, gps_ap_ip, IPAddress(255, 255, 255, 0));
+    WiFi.softAP(GPS_AP_SSID, GPS_AP_PASS, GPS_AP_CHANNEL, GPS_AP_HIDDEN, GPS_AP_MAX_CONN);
+    
+    // Start DNS server for captive portal (redirects all domains to ESP)
+    gps_dns.start(53, "*", gps_ap_ip);
+    
+    // Configure HTTP server routes
+    gps_server.on("/", handleGPSRoot);
+    gps_server.on("/gps", HTTP_POST, handleGPSPost);
+    gps_server.onNotFound(handleGPSNotFound);
+    gps_server.begin();
+    
+    Serial.println("GPS AP started: " GPS_AP_SSID);
+}
+
+void stopGPSAP() {
+    gps_dns.stop();
+    gps_server.stop();
+    WiFi.softAPdisconnect(true);
+    WiFi.mode(WIFI_OFF);
+    Serial.println("GPS AP stopped");
+}
+
+void handleGPSRoot() {
+    gps_server.send_P(200, "text/html", gps_html);
+}
+
+void handleGPSPost() {
+    if (!gps_server.hasArg("plain")) {
+        gps_server.send(400, "text/plain", "No data received");
+        return;
+    }
+    // Parse JSON from phone
+    String body = gps_server.arg("plain");
+    Serial.print("GPS POST received: ");
+    Serial.println(body);
+    
+    // Extract lat, lon, alt, time using simple string search
+    double lat = 0, lon = 0;
+    float alt = 0;
+    uint32_t time = 0;
+    
+    int idx;
+    idx = body.indexOf("\"lat\":");
+    if (idx >= 0) lat = String(body.substring(idx + 6)).toFloat();
+    idx = body.indexOf("\"lon\":");
+    if (idx >= 0) lon = String(body.substring(idx + 6)).toFloat();
+    idx = body.indexOf("\"alt\":");
+    if (idx >= 0) alt = String(body.substring(idx + 6)).toFloat();
+    idx = body.indexOf("\"time\":");
+    if (idx >= 0) time = String(body.substring(idx + 7)).toInt();
+    
+    // Store the GPS data based on prompt mode
+    if (gps_start_needed) {
+        phone_gps.has_start = true;
+        phone_gps.start_lat = lat;
+        phone_gps.start_lon = lon;
+        phone_gps.start_alt = alt;
+        phone_gps.start_time = time;
+        // 0xBB frame is written later by the GPS_WAITING exit handler,
+        // which creates the file first if needed (boot / new file / format).
+        Serial.println("Start GPS saved");
+    } else if (gps_end_needed) {
+        phone_gps.has_end = true;
+        phone_gps.end_lat = lat;
+        phone_gps.end_lon = lon;
+        phone_gps.end_alt = alt;
+        phone_gps.end_time = time;
+        // Write 0xCC frame immediately (file is still open during shutdown)
+        if (logFile) {
+            writeGPSFrame(0xCC, lat, lon, alt, time);
+            logFile.sync();
+        }
+        Serial.println("End GPS saved");
+    }
+    
+    gps_data_received = true;
+    gps_server.send(200, "text/plain", "OK");
+}
+
+void handleGPSNotFound() {
+    // Captive portal: redirect any domain to the GPS page
+    gps_server.sendHeader("Location", "http://192.168.4.1/");
+    gps_server.send(302, "text/plain", "");
+}
+
+void writeGPSFrame(uint8_t event_flag, double lat, double lon, float alt, uint32_t time) {
+    // Write a GPS metadata frame using the existing LogFrame GPS union slot
+    LogFrame gpsFrame = {};
+    portENTER_CRITICAL(&frameCounterMux);
+    gpsFrame.frame_seq = global_frame_counter++;
+    portEXIT_CRITICAL(&frameCounterMux);
+    gpsFrame.timestamp = esp_timer_get_time() - log_time_base;
+    gpsFrame.event_flag = event_flag; // 0xBB=start, 0xCC=end
+    gpsFrame.payload.gps.lat = lat;
+    gpsFrame.payload.gps.lng = lon;
+    gpsFrame.payload.gps.alt = alt;
+    gpsFrame.payload.gps.epoch = time;
+    gpsFrame.crc = calcCRC16((uint8_t*)&gpsFrame, sizeof(LogFrame) - sizeof(gpsFrame.crc));
+    logFile.write((uint8_t*)&gpsFrame, sizeof(LogFrame));
 }
 
 // =========================================================================
@@ -438,6 +635,15 @@ void loggingTask(void *pvParameters) {
   bool is_led_on = false;
   bool error_handled = false; 
   unsigned long last_sd_recovery_attempt = 0;
+  bool gps_boot_prompt_done = false; // One-shot boot GPS prompt flag
+
+  // One-shot boot GPS start prompt before logging begins
+  if (!gps_boot_prompt_done) {
+      gps_boot_prompt_done = true;
+      gps_start_needed = true;
+      currentState = STATE_GPS_PROMPT_START;
+      force_update_ui = true;
+  }
 
   for(;;) {
     unsigned long currentMillis = millis();
@@ -649,6 +855,92 @@ void loggingTask(void *pvParameters) {
                         vTaskDelay(pdMS_TO_TICKS(5)); 
                     }
                 }
+                
+                // === GPS END PROMPT ===
+                gps_end_needed = true;
+                int8_t gps_end_cursor = 1; // Default NO
+                bool gps_end_done = false;
+                
+                while (!gps_end_done) {
+                    u8g2.clearBuffer();
+                    u8g2.setFont(font_8_pixel);
+                    u8g2.drawStr(0, 8, "Get GPS End?");
+                    u8g2.drawStr(20, 22, "YES");
+                    u8g2.drawStr(20, 32, "NO");
+                    u8g2.drawStr(8, (gps_end_cursor == 0) ? 22 : 32, ">");
+                    u8g2.sendBuffer();
+                    
+                    delay(100); // Debounce + yield for WiFi background
+                    
+                    // UP/DOWN toggles cursor
+                    if (digitalRead(BTN_UP_PIN) == LOW) {
+                        gps_end_cursor = 0;
+                        while (digitalRead(BTN_UP_PIN) == LOW) delay(10);
+                    } else if (digitalRead(BTN_DOWN_PIN) == LOW) {
+                        gps_end_cursor = 1;
+                        while (digitalRead(BTN_DOWN_PIN) == LOW) delay(10);
+                    }
+                    
+                    // SELECT confirms
+                    if (digitalRead(BTN_SELECT_PIN) == LOW) {
+                        delay(50);
+                        if (digitalRead(BTN_SELECT_PIN) == LOW) {
+                            gps_end_done = true;
+                        }
+                    }
+                }
+                
+                if (gps_end_cursor == 0) {
+                    // YES: Start WiFi AP to get end GPS
+                    gps_data_received = false;
+                    startGPSAP();
+                    
+                    u8g2.clearBuffer();
+                    u8g2.drawStr(0, 8, "Connect Phone to");
+                    u8g2.drawStr(0, 20, GPS_AP_SSID);
+                    u8g2.drawStr(0, 31, "Open 192.168.4.1");
+                    u8g2.sendBuffer();
+                    Serial.println("GPS end: AP started, waiting for phone...");
+                    
+                    bool wifi_done = false;
+                    bool wifi_timeout = false;
+                    unsigned long wifi_wait_start = millis();
+                    
+                    while (!wifi_done && !wifi_timeout) {
+                        gps_server.handleClient();
+                        gps_dns.processNextRequest();
+                        
+                        if (gps_data_received) {
+                            wifi_done = true;
+                            u8g2.clearBuffer();
+                            u8g2.drawStr(5, 12, "GPS End Saved!");
+                            u8g2.drawStr(5, 26, "Shutting Down...");
+                            u8g2.sendBuffer();
+                            delay(1500);
+                        }
+                        
+                        // Long timeout: 5 minutes (user-controlled via SELECT to exit)
+                        for (int w = 0; w < 10; w++) {
+                            delay(10); // Poll WiFi in 10ms chunks
+                            gps_server.handleClient();
+                            gps_dns.processNextRequest();
+                            if (gps_data_received) break;
+                        }
+                        
+                        // Check SELECT for manual exit
+                        if (!wifi_done && digitalRead(BTN_SELECT_PIN) == LOW) {
+                            delay(50);
+                            if (digitalRead(BTN_SELECT_PIN) == LOW) {
+                                wifi_done = true;
+                                while (digitalRead(BTN_SELECT_PIN) == LOW) delay(10);
+                            }
+                        }
+                    }
+                    
+                    stopGPSAP();
+                }
+                
+                gps_end_needed = false;
                 
                 // Close file handler safely to lock file allocation tables
                 if (logFile) {
@@ -971,8 +1263,6 @@ void loggingTask(void *pvParameters) {
               logFile.close();
           }
           
-          char filename[20];
-          
           // 2. Safely increment the file ceiling tracker to guarantee a new name
           if (max_log_id < 999) {
               max_log_id++; 
@@ -980,8 +1270,6 @@ void loggingTask(void *pvParameters) {
           } else {
               global_log_id = 999;
           }
-          
-          snprintf(filename, sizeof(filename), "DR_LOG_%03d.BIN", global_log_id);
           
           // 3. Reset recovery and sequence trackers safely
           global_recovery_id = 1;
@@ -994,34 +1282,11 @@ void loggingTask(void *pvParameters) {
           // Purge queued frames to prevent old data from leaking into the new file
           xQueueReset(dataQueue);
 
-          strcpy(current_log_filename, filename); 
-          logFile = sd.open(current_log_filename, FILE_WRITE);
-          
-          // Null-check file pointer to prevent silent logging failures
-          if (!logFile) {
-              sd_critical_error = true;
-          } else {
-              writeLogFileHeader(logFile);
-          }
-
-          // Render instant feedback to the user on screen
-          u8g2.clearBuffer();
-          char flashBuf[25];
-          snprintf(flashBuf, sizeof(flashBuf), "Created: LOG_%03d", global_log_id);
-          u8g2.drawStr((u8g2.getDisplayWidth() - u8g2.getStrWidth(flashBuf)) / 2, 20, flashBuf);
-          u8g2.sendBuffer();
-          
-          if (!is_muted) {
-            digitalWrite(BUZZER_PIN, HIGH);
-            vTaskDelay(pdMS_TO_TICKS(100));
-            digitalWrite(BUZZER_PIN, LOW);
-          } else { 
-            vTaskDelay(pdMS_TO_TICKS(1000));
-          }
-          
-          currentState = STATE_LIVE_VIEW;
+          // Defer file creation: prompt user for GPS start before opening new file
+          gps_pending_file_creation = true;
+          gps_start_needed = true;
+          currentState = STATE_GPS_PROMPT_START;
           force_update_ui = true;
-          last_interaction_millis = currentMillis;
         }
       }
     }
@@ -1085,21 +1350,175 @@ void loggingTask(void *pvParameters) {
           
           // Purge the queue after memory wipe to prevent leaking stale data
           xQueueReset(dataQueue);
-          logFile = sd.open(current_log_filename, FILE_WRITE);
-          // Defensive null-check to capture file allocation failures instantly after memory wipe
-          if (!logFile) {
-              sd_critical_error = true;
-          } else {
-              writeLogFileHeader(logFile);
-          }
+          
+          // Resume Core 0 task safely after system configuration is restored
+          vTaskResume(sensorTaskHandle);
+          
           u8g2.clearBuffer();
           u8g2.drawStr((u8g2.getDisplayWidth() - u8g2.getStrWidth("All Logs Cleared!")) / 2, 20, "All Logs Cleared!");
           u8g2.sendBuffer();
+          vTaskDelay(pdMS_TO_TICKS(800));
           
-          vTaskDelay(pdMS_TO_TICKS(1200));
-          // Resume Core 0 task safely after system configuration is restored
-          vTaskResume(sensorTaskHandle);
-          currentState = STATE_LIVE_VIEW; 
+          // Defer file creation: prompt user for GPS start before opening new file
+          gps_pending_file_creation = true;
+          gps_start_needed = true;
+          currentState = STATE_GPS_PROMPT_START;
+          force_update_ui = true;
+        }
+      }
+    }
+
+    // === GPS START/END PROMPT STATES ===
+    else if (currentState == STATE_GPS_PROMPT_START || currentState == STATE_GPS_PROMPT_END) {
+      if (upTriggered || downTriggered) {
+        gps_prompt_cursor = (gps_prompt_cursor == 0) ? 1 : 0;
+        force_update_ui = true;
+      }
+      if (selectTriggered) {
+        if (gps_prompt_cursor == 1) {
+          // NO: Skip GPS pairing, clear the needed flag
+          if (currentState == STATE_GPS_PROMPT_START) {
+              gps_start_needed = false;
+              phone_gps.has_start = false; // Discard any stale GPS data
+          } else {
+              gps_end_needed = false;
+          }
+          // If file creation was pending (Create New File / Format), create file now
+          if (gps_pending_file_creation) {
+              char filename[20];
+              snprintf(filename, sizeof(filename), "DR_LOG_%03d.BIN", global_log_id);
+              strcpy(current_log_filename, filename);
+              logFile = sd.open(current_log_filename, FILE_WRITE);
+              if (!logFile) {
+                  sd_critical_error = true;
+              } else {
+                  writeLogFileHeader(logFile);
+              }
+              gps_pending_file_creation = false;
+              u8g2.clearBuffer();
+              char flashBuf[25];
+              snprintf(flashBuf, sizeof(flashBuf), "Created: LOG_%03d", global_log_id);
+              u8g2.drawStr((u8g2.getDisplayWidth() - u8g2.getStrWidth(flashBuf)) / 2, 20, flashBuf);
+              u8g2.sendBuffer();
+              if (!is_muted) {
+                  digitalWrite(BUZZER_PIN, HIGH);
+                  vTaskDelay(pdMS_TO_TICKS(100));
+                  digitalWrite(BUZZER_PIN, LOW);
+              } else {
+                  vTaskDelay(pdMS_TO_TICKS(600));
+              }
+          }
+          currentState = STATE_LIVE_VIEW;
+          force_update_ui = true;
+        } else {
+          // YES: Start WiFi AP and wait for phone GPS data
+          gps_data_received = false;
+          currentState = STATE_GPS_WAITING;
+          force_update_ui = true;
+          // Display "Starting AP..." before blocking WiFi init
+          u8g2.clearBuffer();
+          u8g2.drawStr(5, 12, "Starting AP...");
+          u8g2.drawStr(5, 26, "Wait for WiFi");
+          u8g2.sendBuffer();
+          startGPSAP();
+        }
+      }
+    }
+    else if (currentState == STATE_GPS_WAITING) {
+      // Poll the HTTP server for incoming GPS data
+      gps_server.handleClient();
+      gps_dns.processNextRequest();
+      
+      // Check if phone sent GPS data
+      if (gps_data_received) {
+          stopGPSAP();
+          gps_data_received = false;
+          if (gps_start_needed) {
+              gps_start_needed = false;
+          }
+          if (gps_end_needed) {
+              gps_end_needed = false;
+          }
+          // If file creation was pending, create file before writing GPS frame
+          if (gps_pending_file_creation) {
+              char filename[20];
+              snprintf(filename, sizeof(filename), "DR_LOG_%03d.BIN", global_log_id);
+              strcpy(current_log_filename, filename);
+              logFile = sd.open(current_log_filename, FILE_WRITE);
+              if (!logFile) {
+                  sd_critical_error = true;
+              } else {
+                  writeLogFileHeader(logFile);
+              }
+              gps_pending_file_creation = false;
+          }
+          // Write 0xBB GPS start frame (file existed or was just created above)
+          if (phone_gps.has_start && logFile) {
+              writeGPSFrame(0xBB, phone_gps.start_lat, phone_gps.start_lon, phone_gps.start_alt, phone_gps.start_time);
+              logFile.sync();
+              phone_gps.has_start = false;
+          }
+          currentState = STATE_LIVE_VIEW;
+          force_update_ui = true;
+          last_interaction_millis = currentMillis;
+          // Show confirmation briefly
+          u8g2.clearBuffer();
+          u8g2.drawStr(5, 12, "GPS Received!");
+          u8g2.drawStr(5, 26, "Disconnect Phone");
+          u8g2.sendBuffer();
+          vTaskDelay(pdMS_TO_TICKS(2000));
+      }
+      
+      // Allow user to exit via SELECT + confirmation
+      if (selectTriggered) {
+          currentState = STATE_GPS_CONFIRM_EXIT;
+          gps_prompt_cursor = 1; // Default NO
+          force_update_ui = true;
+      }
+    }
+    else if (currentState == STATE_GPS_CONFIRM_EXIT) {
+      if (upTriggered || downTriggered) {
+        gps_prompt_cursor = (gps_prompt_cursor == 0) ? 1 : 0;
+        force_update_ui = true;
+      }
+      if (selectTriggered) {
+        if (gps_prompt_cursor == 1) {
+          // NO: Return to waiting
+          currentState = STATE_GPS_WAITING;
+          force_update_ui = true;
+        } else {
+          // YES: Exit GPS pairing
+          stopGPSAP();
+          gps_data_received = false;
+          if (gps_start_needed) gps_start_needed = false;
+          if (gps_end_needed) gps_end_needed = false;
+          phone_gps.has_start = false; // Discard any received GPS data
+          // If file creation was pending, create file now (no GPS data)
+          if (gps_pending_file_creation) {
+              char filename[20];
+              snprintf(filename, sizeof(filename), "DR_LOG_%03d.BIN", global_log_id);
+              strcpy(current_log_filename, filename);
+              logFile = sd.open(current_log_filename, FILE_WRITE);
+              if (!logFile) {
+                  sd_critical_error = true;
+              } else {
+                  writeLogFileHeader(logFile);
+              }
+              gps_pending_file_creation = false;
+              u8g2.clearBuffer();
+              char flashBuf[25];
+              snprintf(flashBuf, sizeof(flashBuf), "Created: LOG_%03d", global_log_id);
+              u8g2.drawStr((u8g2.getDisplayWidth() - u8g2.getStrWidth(flashBuf)) / 2, 20, flashBuf);
+              u8g2.sendBuffer();
+              if (!is_muted) {
+                  digitalWrite(BUZZER_PIN, HIGH);
+                  vTaskDelay(pdMS_TO_TICKS(100));
+                  digitalWrite(BUZZER_PIN, LOW);
+              } else {
+                  vTaskDelay(pdMS_TO_TICKS(600));
+              }
+          }
+          currentState = STATE_LIVE_VIEW;
           force_update_ui = true;
           last_interaction_millis = currentMillis;
         }
@@ -1204,12 +1623,39 @@ void loggingTask(void *pvParameters) {
               u8g2.drawStr(15, 30, "Sounds: MUTED");
               u8g2.drawStr(3, (muteCursor == 0) ? 20 : 30, ">");
             }
+            else if (currentState == STATE_GPS_PROMPT_START) {
+              u8g2.drawStr(0, 8, "Get GPS Start?");
+              u8g2.drawStr(20, 22, "YES");
+              u8g2.drawStr(20, 32, "NO");
+              u8g2.drawStr(8, (gps_prompt_cursor == 0) ? 22 : 32, ">");
+            }
+            else if (currentState == STATE_GPS_PROMPT_END) {
+              u8g2.drawStr(0, 8, "Get GPS End?");
+              u8g2.drawStr(20, 22, "YES");
+              u8g2.drawStr(20, 32, "NO");
+              u8g2.drawStr(8, (gps_prompt_cursor == 0) ? 22 : 32, ">");
+            }
+            else if (currentState == STATE_GPS_WAITING) {
+              u8g2.drawStr(0, 8, "Waiting for Phone");
+              u8g2.drawStr(0, 18, GPS_AP_SSID);
+              u8g2.drawStr(0, 30, "192.168.4.1");
+            }
+            else if (currentState == STATE_GPS_CONFIRM_EXIT) {
+              u8g2.drawStr(0, 8, "Exit GPS Pairing?");
+              u8g2.drawStr(20, 22, "YES");
+              u8g2.drawStr(20, 32, "NO");
+              u8g2.drawStr(8, (gps_prompt_cursor == 0) ? 22 : 32, ">");
+            }
             
             u8g2.sendBuffer();
             lastDisplayMillis = currentMillis;
           }
       }
-      if (auto_off_enabled && !is_oled_sleeping && (currentMillis - last_interaction_millis > OLED_SLEEP_TIMEOUT_MS)) {
+      // Keep OLED awake during GPS pairing — don't sleep and don't change state
+      if (auto_off_enabled && !is_oled_sleeping && currentState != STATE_GPS_WAITING
+          && currentState != STATE_GPS_PROMPT_START && currentState != STATE_GPS_PROMPT_END
+          && currentState != STATE_GPS_CONFIRM_EXIT
+          && (currentMillis - last_interaction_millis > OLED_SLEEP_TIMEOUT_MS)) {
           is_oled_sleeping = true;
           u8g2.setPowerSave(1); 
           currentState = STATE_LIVE_VIEW; 
@@ -1525,6 +1971,13 @@ void loadCalibration() {
     mpu.setMagScale(1.0, 1.0, 1.0);
     return;
   }
+
+  Serial.println("Valid calibration found. Loading from EEPROM...");
+  u8g2.clearBuffer();
+  u8g2.drawStr(10, 12, "Valid Cal Found");
+  u8g2.drawStr(5, 28, "Loading EEPROM");
+  u8g2.sendBuffer();
+  vTaskDelay(pdMS_TO_TICKS(1500));
 
   int addr = sizeof(uint16_t);
   float accBiasX, accBiasY, accBiasZ;
