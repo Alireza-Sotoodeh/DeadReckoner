@@ -313,6 +313,16 @@ This phase will develop the Python-based Pedestrian Dead Reckoning pipeline to r
 
 ---
 
+#### Phase 11: GPS Module Validation (GY-GPS6Mv2 / NEO-6M) [COMPLETED]
+
+Hardware diagnostic and validation tool set for the GY-GPS6Mv2 (NEO-6M) GPS module on Arduino Uno. Three sketches developed and tested at `Test- Sanity Check/GY-GPS6Mv2/`.
+
+- [x] **GY-GPS6Mv2.ino — Live Diagnostic Monitor:** Real-time display of fix quality (2D/3D), satellite count, HDOP, position, altitude, speed, UTC time. Includes: time-to-first-fix measurement, 10-second heartbeat when no fix, 5-minute summary statistics (min/avg/max HDOP and satellites, fix uptime %). Non-blocking error detection — prints wiring error once then continues reading. All `F()` macros for Uno SRAM.
+- [x] **GPS_ColdStart.ino — Start Timing & Fix Reliability:** Three-phase test: (1) Cold start TTFF measurement from power-on to first 3D fix. (2) 2-minute stabilisation log at 1 Hz with lat/lon/alt/HDOP/sats. (3) Re-acquisition test (user power-cycles GPS) with separate TTFF. Prints final summary with position scatter (lat/lon σ in metres), HDOP/satellite stats, uptime %.
+- [x] **GPS_StaticPrecision.ino — 1-Hour Static Precision:** Logs at 1 Hz for 3600 s. Reports lat/lon position scatter in metres (σ), altitude min/max/mean/σ, HDOP and satellite statistics, fix uptime %, and CEP (Circular Error Probable). Uses offset-from-reference technique for float precision. CSV output for external post-processing.
+
+---
+
 #### Phase 12: GPX Fusion Tool (Python/PyQt6) [COMPLETED]
 
 A PyQt6 desktop application at `Code_deadreckoner/Python/GPXFusion/fusion_ui.py` that fuses GPS logs from Garmin eTrex 30x and Geo Tracker Android app into a single accurate path using a Kalman filter with RTS smoothing.

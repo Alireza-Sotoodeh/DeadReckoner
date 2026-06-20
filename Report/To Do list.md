@@ -8,7 +8,7 @@
 - [ ] Investigate `mpu_critical_error` loop behaviors when hardware connection cuts during I2C calibration
 - [ ] Evaluate the necessity of an active internal hardware/software Watchdog for core loop safety
 - [ ] Integrate **GPS Payload Decoding** (Limit writing rate to 1Hz inside `LogFrame` Union to preserve bandwidth)
-- [ ] Evaluate adding a **BMP280 Barometer** to offset accumulated drift in Z-Axis calculations
+- [x] Evaluate adding a **BMP280 Barometer** to offset accumulated drift in Z-Axis calculations (Sensor validated — diagnostic + drift tests passed)
 
 ---
 
@@ -29,7 +29,7 @@
 - [ ] **Phase 5: Heading** — Yaw angle from firmware quaternions (magnetometer-corrected)
 - [ ] **Phase 6: ZUPT + RTS smoother** — Bidirectional batch optimization over entire walk for sub-3% drift
 - [ ] **Phase 7: Path visualization** — 2D trajectory plot with matplotlib
-- [ ] (Future) BMP280 barometric altitude for 3D tracking
+- [x] (Future) BMP280 barometric altitude for 3D tracking (Sensor validated — ready for integration)
 - [ ] (Future) GPS correction for absolute position anchoring
 
 ---

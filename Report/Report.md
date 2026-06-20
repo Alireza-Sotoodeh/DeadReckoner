@@ -44,7 +44,7 @@ The final architecture prioritizes real-time sensing, reliable logging, and offl
 | MPU6500        | 6-axis IMU        | Early prototype sensor used during the research phase. Lacks magnetometer, prone to yaw drift over time.                         |
 | GY-25          | Tilt sensor       | Used for comparison and sensor-validation experiments. Typically incorporates an MPU6050 with onboard MCU for angle calculation. |
 | HW-123         | Generic module    | Included in early hardware exploration and verification.                                                                         |
-| BMP280         | Barometric sensor | Reserved for altitude-related extensions. Highly accurate for barometric altitude tracking to offset Z-axis drift.               |
+| BMP280         | Barometric sensor | Validated — diagnostic + 5-min drift test passed. σT = 0.07 °C, σP = 0.08 hPa, zero drift. Ready for ESP32-S3 integration.          |
 | S6MV2 (GPS)    | GNSS module       | Planned for global positioning and time anchoring. Essential for outdoor signal-free tracking and trajectory anchoring.          |
 | OLED 0.91-inch | Status display    | Used for runtime feedback, menus, and error reporting. I2C monochrome 128x32 display, intentionally isolated on a secondary bus. |
 
@@ -746,7 +746,12 @@ It shows how the architecture evolved from the earliest prototype to the current
 | 2026-06-20 | GPX Fusion — QWebEngineView fix    | Fixed `loadFinished` not firing on parented views for folium HTML with CDN scripts. Unparent + reparent pattern with viewport CSS sizing.              |
 | 2026-06-20 | GPX Fusion — button/UI fixes       | Added `QPushButton:pressed` state, `QComboBox` and `QStackedWidget` styling, fixed proxy status message bug, added matplotlib zoom buttons.            |
 | 2026-06-20 | GPX Fusion — stats panel fixed height | `setFixedHeight(64)` on `FusedStatsPanel` to prevent layout shift after fusion. Fixed `Compositor returned null texture` by preserving web view size before unparenting. |
-
+| 2026-06-20 | BMP280 Diagnostic —   8/8 tests passed    | I2C init, chip ID (0x58), temp/pressure sanity, I2C scan, config dump, mode sweep, noise floor (σT=0.049, σP=1.15 hPa). Compiled on Uno at 53% flash, 26% SRAM. |
+| 2026-06-20 | BMP280 DriftTest — 300 s drift test       | 5-minute log at 1 Hz: temp σ=0.07 °C, pressure σ=0.08 hPa, altitude σ=0.00 m. Zero drift. Altitude check PASSED (delta 62 m). Float precision fix via offset accumulation. |
+| 2026-06-20 | GY-GPS6Mv2 — Diagnostic monitor           | Live fix quality, HDOP, satellites, cold start TTFF, 10s heartbeat, 5-min summary. Non-blocking, all strings in F(). |
+| 2026-06-20 | GY-GPS6Mv2 — Cold start & re-acquisition  | 3-phase test: cold start TTFF → 120 s stabilisation → re-acquisition TTFF. Position scatter (lat/lon σ in m), HDOP/sat stats. |
+| 2026-06-20 | GY-GPS6Mv2 — 1-Hour static precision      | 3600 s stationary log at 1 Hz. CEP, lat/lon σ (m), altitude σ, HDOP/sat distribution, fix uptime %, CSV output. |
+ 
 ---
 
 ## 14. Current Status
@@ -769,6 +774,8 @@ The immediate next step is developing the offline PDR pipeline in Python. GPS in
 | Offline analysis tools        | Complete |
 | Offline PDR pipeline (Python) | Planned  |
 | GPS integration               | Future   |
+| BMP280 sensor validation      | Complete |
+| GY-GPS6Mv2 GPS validation     | Complete |
 | **GPX Fusion Tool**           | Complete |
 
 ---
