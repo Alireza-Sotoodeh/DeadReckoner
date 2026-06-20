@@ -303,7 +303,7 @@ bool attemptSDRecovery() {
 // Strictly for high-speed sensor reading and mathematical fusion
 // =========================================================================
 void sensorTask(void *pvParameters) {
-  LogFrame frame;
+  LogFrame frame = {};
   unsigned long last_mpu_data_time = millis();  // Track last successful read
   unsigned long last_recovery_attempt = 0;      // Tracks MPU9250 recovery intervals
   TickType_t xLastWakeTime = xTaskGetTickCount();
@@ -607,7 +607,7 @@ void loggingTask(void *pvParameters) {
                 u8g2.sendBuffer();
                 
                 // FLUSH LAYER: Drain remaining frames from PSRAM Queue directly to SD Card
-                LogFrame flushFrame;
+                LogFrame flushFrame = {};
                 uint32_t remainingFrames = uxQueueMessagesWaiting(dataQueue);
                 Serial.print("Shutdown active. Flushing frames to SD: "); Serial.println(remainingFrames);
                 
