@@ -1,0 +1,437 @@
+==============================================
+ NEO-6M GPS Diagnostic Tool (Arduino Uno)
+==============================================
+
+Initialising SoftwareSerial on RX=2, TX=3
+OK. Waiting for satellite lock...
+NOTE: Antenna needs clear sky view.
+Cold start may take 5-15 minutes.
+
+SATS  QLT  HDOP  LAT          LNG              ALT       SPEED    TIME
+----  ---  ----  -----------  --------------  --------  -------  --------
+... Searching ...  SATS: 0  CHARS: 2025  AGE: N/A
+... Searching ...  SATS: 0  CHARS: 4275  AGE: N/A
+... Searching ...  SATS: 0  CHARS: 6525  AGE: N/A
+... Searching ...  SATS: 0  CHARS: 8775  AGE: N/A
+... Searching ...  SATS: 0  CHARS: 11025  AGE: N/A
+... Searching ...  SATS: 0  CHARS: 13275  AGE: N/A
+... Searching ...  SATS: 0  CHARS: 15525  AGE: N/A
+... Searching ...  SATS: 0  CHARS: 17775  AGE: N/A
+... Searching ...  SATS: 0  CHARS: 20025  AGE: N/A
+... Searching ...  SATS: 0  CHARS: 22275  AGE: N/A
+... Searching ...  SATS: 0  CHARS: 24525  AGE: N/A
+... Searching ...  SATS: 0  CHARS: 26817  AGE: N/A
+... Searching ...  SATS: 0  CHARS: 29211  AGE: N/A
+... Searching ...  SATS: 0  CHARS: 31922  AGE: N/A
+... Searching ...  SATS: 0  CHARS: 34665  AGE: N/A
+... Searching ...  SATS: 0  CHARS: 37407  AGE: N/A
+... Searching ...  SATS: 0  CHARS: 40147  AGE: N/A
+... Searching ...  SATS: 0  CHARS: 42900  AGE: N/A
+... Searching ...  SATS: 0  CHARS: 45645  AGE: N/A
+... Searching ...  SATS: 0  CHARS: 48376  AGE: N/A
+... Searching ...  SATS: 0  CHARS: 51136  AGE: N/A
+... Searching ...  SATS: 0  CHARS: 53958  AGE: N/A
+... Searching ...  SATS: 0  CHARS: 56783  AGE: N/A
+... Searching ...  SATS: 0  CHARS: 59765  AGE: N/A
+... Searching ...  SATS: 0  CHARS: 62421  AGE: N/A
+... Searching ...  SATS: 0  CHARS: 65322  AGE: N/A
+... Searching ...  SATS: 0  CHARS: 66494  AGE: N/A
+... Searching ...  SATS: 0  CHARS: 68249  AGE: N/A
+... Searching ...  SATS: 0  CHARS: 69601  AGE: N/A
+
+--- 5 min Summary ---
+Elapsed: 299s
+Fixes: 0  Uptime: 100%
+SATS  min=99  avg=0.0  max=0
+HDOP  min=999  avg=0.0  max=0
+---------------------
+
+... Searching ...  SATS: 0  CHARS: 71884  AGE: N/A
+... Searching ...  SATS: 0  CHARS: 73507  AGE: N/A
+... Searching ...  SATS: 0  CHARS: 74972  AGE: N/A
+... Searching ...  SATS: 0  CHARS: 76311  AGE: N/A
+... Searching ...  SATS: 0  CHARS: 77475  AGE: N/A
+... Searching ...  SATS: 0  CHARS: 78762  AGE: N/A
+... Searching ...  SATS: 0  CHARS: 80196  AGE: N/A
+... Searching ...  SATS: 0  CHARS: 83194  AGE: N/A
+... Searching ...  SATS: 0  CHARS: 86657  AGE: N/A
+... Searching ...  SATS: 0  CHARS: 90426  AGE: N/A
+... Searching ...  SATS: 0  CHARS: 94002  AGE: N/A
+... Searching ...  SATS: 0  CHARS: 96241  AGE: N/A
+... Searching ...  SATS: 0  CHARS: 98505  AGE: N/A
+... Searching ...  SATS: 0  CHARS: 100971  AGE: N/A
+... Searching ...  SATS: 0  CHARS: 105675  AGE: N/A
+... Searching ...  SATS: 0  CHARS: 107949  AGE: N/A
+... Searching ...  SATS: 0  CHARS: 111933  AGE: N/A
+... Searching ...  SATS: 0  CHARS: 114183  AGE: N/A
+... Searching ...  SATS: 0  CHARS: 116442  AGE: N/A
+... Searching ...  SATS: 0  CHARS: 120864  AGE: N/A
+... Searching ...  SATS: 0  CHARS: 123114  AGE: N/A
+... Searching ...  SATS: 0  CHARS: 126011  AGE: N/A
+... Searching ...  SATS: 0  CHARS: 128260  AGE: N/A
+... Searching ...  SATS: 0  CHARS: 130507  AGE: N/A
+... Searching ...  SATS: 0  CHARS: 132781  AGE: N/A
+... Searching ...  SATS: 0  CHARS: 135090  AGE: N/A
+... Searching ...  SATS: 0  CHARS: 137415  AGE: N/A
+... Searching ...  SATS: 0  CHARS: 139857  AGE: N/A
+... Searching ...  SATS: 0  CHARS: 142515  AGE: N/A
+... Searching ...  SATS: 0  CHARS: 145221  AGE: N/A
+
+--- 5 min Summary ---
+Elapsed: 599s
+Fixes: 0  Uptime: 100%
+SATS  min=99  avg=0.0  max=0
+HDOP  min=999  avg=0.0  max=0
+---------------------
+
+... Searching ...  SATS: 0  CHARS: 147957  AGE: N/A
+... Searching ...  SATS: 0  CHARS: 150761  AGE: N/A
+... Searching ...  SATS: 0  CHARS: 153563  AGE: N/A
+... Searching ...  SATS: 0  CHARS: 156366  AGE: N/A
+... Searching ...  SATS: 0  CHARS: 159166  AGE: N/A
+... Searching ...  SATS: 0  CHARS: 161970  AGE: N/A
+... Searching ...  SATS: 0  CHARS: 164776  AGE: N/A
+... Searching ...  SATS: 0  CHARS: 167576  AGE: N/A
+... Searching ...  SATS: 0  CHARS: 170375  AGE: N/A
+... Searching ...  SATS: 0  CHARS: 173134  AGE: N/A
+... Searching ...  SATS: 0  CHARS: 175872  AGE: N/A
+... Searching ...  SATS: 0  CHARS: 178617  AGE: N/A
+... Searching ...  SATS: 0  CHARS: 182092  AGE: N/A
+... Searching ...  SATS: 4  CHARS: 186625  AGE: N/A
+... Searching ...  SATS: 4  CHARS: 191065  AGE: N/A
+... Searching ...  SATS: 5  CHARS: 195496  AGE: N/A
+... Searching ...  SATS: 5  CHARS: 199925  AGE: N/A
+... Searching ...  SATS: 5  CHARS: 204374  AGE: N/A
+
+TIME TO FIRST FIX: 778 sec
+  5  2D    431  29.455009  55.675041    N/A    0.4km/h  15:08:00
+  5  3D    432  29.455009  55.675041  1804.6m  0.4km/h  15:08:00
+  5  3D    432  29.455011  55.675037  1804.6m  0.9km/h  15:08:01
+  6  3D    415  29.455011  55.675037  1804.4m  0.9km/h  15:08:01
+  6  3D    415  29.455020  55.675041  1804.4m  0.7km/h  15:08:02
+  6  3D    416  29.455020  55.675041  1804.2m  0.7km/h  15:08:02
+  6  3D    416  29.455024  55.675033  1804.2m  0.8km/h  15:08:03
+  6  3D    416  29.455024  55.675033  1804.5m  0.8km/h  15:08:03
+  6  3D    416  29.455038  55.675037  1804.5m  0.1km/h  15:08:04
+  6  3D    416  29.455038  55.675037  1806.4m  0.1km/h  15:08:04
+  6  3D    416  29.455045  55.675037  1806.4m  0.4km/h  15:08:05
+  6  3D    416  29.455045  55.675037  1807.3m  0.4km/h  15:08:05
+  6  3D    416  29.455055  55.675037  1807.3m  0.2km/h  15:08:06
+  6  3D    417  29.455055  55.675037  1809.2m  0.2km/h  15:08:06
+... Searching ...  SATS: 7  CHARS: 214180  AGE: 5210ms
+... Searching ...  SATS: 6  CHARS: 219525  AGE: 15212ms
+... Searching ...  SATS: 7  CHARS: 224059  AGE: 25214ms
+... Searching ...  SATS: 7  CHARS: 228573  AGE: 35216ms
+... Searching ...  SATS: 7  CHARS: 233085  AGE: 45215ms
+  7  3D    276  29.455001  55.675083  1809.2m  0.4km/h  15:09:00
+  7  3D    276  29.455001  55.675083  1794.6m  0.4km/h  15:09:00
+  7  3D    276  29.454999  55.675079  1794.6m  0.6km/h  15:09:01
+  7  3D    276  29.454999  55.675079  1794.1m  0.6km/h  15:09:01
+  7  3D    276  29.454988  55.675067  1790.8m  0.6km/h  15:09:03
+  7  3D    276  29.454986  55.675060  1790.8m  0.4km/h  15:09:04
+  7  3D    276  29.454986  55.675060  1789.6m  0.4km/h  15:09:04
+  7  3D    276  29.454984  55.675064  1789.6m  1.0km/h  15:09:05
+  7  3D    276  29.454984  55.675064  1789.1m  1.0km/h  15:09:05
+  7  3D    276  29.454982  55.675079  1789.1m  0.8km/h  15:09:06
+  7  3D    276  29.454982  55.675079  1789.3m  0.8km/h  15:09:06
+  7  3D    276  29.454978  55.675064  1789.3m  0.6km/h  15:09:07
+  7  3D    276  29.454978  55.675064  1787.7m  0.6km/h  15:09:07
+  7  3D    276  29.454973  55.675060  1787.7m  0.6km/h  15:09:08
+  7  3D    276  29.454973  55.675060  1786.3m  0.6km/h  15:09:08
+  7  3D    276  29.454967  55.675060  1786.3m  0.6km/h  15:09:09
+  7  3D    276  29.454967  55.675060  1785.1m  0.6km/h  15:09:09
+  7  3D    276  29.454963  55.675060  1785.1m  0.3km/h  15:09:10
+  7  3D    276  29.454963  55.675060  1784.2m  0.3km/h  15:09:10
+  7  3D    276  29.454956  55.675048  1784.2m  0.1km/h  15:09:11
+  7  3D    276  29.454956  55.675048  1782.2m  0.1km/h  15:09:11
+... Searching ...  SATS: 7  CHARS: 248805  AGE: 10217ms
+... Searching ...  SATS: 7  CHARS: 253349  AGE: 20220ms
+... Searching ...  SATS: 4  CHARS: 259554  AGE: 30219ms
+... Searching ...  SATS: 7  CHARS: 265226  AGE: 40221ms
+
+--- 5 min Summary ---
+Elapsed: 899s
+Fixes: 35  Uptime: 95%
+SATS  min=5  avg=6.5  max=7
+HDOP  min=276  avg=333.3  max=432
+---------------------
+
+... Searching ...  SATS: 7  CHARS: 269711  AGE: 50221ms
+... Searching ...  SATS: 7  CHARS: 274192  AGE: 60222ms
+... Searching ...  SATS: 7  CHARS: 278667  AGE: 70224ms
+... Searching ...  SATS: 7  CHARS: 282901  AGE: 80224ms
+... Searching ...  SATS: 7  CHARS: 288006  AGE: 90225ms
+... Searching ...  SATS: 7  CHARS: 292384  AGE: 100227ms
+... Searching ...  SATS: 7  CHARS: 296752  AGE: 110228ms
+... Searching ...  SATS: 7  CHARS: 301125  AGE: 120230ms
+... Searching ...  SATS: 7  CHARS: 305494  AGE: 130230ms
+... Searching ...  SATS: 7  CHARS: 309871  AGE: 140232ms
+... Searching ...  SATS: 7  CHARS: 314262  AGE: 150230ms
+... Searching ...  SATS: 7  CHARS: 318748  AGE: 160233ms
+... Searching ...  SATS: 7  CHARS: 323276  AGE: 170235ms
+... Searching ...  SATS: 7  CHARS: 327803  AGE: 180235ms
+... Searching ...  SATS: 7  CHARS: 332312  AGE: 190236ms
+... Searching ...  SATS: 6  CHARS: 337426  AGE: 200237ms
+... Searching ...  SATS: 5  CHARS: 342540  AGE: 210228ms
+... Searching ...  SATS: 7  CHARS: 347073  AGE: 220238ms
+... Searching ...  SATS: 7  CHARS: 351649  AGE: 230241ms
+... Searching ...  SATS: 6  CHARS: 357271  AGE: 240241ms
+... Searching ...  SATS: 7  CHARS: 363918  AGE: 250243ms
+... Searching ...  SATS: 7  CHARS: 368521  AGE: 260244ms
+... Searching ...  SATS: 7  CHARS: 373141  AGE: 270247ms
+... Searching ...  SATS: 7  CHARS: 377747  AGE: 280246ms
+  7  3D    268  29.454687  55.674949  1782.2m  0.3km/h  15:13:58
+  7  3D    268  29.454687  55.674949  1725.4m  0.3km/h  15:13:58
+  7  3D    268  29.454677  55.674953  1725.4m  0.2km/h  15:13:59
+  7  3D    268  29.454677  55.674953  1724.1m  0.2km/h  15:13:59
+  7  3D    268  29.454666  55.674942  1724.1m  0.1km/h  15:14:01
+  7  3D    267  29.454666  55.674942  1722.5m  0.1km/h  15:14:01
+  7  3D    267  29.454669  55.674938  1722.5m  0.1km/h  15:14:03
+  7  3D    267  29.454669  55.674938  1723.4m  0.1km/h  15:14:03
+  7  3D    267  29.454669  55.674934  1723.2m  0.1km/h  15:14:04
+  7  3D    267  29.454669  55.674942  1723.2m  0.4km/h  15:14:05
+  7  3D    267  29.454669  55.674942  1723.7m  0.4km/h  15:14:05
+  7  3D    267  29.454668  55.674934  1723.7m  0.9km/h  15:14:06
+  7  3D    267  29.454668  55.674934  1723.0m  0.9km/h  15:14:06
+  7  3D    267  29.454658  55.674930  1721.4m  0.9km/h  15:14:07
+  7  3D    267  29.454658  55.674930  1721.9m  0.9km/h  15:14:08
+  7  3D    267  29.454658  55.674930  1722.0m  0.9km/h  15:14:09
+  7  3D    267  29.454656  55.674934  1722.0m  0.5km/h  15:14:10
+  7  3D    267  29.454656  55.674934  1722.5m  0.5km/h  15:14:10
+... Searching ...  SATS: 6  CHARS: 393469  AGE: 11303ms
+... Searching ...  SATS: 6  CHARS: 398637  AGE: 21304ms
+... Searching ...  SATS: 6  CHARS: 403626  AGE: 31306ms
+... Searching ...  SATS: 7  CHARS: 408342  AGE: 41314ms
+
+--- 5 min Summary ---
+Elapsed: 1199s
+Fixes: 53  Uptime: 72%
+SATS  min=5  avg=6.7  max=7
+HDOP  min=267  avg=310.9  max=432
+---------------------
+
+... Searching ...  SATS: 7  CHARS: 413092  AGE: 51309ms
+... Searching ...  SATS: 7  CHARS: 417828  AGE: 61308ms
+... Searching ...  SATS: 7  CHARS: 422567  AGE: 71309ms
+... Searching ...  SATS: 5  CHARS: 428104  AGE: 81310ms
+... Searching ...  SATS: 4  CHARS: 435540  AGE: 91321ms
+... Searching ...  SATS: 6  CHARS: 440378  AGE: 101313ms
+... Searching ...  SATS: 6  CHARS: 445047  AGE: 111314ms
+... Searching ...  SATS: 5  CHARS: 450508  AGE: 121315ms
+... Searching ...  SATS: 5  CHARS: 456437  AGE: 131316ms
+... Searching ...  SATS: 4  CHARS: 461677  AGE: 141317ms
+... Searching ...  SATS: 4  CHARS: 466839  AGE: 151318ms
+... Searching ...  SATS: 7  CHARS: 471650  AGE: 161319ms
+  7  3D    256  29.454931  55.675029  1722.5m  0.6km/h  15:17:01
+  8  3D    184  29.454931  55.675029  1782.9m  0.6km/h  15:17:01
+  8  3D    184  29.454900  55.675022  1782.9m  0.8km/h  15:17:02
+  8  3D    184  29.454900  55.675022  1776.0m  0.8km/h  15:17:02
+  8  3D    184  29.454895  55.675022  1776.0m  0.1km/h  15:17:03
+  8  3D    184  29.454895  55.675022  1773.7m  0.1km/h  15:17:03
+  8  3D    184  29.454887  55.675022  1773.7m  1.0km/h  15:17:04
+  8  3D    184  29.454887  55.675022  1773.1m  1.0km/h  15:17:04
+  8  3D    184  29.454877  55.675018  1773.1m  0.6km/h  15:17:05
+  8  3D    184  29.454877  55.675018  1772.1m  0.6km/h  15:17:05
+  8  3D    184  29.454874  55.675018  1772.1m  0.4km/h  15:17:06
+  8  3D    184  29.454874  55.675018  1770.7m  0.4km/h  15:17:06
+  8  3D    184  29.454866  55.675014  1770.7m  0.0km/h  15:17:07
+  8  3D    184  29.454866  55.675014  1769.1m  0.0km/h  15:17:07
+  8  3D    184  29.454853  55.675010  1769.1m  0.0km/h  15:17:09
+  8  3D    184  29.454853  55.675010  1767.1m  0.0km/h  15:17:09
+  8  3D    184  29.454847  55.675006  1767.1m  0.5km/h  15:17:10
+  8  3D    184  29.454847  55.675006  1766.4m  0.5km/h  15:17:10
+  8  3D    184  29.454849  55.675010  1766.4m  0.3km/h  15:17:11
+  7  3D    205  29.454849  55.675010  1766.3m  0.3km/h  15:17:11
+  7  3D    205  29.454851  55.675010  1766.3m  0.2km/h  15:17:12
+  7  3D    205  29.454851  55.675010  1766.5m  0.2km/h  15:17:12
+  7  3D    205  29.454856  55.675014  1766.5m  0.2km/h  15:17:13
+  7  3D    205  29.454856  55.675014  1767.0m  0.2km/h  15:17:13
+  7  3D    205  29.454854  55.675010  1767.0m  0.3km/h  15:17:14
+  8  3D    184  29.454854  55.675010  1767.4m  0.3km/h  15:17:14
+  8  3D    184  29.454862  55.675014  1767.4m  0.4km/h  15:17:15
+  8  3D    184  29.454862  55.675014  1768.7m  0.4km/h  15:17:15
+  8  3D    184  29.454862  55.675010  1768.7m  1.4km/h  15:17:16
+  8  3D    184  29.454862  55.675010  1769.7m  1.4km/h  15:17:16
+  8  3D    184  29.454856  55.675006  1769.7m  0.9km/h  15:17:17
+  8  3D    184  29.454856  55.675006  1769.4m  0.9km/h  15:17:17
+... Searching ...  SATS: 5  CHARS: 488516  AGE: 4355ms
+... Searching ...  SATS: 0  CHARS: 494865  AGE: 14366ms
+... Searching ...  SATS: 4  CHARS: 502034  AGE: 24357ms
+  5  3D    303  29.455001  55.674999  1769.4m  4.8km/h  15:17:51
+  5  3D    304  29.455001  55.674999  1745.8m  4.8km/h  15:17:51
+  5  3D    304  29.455018  55.674995  1745.8m  3.5km/h  15:17:52
+  5  3D    304  29.455018  55.674995  1746.1m  3.5km/h  15:17:52
+... Searching ...  SATS: 4  CHARS: 513263  AGE: 9373ms
+  5  3D    305  29.454856  55.674930  1746.1m  3.1km/h  15:18:04
+  5  3D    305  29.454856  55.674930  1747.5m  3.1km/h  15:18:04
+  5  3D    305  29.454887  55.674911  1747.5m  8.6km/h  15:18:05
+  4  3D    808  29.454887  55.674911  1749.7m  8.6km/h  15:18:05
+  4  3D    808  29.454721  55.674896  1749.7m  3.5km/h  15:18:06
+  5  3D    344  29.454721  55.674896  1746.4m  3.5km/h  15:18:06
+  5  3D    344  29.454694  55.674892  1746.4m  5.6km/h  15:18:07
+  5  3D    344  29.454694  55.674892  1744.8m  5.6km/h  15:18:07
+... Searching ...  SATS: 5  CHARS: 519673  AGE: 4362ms
+  6  3D    213  29.454627  55.674842  1744.8m  3.5km/h  15:18:17
+  5  3D    383  29.454627  55.674842  1697.9m  3.5km/h  15:18:17
+  5  3D    383  29.454605  55.674819  1697.9m  2.6km/h  15:18:18
+  5  3D    383  29.454605  55.674819  1695.1m  2.6km/h  15:18:18
+  5  3D    383  29.454641  55.674854  1695.1m  2.1km/h  15:18:19
+  7  3D    188  29.454641  55.674854  1697.1m  2.1km/h  15:18:19
+  7  3D    188  29.454635  55.674846  1697.1m  1.7km/h  15:18:20
+  7  3D    188  29.454635  55.674846  1700.2m  1.7km/h  15:18:20
+  7  3D    188  29.454627  55.674839  1700.2m  1.9km/h  15:18:21
+  7  3D    187  29.454627  55.674839  1700.1m  1.9km/h  15:18:21
+  3  3D    307  29.454601  55.674831  1700.8m  1.9km/h  15:18:22
+... Searching ...  SATS: 0  CHARS: 533381  AGE: 9391ms
+  6  3D    221  29.454893  55.674987  1700.8m  0.1km/h  15:18:38
+  6  3D    221  29.454893  55.674987  1753.5m  0.1km/h  15:18:38
+  6  3D    221  29.454887  55.674983  1753.5m  0.5km/h  15:18:39
+  6  3D    221  29.454887  55.674983  1753.7m  0.5km/h  15:18:39
+  6  3D    221  29.454862  55.674976  1753.7m  1.2km/h  15:18:40
+  6  3D    221  29.454862  55.674976  1749.3m  1.2km/h  15:18:40
+  6  3D    221  29.454841  55.674972  1749.3m  0.9km/h  15:18:41
+  6  3D    221  29.454841  55.674972  1746.5m  0.9km/h  15:18:41
+  6  3D    221  29.454820  55.674972  1746.5m  1.1km/h  15:18:42
+  6  3D    221  29.454820  55.674972  1746.9m  1.1km/h  15:18:42
+  6  3D    221  29.454805  55.674976  1746.9m  0.5km/h  15:18:43
+  6  3D    221  29.454805  55.674976  1748.7m  0.5km/h  15:18:43
+  5  3D    230  29.454477  55.674976  1748.7m  0.7km/h  15:18:51
+  5  3D    230  29.454477  55.674976  1745.7m  0.7km/h  15:18:51
+  5  3D    230  29.454492  55.674968  1745.7m  0.4km/h  15:18:52
+  6  3D    221  29.454492  55.674968  1740.6m  0.4km/h  15:18:52
+  6  3D    221  29.454486  55.674968  1740.6m  0.8km/h  15:18:53
+  6  3D    221  29.454486  55.674968  1737.8m  0.8km/h  15:18:53
+  6  3D    221  29.454469  55.674961  1737.8m  1.4km/h  15:18:54
+  6  3D    221  29.454469  55.674961  1735.7m  1.4km/h  15:18:54
+... Searching ...  SATS: 0  CHARS: 552213  AGE: 7404ms
+... Searching ...  SATS: 0  CHARS: 559493  AGE: 17405ms
+... Searching ...  SATS: 8  CHARS: 565791  AGE: 27396ms
+  8  3D    181  29.454845  55.675003  1735.7m  1.5km/h  15:19:22
+  8  3D    181  29.454845  55.675003  1759.9m  1.5km/h  15:19:22
+  8  3D    181  29.454830  55.674991  1759.9m  0.8km/h  15:19:23
+  8  3D    181  29.454830  55.674991  1757.5m  0.8km/h  15:19:23
+  8  3D    181  29.454822  55.674995  1757.5m  1.1km/h  15:19:24
+  8  3D    181  29.454822  55.674995  1755.5m  1.1km/h  15:19:24
+  8  3D    181  29.454820  55.674999  1755.5m  1.4km/h  15:19:25
+  8  3D    181  29.454820  55.674999  1755.9m  1.4km/h  15:19:25
+  6  3D    221  29.454793  55.674934  1755.9m  0.2km/h  15:19:31
+  7  3D    205  29.454793  55.674934  1753.4m  0.2km/h  15:19:31
+  7  3D    205  29.454750  55.674934  1753.4m  0.0km/h  15:19:32
+  8  3D    181  29.454750  55.674934  1757.5m  0.0km/h  15:19:32
+  8  3D    181  29.454750  55.674938  1757.5m  0.4km/h  15:19:33
+  8  3D    181  29.454750  55.674938  1761.3m  0.4km/h  15:19:33
+  7  3D    185  29.454578  55.674896  1761.3m  2.1km/h  15:19:39
+  8  3D    181  29.454578  55.674896  1708.1m  2.1km/h  15:19:39
+  8  3D    181  29.454616  55.674911  1708.1m  1.5km/h  15:19:40
+  8  3D    181  29.454616  55.674911  1713.2m  1.5km/h  15:19:40
+  8  3D    181  29.454618  55.674922  1713.2m  1.6km/h  15:19:41
+  8  3D    181  29.454618  55.674922  1715.7m  1.6km/h  15:19:41
+  8  3D    181  29.454627  55.674926  1715.7m  1.5km/h  15:19:42
+  8  3D    181  29.454627  55.674926  1716.9m  1.5km/h  15:19:42
+  8  3D    181  29.454631  55.674926  1716.9m  1.4km/h  15:19:43
+  8  3D    181  29.454631  55.674926  1717.0m  1.4km/h  15:19:43
+  8  3D    181  29.454631  55.674926  1717.0m  1.6km/h  15:19:44
+  8  3D    181  29.454631  55.674926  1717.0m  1.6km/h  15:19:44
+  8  3D    181  29.454626  55.674930  1717.0m  1.7km/h  15:19:45
+  8  3D    181  29.454626  55.674930  1716.7m  1.7km/h  15:19:45
+  8  3D    181  29.454629  55.674934  1716.7m  0.9km/h  15:19:46
+  8  3D    181  29.454629  55.674934  1717.3m  0.9km/h  15:19:46
+  8  3D    181  29.454627  55.674930  1717.3m  0.7km/h  15:19:47
+  8  3D    181  29.454627  55.674930  1717.6m  0.7km/h  15:19:47
+  8  3D    181  29.454624  55.674922  1717.6m  0.3km/h  15:19:48
+  8  3D    181  29.454624  55.674922  1717.0m  0.3km/h  15:19:48
+  8  3D    181  29.454637  55.674926  1717.0m  1.4km/h  15:19:50
+  8  3D    181  29.454637  55.674926  1718.2m  1.4km/h  15:19:50
+  8  3D    181  29.454645  55.674926  1718.2m  1.1km/h  15:19:51
+  8  3D    181  29.454645  55.674926  1719.0m  1.1km/h  15:19:51
+  8  3D    181  29.454648  55.674926  1719.0m  0.9km/h  15:19:52
+  8  3D    181  29.454648  55.674926  1719.5m  0.9km/h  15:19:52
+  8  3D    181  29.454658  55.674926  1719.5m  1.4km/h  15:19:53
+  8  3D    181  29.454658  55.674926  1720.7m  1.4km/h  15:19:53
+  8  3D    181  29.454666  55.674926  1720.7m  1.5km/h  15:19:54
+  8  3D    181  29.454666  55.674926  1722.0m  1.5km/h  15:19:54
+
+--- 5 min Summary ---
+Elapsed: 1499s
+Fixes: 172  Uptime: 60%
+SATS  min=3  avg=6.9  max=8
+HDOP  min=181  avg=249.0  max=808
+---------------------
+
+... Searching ...  SATS: 6  CHARS: 589990  AGE: 7401ms
+... Searching ...  SATS: 5  CHARS: 595298  AGE: 17402ms
+... Searching ...  SATS: 5  CHARS: 599751  AGE: 27403ms
+... Searching ...  SATS: 0  CHARS: 604912  AGE: 37414ms
+... Searching ...  SATS: 4  CHARS: 610110  AGE: 47405ms
+... Searching ...  SATS: 4  CHARS: 614629  AGE: 57417ms
+... Searching ...  SATS: 4  CHARS: 619302  AGE: 67408ms
+... Searching ...  SATS: 4  CHARS: 623961  AGE: 77409ms
+... Searching ...  SATS: 4  CHARS: 628657  AGE: 87410ms
+... Searching ...  SATS: 4  CHARS: 633263  AGE: 97411ms
+... Searching ...  SATS: 0  CHARS: 638652  AGE: 107412ms
+... Searching ...  SATS: 0  CHARS: 644080  AGE: 117413ms
+... Searching ...  SATS: 0  CHARS: 648730  AGE: 127425ms
+... Searching ...  SATS: 0  CHARS: 653475  AGE: 137415ms
+... Searching ...  SATS: 0  CHARS: 658117  AGE: 147426ms
+... Searching ...  SATS: 0  CHARS: 662841  AGE: 157417ms
+... Searching ...  SATS: 0  CHARS: 667509  AGE: 167418ms
+... Searching ...  SATS: 0  CHARS: 672181  AGE: 177430ms
+... Searching ...  SATS: 0  CHARS: 676881  AGE: 187430ms
+... Searching ...  SATS: 0  CHARS: 681575  AGE: 197431ms
+... Searching ...  SATS: 0  CHARS: 686282  AGE: 207433ms
+... Searching ...  SATS: 0  CHARS: 690985  AGE: 217434ms
+... Searching ...  SATS: 0  CHARS: 695763  AGE: 227425ms
+... Searching ...  SATS: 0  CHARS: 700437  AGE: 237426ms
+... Searching ...  SATS: 0  CHARS: 705111  AGE: 247427ms
+... Searching ...  SATS: 0  CHARS: 709785  AGE: 257428ms
+... Searching ...  SATS: 0  CHARS: 714480  AGE: 267439ms
+... Searching ...  SATS: 0  CHARS: 719181  AGE: 277441ms
+... Searching ...  SATS: 0  CHARS: 723935  AGE: 287431ms
+... Searching ...  SATS: 0  CHARS: 728596  AGE: 297443ms
+
+--- 5 min Summary ---
+Elapsed: 1799s
+Fixes: 172  Uptime: 67%
+SATS  min=3  avg=6.9  max=8
+HDOP  min=181  avg=249.0  max=808
+---------------------
+
+... Searching ...  SATS: 0  CHARS: 733306  AGE: 307444ms
+... Searching ...  SATS: 0  CHARS: 738016  AGE: 317444ms
+... Searching ...  SATS: 0  CHARS: 742766  AGE: 327435ms
+... Searching ...  SATS: 0  CHARS: 747446  AGE: 337436ms
+... Searching ...  SATS: 0  CHARS: 752136  AGE: 347447ms
+... Searching ...  SATS: 0  CHARS: 756843  AGE: 357449ms
+... Searching ...  SATS: 0  CHARS: 761550  AGE: 367450ms
+... Searching ...  SATS: 0  CHARS: 766259  AGE: 377452ms
+... Searching ...  SATS: 0  CHARS: 771001  AGE: 387442ms
+... Searching ...  SATS: 0  CHARS: 775681  AGE: 397443ms
+... Searching ...  SATS: 0  CHARS: 780375  AGE: 407455ms
+... Searching ...  SATS: 0  CHARS: 785087  AGE: 417455ms
+... Searching ...  SATS: 0  CHARS: 789795  AGE: 427457ms
+... Searching ...  SATS: 0  CHARS: 794497  AGE: 437457ms
+... Searching ...  SATS: 0  CHARS: 799202  AGE: 447458ms
+... Searching ...  SATS: 0  CHARS: 804069  AGE: 457449ms
+... Searching ...  SATS: 0  CHARS: 808761  AGE: 467460ms
+... Searching ...  SATS: 0  CHARS: 813465  AGE: 477462ms
+... Searching ...  SATS: 0  CHARS: 818175  AGE: 487463ms
+... Searching ...  SATS: 0  CHARS: 822886  AGE: 497463ms
+... Searching ...  SATS: 0  CHARS: 827598  AGE: 507465ms
+... Searching ...  SATS: 0  CHARS: 832311  AGE: 517466ms
+... Searching ...  SATS: 0  CHARS: 837026  AGE: 527460ms
+... Searching ...  SATS: 0  CHARS: 841720  AGE: 537458ms
+... Searching ...  SATS: 0  CHARS: 846407  AGE: 547459ms
+... Searching ...  SATS: 0  CHARS: 851118  AGE: 557460ms
+... Searching ...  SATS: 0  CHARS: 855800  AGE: 567472ms
+... Searching ...  SATS: 0  CHARS: 860477  AGE: 577473ms
+... Searching ...  SATS: 0  CHARS: 865152  AGE: 587473ms
+... Searching ...  SATS: 0  CHARS: 869807  AGE: 597464ms
+
+--- 5 min Summary ---
+Elapsed: 2099s
+Fixes: 172  Uptime: 72%
+SATS  min=3  avg=6.9  max=8
+HDOP  min=181  avg=249.0  max=808
+---------------------
+
+... Searching ...  SATS: 0  CHARS: 874505  AGE: 607475ms
