@@ -10,6 +10,9 @@ Usage:
 import sys
 import os
 import xml.etree.ElementTree as ET
+# Add these configurations right after imports to fix the Compositor error
+os.environ["QTWEBENGINE_DISABLE_GPU"] = "1"
+os.environ["QT_ENABLE_HIGHDPI_SCALING"] = "1"
 import urllib.request
 import ssl
 from datetime import datetime, timezone
@@ -31,7 +34,7 @@ from PyQt6.QtWidgets import (
     QFrame, QScrollArea, QSpinBox, QDoubleSpinBox, QStackedWidget,
     QDialog, QLineEdit, QDialogButtonBox
 )
-from PyQt6.QtCore import Qt, QUrl, QTimer, pyqtSignal
+from PyQt6.QtCore import Qt, QUrl, QTimer, QCoreApplication, pyqtSignal
 from PyQt6.QtGui import QFont, QAction, QColor, QPalette, QPixmap, QImage
 
 try:
@@ -361,11 +364,17 @@ def fuse_tracks(dfs: List[pd.DataFrame], process_noise: float = 0.3,
 
 def generate_map(raw_tracks: List[Tuple[str, pd.DataFrame, str]],
                  fused: Optional[pd.DataFrame] = None,
-                 fused_stats: Optional[Dict] = None) -> 'QPixmap':
+                 fused_stats: Optional[Dict] = None,
+                 zoom_factor: float = 1.0) -> 'QPixmap':
     from PyQt6.QtGui import QImage, QPixmap
 
-    fig = Figure(figsize=(8, 6), dpi=100)
+    fig = Figure(figsize=(8, 6), dpi=100, facecolor='white')
     ax = fig.add_subplot(111)
+    ax.set_facecolor('white')
+    ax.xaxis.label.set_color('black')
+    ax.yaxis.label.set_color('black')
+    ax.title.set_color('black')
+    ax.tick_params(colors='black')
 
     for i, (name, df, color) in enumerate(raw_tracks):
         if len(df) < 2:
@@ -389,7 +398,7 @@ def generate_map(raw_tracks: List[Tuple[str, pd.DataFrame, str]],
         all_lons.extend(fused['lon'].values)
 
     if all_lats:
-        margin = max((max(all_lons) - min(all_lons)) * 0.1, 0.0005)
+        margin = max((max(all_lons) - min(all_lons)) * 0.1, 0.0005) / max(zoom_factor, 0.01)
         ax.set_xlim(min(all_lons) - margin, max(all_lons) + margin)
         ax.set_ylim(min(all_lats) - margin, max(all_lats) + margin)
 
@@ -422,8 +431,8 @@ TILE_PROVIDERS = [
     "OpenStreetMap",
     "CartoDB positron",
     "CartoDB dark_matter",
-    "Stamen Terrain",
-    "Stamen Toner",
+    "Esri WorldImagery",
+    "Esri WorldTopoMap",
 ]
 
 
@@ -431,8 +440,8 @@ TILE_ATTR = {
     "OpenStreetMap": "OpenStreetMap",
     "CartoDB positron": "CartoDB",
     "CartoDB dark_matter": "CartoDB",
-    "Stamen Terrain": "Stamen",
-    "Stamen Toner": "Stamen",
+    "Esri WorldImagery": "Esri",
+    "Esri WorldTopoMap": "Esri",
 }
 
 
@@ -499,14 +508,15 @@ def check_connectivity(proxy_host: Optional[str] = None,
         ctx = ssl.create_default_context()
         ctx.check_hostname = False
         ctx.verify_mode = ssl.CERT_NONE
+        https_handler = urllib.request.HTTPSHandler(context=ctx)
         req = urllib.request.Request(LEAFLET_URL, method='HEAD')
+        handlers = [https_handler]
         if proxy_host and proxy_port:
             proxy_url = f'http://{proxy_host}:{proxy_port}'
-            proxy = urllib.request.ProxyHandler({'http': proxy_url, 'https': proxy_url})
-            opener = urllib.request.build_opener(proxy)
-        else:
-            opener = urllib.request.build_opener()
-        resp = opener.open(req, timeout=5, context=ctx)
+            handlers.insert(0, urllib.request.ProxyHandler(
+                {'http': proxy_url, 'https': proxy_url}))
+        opener = urllib.request.build_opener(*handlers)
+        resp = opener.open(req, timeout=5)
         return resp.status == 200
     except Exception:
         return False
@@ -645,9 +655,12 @@ class GroupTab(QWidget):
         self.file_list.currentItemChanged.connect(self._on_select_file)
 
     def _on_add(self):
+        default_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'data')
+        if not os.path.isdir(default_dir):
+            default_dir = ""
         files, _ = QFileDialog.getOpenFileNames(
             self, f"Add GPX files to {self.group_name}",
-            "", "GPX Files (*.gpx);;All Files (*)")
+            default_dir, "GPX Files (*.gpx);;All Files (*)")
         for f in files:
             self._import_file(f)
 
@@ -742,7 +755,10 @@ class FuseControlPanel(QFrame):
         row += 1
         btn_row = QHBoxLayout()
         self.fuse_btn = QPushButton("Fuse Selected Walk")
-        self.fuse_btn.setStyleSheet("background-color: #4CAF50; color: white; padding: 6px 16px;")
+        self.fuse_btn.setStyleSheet(
+            "QPushButton{background-color:#4CAF50;color:white;padding:6px 16px;}"
+            "QPushButton:hover{background-color:#45a049;}"
+            "QPushButton:pressed{background-color:#3d8b40;}")
         self.fuse_btn.clicked.connect(self.fuse_clicked.emit)
         self.export_btn = QPushButton("Export Fused GPX")
         self.export_btn.setEnabled(False)
@@ -772,6 +788,7 @@ class FusedStatsPanel(QFrame):
         self.label.setWordWrap(True)
         self.label.setStyleSheet("font-size: 12px;")
         layout.addWidget(self.label)
+        self.setFixedHeight(64)
 
     def show_stats(self, stats: Dict):
         if not stats:
@@ -797,6 +814,8 @@ class GPXFusionWindow(QMainWindow):
         self.fused_results: Dict[str, pd.DataFrame] = {}
         self.fused_stats: Dict[str, Dict] = {}
         self._map_mode = 0
+        self._map_after_load = None
+        self._zoom_level = 1.0
         self.tile_provider = "OpenStreetMap"
         self.proxy_enabled = False
         self.proxy_host = ''
@@ -893,6 +912,22 @@ class GPXFusionWindow(QMainWindow):
         self.refresh_btn.clicked.connect(self._refresh_map)
         map_controls.addWidget(self.refresh_btn)
 
+        self.zoom_in_btn = QPushButton("+")
+        self.zoom_in_btn.setFixedWidth(32)
+        self.zoom_in_btn.setToolTip("Zoom in")
+        self.zoom_in_btn.clicked.connect(self._zoom_in)
+        self.zoom_out_btn = QPushButton("−")
+        self.zoom_out_btn.setFixedWidth(32)
+        self.zoom_out_btn.setToolTip("Zoom out")
+        self.zoom_out_btn.clicked.connect(self._zoom_out)
+        self.zoom_reset_btn = QPushButton("R")
+        self.zoom_reset_btn.setFixedWidth(32)
+        self.zoom_reset_btn.setToolTip("Reset zoom")
+        self.zoom_reset_btn.clicked.connect(self._zoom_reset)
+        map_controls.addWidget(self.zoom_in_btn)
+        map_controls.addWidget(self.zoom_out_btn)
+        map_controls.addWidget(self.zoom_reset_btn)
+
         self.proxy_btn = QPushButton("Proxy")
         self.proxy_btn.clicked.connect(self._show_proxy_settings)
         map_controls.addWidget(self.proxy_btn)
@@ -920,9 +955,6 @@ class GPXFusionWindow(QMainWindow):
         self.setStatusBar(self.status_bar)
         self.status_bar.showMessage("Ready. Add GPX files to a walk group and click Fuse.")
 
-    def closeEvent(self, event):
-        super().closeEvent(event)
-
     def resizeEvent(self, event):
         super().resizeEvent(event)
         if self.map_stack.currentIndex() == 0:
@@ -931,10 +963,16 @@ class GPXFusionWindow(QMainWindow):
                     self.map_label.size(), Qt.AspectRatioMode.KeepAspectRatio,
                     Qt.TransformationMode.SmoothTransformation)
                 self.map_label.setPixmap(scaled)
+        elif self.map_stack.currentIndex() == 1 and self._map_web is not None:
+            self._map_web.page().runJavaScript(
+                "var m=document.querySelector('.folium-map');"
+                "if(typeof L!=='undefined'&&m&&m._leaflet_id){"
+                "var map=window['map_'+m.id.replace('map_','')];"
+                "if(map){setTimeout(function(){map.invalidateSize();},50);}}")
 
     def _apply_style(self):
         self.setStyleSheet("""
-            QMainWindow, QWidget, QFrame, QGroupBox, QTabWidget, QTabBar {
+            QMainWindow, .QWidget, QFrame, QGroupBox, QTabWidget, QTabBar {
                 background: #f5f5f5; color: #1a1a1a;
             }
             QGroupBox {
@@ -972,7 +1010,8 @@ class GPXFusionWindow(QMainWindow):
                 padding: 4px 10px; border: 1px solid #aaa;
                 border-radius: 3px; background: #ffffff; color: #1a1a1a;
             }
-            QPushButton:hover { background: #e8e8e8; }
+            QPushButton:hover { background: #e0e0e0; }
+            QPushButton:pressed { background: #cccccc; }
             QPushButton:disabled { background: #d0d0d0; color: #888888; }
             QTextEdit {
                 border: 1px solid #ddd; border-radius: 3px;
@@ -988,8 +1027,37 @@ class GPXFusionWindow(QMainWindow):
                 background: #ffffff; color: #1a1a1a;
                 border: 1px solid #ccc; border-radius: 3px; padding: 2px;
             }
+            QSpinBox:focus, QDoubleSpinBox:focus {
+                border: 1px solid #0078d4;
+            }
+            QSpinBox::up-button, QDoubleSpinBox::up-button,
+            QSpinBox::down-button, QDoubleSpinBox::down-button {
+                border: 1px solid #ccc; background: #f0f0f0;
+                border-radius: 2px; width: 18px;
+            }
+            QSpinBox::up-button:hover, QDoubleSpinBox::up-button:hover,
+            QSpinBox::down-button:hover, QDoubleSpinBox::down-button:hover {
+                background: #e0e0e0;
+            }
             QCheckBox {
                 color: #1a1a1a;
+            }
+            QComboBox {
+                background: #ffffff; color: #1a1a1a;
+                border: 1px solid #ccc; border-radius: 3px; padding: 2px 4px;
+            }
+            QComboBox:hover {
+                border: 1px solid #999;
+            }
+            QComboBox::drop-down {
+                border: none; width: 20px;
+            }
+            QComboBox::down-arrow {
+                width: 10px; height: 10px;
+            }
+            QStackedWidget {
+                background: #2d2d2d; border: 1px solid #555;
+                border-radius: 4px;
             }
             QScrollBar:vertical {
                 background: #e8e8e8; width: 10px;
@@ -1031,6 +1099,15 @@ class GPXFusionWindow(QMainWindow):
                 del self.fused_stats[name]
         if len(self.groups) == 0:
             self.remove_group_btn.setEnabled(False)
+            self.map_label.setText("No walk groups — add one with '+ Add Walk'")
+            self.map_label.setPixmap(QPixmap())
+            self._map_pixmap = QPixmap()
+            if self._map_web is not None:
+                self._map_web.setHtml("<html><body style='background:#2d2d2d; color:#888; "
+                                      "display:flex; align-items:center; justify-content:center; "
+                                      "height:100vh; margin:0;'><p>No walk groups</p></body></html>")
+        else:
+            self._update_map()
 
     def _on_tab_changed(self, idx: int):
         self._update_map()
@@ -1052,9 +1129,7 @@ class GPXFusionWindow(QMainWindow):
         fstats = self.fused_stats.get(name)
 
         if len(raw) == 0:
-            self.map_label.setText("No tracks loaded — add GPX files and click Fuse")
-            self.map_label.setPixmap(QPixmap())
-            self._map_pixmap = QPixmap()
+            self._update_map_empty()
             return
 
         fstats_actual = None
@@ -1067,7 +1142,7 @@ class GPXFusionWindow(QMainWindow):
             self._update_folium_map(raw, fused, fstats_actual)
 
     def _update_matplotlib_map(self, raw, fused, fstats):
-        pixmap = generate_map(raw, fused, fstats)
+        pixmap = generate_map(raw, fused, fstats, zoom_factor=self._zoom_level)
         if pixmap and not pixmap.isNull():
             self._map_pixmap = pixmap
             scaled = pixmap.scaled(self.map_label.size(), Qt.AspectRatioMode.KeepAspectRatio,
@@ -1078,6 +1153,15 @@ class GPXFusionWindow(QMainWindow):
             self.map_label.setText("Map generation failed")
             self.map_label.setPixmap(QPixmap())
             self._map_pixmap = QPixmap()
+
+    def _update_map_empty(self):
+        self.map_label.setText("No tracks loaded — add GPX files and click Fuse")
+        self.map_label.setPixmap(QPixmap())
+        self._map_pixmap = QPixmap()
+        if self._map_web is not None:
+            self._map_web.setHtml("<html><body style='background:#2d2d2d; color:#888; "
+                                  "display:flex; align-items:center; justify-content:center; "
+                                  "height:100vh; margin:0;'><p>No tracks loaded</p></body></html>")
 
     def _update_folium_map(self, raw, fused, fstats):
         if self._map_web is None:
@@ -1096,12 +1180,70 @@ class GPXFusionWindow(QMainWindow):
                    f"{proxy_info}"
                    f"<p style='font-size:12px; color:#999;'>"
                    f"Cannot reach {LEAFLET_URL}</p></div></body></html>")
-            self._map_web.setHtml(err, QUrl("about:blank"))
+            self._map_web.setHtml(err)
+            self._map_after_load = self._parent_and_show
             return
 
         html = generate_map_folium(raw, fused, fstats, tiles=self.tile_provider)
-        if html:
-            self._map_web.setHtml(html, QUrl("about:blank"))
+        if not html:
+            return
+
+        # Preserve size before unparenting so compositor has valid dimensions
+        size = self._map_web.size()
+        self._map_web.setParent(None)
+        self._map_web.resize(size)
+        self._map_after_load = self._finish_folium_load
+        self._map_web.setHtml(html, QUrl("https://localhost/"))
+
+    def _parent_and_show(self):
+        if self._map_web.parent() is None:
+            self.map_stack.removeWidget(self.map_web_placeholder)
+            self.map_stack.addWidget(self._map_web)
+            self.map_web_placeholder.hide()
+        self.map_stack.setCurrentIndex(1)
+
+    def _finish_folium_load(self):
+        """Parent the view, flush layout, then apply viewport fix."""
+        self._parent_and_show()
+        QCoreApplication.processEvents()
+
+        js = ("document.documentElement.style.setProperty('height', '100%', 'important');"
+              "document.documentElement.style.setProperty('width', '100%', 'important');"
+              "document.body.style.setProperty('height', '100%', 'important');"
+              "document.body.style.setProperty('width', '100%', 'important');"
+              "document.body.style.setProperty('margin', '0', 'important');"
+              "document.body.style.setProperty('padding', '0', 'important');"
+              "var m = document.querySelector('.folium-map');"
+              "if (m) {"
+              "    m.style.setProperty('width', '100%', 'important');"
+              "    m.style.setProperty('height', '100%', 'important');"
+              "    m.style.setProperty('position', 'absolute', 'important');"
+              "    m.style.setProperty('top', '0', 'important');"
+              "    m.style.setProperty('left', '0', 'important');"
+              "}"
+              "if (m && typeof L !== 'undefined') {"
+              "    var mapObj = window[m.id];"
+              "    if (mapObj) {"
+              "        mapObj.invalidateSize();"
+              "        setTimeout(function() { mapObj.invalidateSize(); }, 50);"
+              "        setTimeout(function() { mapObj.invalidateSize(); }, 200);"
+              "        setTimeout(function() { mapObj.invalidateSize(); }, 600);"
+              "    }"
+              "}")
+        self._map_web.page().runJavaScript(js)
+
+    def _on_map_load_finished(self, ok: bool):
+        if not ok:
+            self._map_web.page().runJavaScript(
+                "document.body.innerHTML="
+                "'<h2 style=\"color:#ccc;text-align:center;margin-top:40vh;\">"
+                "Map failed to load</h2>'")
+            return
+
+        if self._map_after_load is not None:
+            cb = self._map_after_load
+            self._map_after_load = None
+            cb()
 
     def _on_map_mode_changed(self, idx: int):
         if idx == 0:
@@ -1117,13 +1259,18 @@ class GPXFusionWindow(QMainWindow):
                 return
             if self._map_web is None:
                 from PyQt6.QtWebEngineWidgets import QWebEngineView
+                from PyQt6.QtWebEngineCore import QWebEngineSettings
                 self._map_web = QWebEngineView()
                 self._map_web.setMinimumHeight(400)
-                self.map_stack.removeWidget(self.map_web_placeholder)
-                self.map_stack.addWidget(self._map_web)
-                self.map_web_placeholder.hide()
+                self._map_web.loadFinished.connect(self._on_map_load_finished)
+                settings = self._map_web.settings()
+                settings.setAttribute(
+                    QWebEngineSettings.WebAttribute.LocalContentCanAccessRemoteUrls, True)
+                settings.setAttribute(
+                    QWebEngineSettings.WebAttribute.JavascriptEnabled, True)
+                # Do NOT add to stack or show — setHtml() fails on parented views.
+                # _finish_folium_load will parent and show after content loads.
             self.tile_combo.setEnabled(True)
-            self.map_stack.setCurrentIndex(1)
             self._update_folium_map(*self._get_current_raw_fused())
 
     def _on_tile_changed(self, tile: str):
@@ -1136,6 +1283,18 @@ class GPXFusionWindow(QMainWindow):
             self._update_matplotlib_map(*self._get_current_raw_fused())
         else:
             self._update_folium_map(*self._get_current_raw_fused())
+
+    def _zoom_in(self):
+        self._zoom_level = min(self._zoom_level * 1.5, 20.0)
+        self._refresh_map()
+
+    def _zoom_out(self):
+        self._zoom_level = max(self._zoom_level / 1.5, 0.1)
+        self._refresh_map()
+
+    def _zoom_reset(self):
+        self._zoom_level = 1.0
+        self._refresh_map()
 
     def _get_current_raw_fused(self):
         tab = self._get_current_tab()
@@ -1156,9 +1315,11 @@ class GPXFusionWindow(QMainWindow):
             self.proxy_enabled, self.proxy_host, self.proxy_port = dlg.get_values()
             if self.map_stack.currentIndex() == 1:
                 self._update_folium_map(*self._get_current_raw_fused())
-            self.status_bar.showMessage(
-                f"Proxy {'enabled' if self.proxy_enabled else 'disabled'}: "
-                f"{self.proxy_host}:{self.proxy_port}" if self.proxy_enabled else "Proxy disabled")
+            if self.proxy_enabled:
+                msg = f"Proxy enabled: {self.proxy_host}:{self.proxy_port}"
+            else:
+                msg = "Proxy disabled"
+            self.status_bar.showMessage(msg)
 
     def _on_fuse(self):
         tab = self._get_current_tab()
@@ -1192,6 +1353,7 @@ class GPXFusionWindow(QMainWindow):
         else:
             self.status_bar.showMessage("Fusion failed — not enough overlapping data.")
 
+        QCoreApplication.processEvents()
         self._update_map()
 
     def _on_export(self):
@@ -1228,6 +1390,9 @@ class GPXFusionWindow(QMainWindow):
             f.write(gpx.to_xml())
 
         self.status_bar.showMessage(f"Exported: {path}")
+
+    def closeEvent(self, event):
+        super().closeEvent(event)
 
 
 def main():
