@@ -781,7 +781,7 @@ void loggingTask(void *pvParameters) {
             u8g2.drawStr(10, 20, "Calculating...");
             u8g2.sendBuffer();
             
-            if (sd.card()->errorCode() == 0) { 
+            if (sd.card() && sd.vol() && sd.card()->errorCode() == 0) { 
                 uint32_t freeClusters = sd.vol()->freeClusterCount();
                 uint32_t totalClusters = sd.vol()->clusterCount();
                 uint32_t sectorsPerCluster = sd.vol()->sectorsPerCluster();
@@ -845,6 +845,18 @@ void loggingTask(void *pvParameters) {
           print_calibration();
           saveCalibration();
           xQueueReset(dataQueue);
+
+          // Write gap frame (0xAA) to mark calibration event before resuming sensor task.
+          // Sensor task is suspended — no race on frame_counter or esp_timer.
+          {
+              LogFrame gapFrame = {};
+              gapFrame.frame_seq = global_frame_counter++;
+              gapFrame.timestamp = esp_timer_get_time() - log_time_base;
+              gapFrame.event_flag = 0xAA;
+              gapFrame.crc = calcCRC16((uint8_t*)&gapFrame, sizeof(LogFrame) - sizeof(gapFrame.crc));
+              xQueueSend(dataQueue, &gapFrame, 0);
+          }
+
           vTaskResume(sensorTaskHandle);
           force_update_ui = true; 
           currentState = STATE_LIVE_VIEW;
