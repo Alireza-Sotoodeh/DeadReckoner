@@ -3,7 +3,7 @@
 **Author:** Alireza Sotoodeh  
 **Project:** DeadReckoner  
 **Version:** 2.1.0  
-**Date:** June 19, 2026
+**Date:** June 20, 2026
 
 > **Project Goal:** A wearable IMU data logger that records 100 Hz 9-axis inertial data (quaternions, linear acceleration, temperature) to SD card with per-frame CRC-16 integrity. The logged data is post-processed offline on a PC using Pedestrian Dead Reckoning (PDR) algorithms — step detection, heading from Madgwick-fused quaternions, and Zero Velocity Update (ZUPT) with batch smoothing — to reconstruct the traveled path with minimal drift over multi-hour missions, without GPS.  
 
@@ -751,6 +751,7 @@ It shows how the architecture evolved from the earliest prototype to the current
 | 2026-06-20 | GY-GPS6Mv2 — Diagnostic monitor          | Live fix quality, HDOP, satellites, cold start TTFF, 10s heartbeat, 5-min summary. Non-blocking, all strings in F(). Results: cold start 778s (indoor/3.3V worst case), hot start 4s. |
 | 2026-06-20 | GY-GPS6Mv2 — Cold start & re-acquisition | 3-phase test: cold start TTFF → 120 s stabilisation → re-acquisition TTFF. Position scatter (lat/lon σ in m), HDOP/sat stats. Results: σ ±1.84 m lat / ±2.96 m lon, altitude 1741.2 m (σ ~2 m), HDOP 16–24 indoors at 3.3V. |
 | 2026-06-20 | GY-GPS6Mv2 — 1-Hour static precision     | 3600 s stationary log at 1 Hz. CEP, lat/lon σ (m), altitude σ, HDOP/sat distribution, fix uptime %, CSV output. Sketch created — pending full outdoor run. |
+| 2026-06-20 | **v2.1 Bug Fixes & Cleanup**              | 12 issues resolved: QueueReset on new file, SAMPLING_RATE_HZ wired to task timing, FileHeader for .BIN, gap frames after calibration, sd.card() null-check, zero-init LogFrame, OLED hot-plug comments, device header, and more. See Issues found by AI.md §5 for full list. |
 
 ---
 
@@ -777,6 +778,7 @@ The immediate next step is developing the offline PDR pipeline in Python. GPS in
 | BMP280 sensor validation      | Complete |
 | GY-GPS6Mv2 GPS validation     | Complete |
 | **GPX Fusion Tool**           | Complete |
+| **v2.1 Bug Fixes**            | Complete |
 
 ---
 

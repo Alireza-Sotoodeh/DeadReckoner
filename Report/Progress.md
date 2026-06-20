@@ -1,4 +1,4 @@
-## Software Architecture Evolution & Development Phases
+## Software Architecture Evolution & Development Phases (ESP32-S3 N16R3)
 
 The development of DeadReckoner followed a staged architecture-driven roadmap. Each phase established the technical foundation required for subsequent phases. The progression reflects the actual implementation history of the project, from early sensor evaluation to the current multi-core data-logging platform.
 

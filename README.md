@@ -1,6 +1,6 @@
 # DeadReckoner
 
-A real-time, offline dead-reckoning and data-logging system built around the **ESP32-S3 N16R8**, the **MPU9250 IMU**, and a **binary SD-card logging pipeline**.
+A real-time, offline dead-reckoning and data-logging system built around the **ESP32-S3 N16R3**, the **MPU9250 IMU**, and a **binary SD-card logging pipeline**.
 
 The project started as a small IMU prototype and evolved into a multi-core embedded platform for high-rate sensing, safe storage, fault handling, and offline analysis.
 

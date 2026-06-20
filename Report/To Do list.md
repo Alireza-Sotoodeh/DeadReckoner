@@ -22,7 +22,7 @@
 
 ## 3. Offline PDR Pipeline (Python Post-Processing)
 
-- [ ] **Phase 1: Binary parser** — Read 47-byte frames from .BIN, verify CRC-16, extract timestamps + quaternions + linear acceleration
+- [x] **Phase 1: Binary parser** — Read 47-byte frames from .BIN, verify CRC-16, extract timestamps + quaternions + linear acceleration [FileHeader support added in v2.1]
 - [ ] **Phase 2: World-frame rotation** — Rotate body-frame linear acceleration to world frame using firmware Madgwick quaternions
 - [ ] **Phase 3: Step detection** — Peak detection on acceleration magnitude
 - [ ] **Phase 4: Step length** — Weinberg empirical formula
