@@ -95,7 +95,7 @@
   #define MPU9250_Magnetometer_resolution  M16BITS 				//select: M14BITS, M16BITS
   #define MPU9250_fifo_sample_rate  SMPL_1000HZ 					//select: SMPL_1000HZ, SMPL_500HZ, SMPL_333HZ, SMPL_250HZ, SMPL_200HZ, SMPL_167HZ, SMPL_143HZ, SMPL_125HZ
   #define MPU9250_Gyroscope_filter_choice  0x01						//select: 0x00: Enables DLPF with 8kHz sample rate|0x01: Enables DLPF with 1kHz sample rate|0x02 or 0x03: Bypasses DLPF
-  #define MPU9250_Gyroscope_DLPF_cutoff  DLPF_5HZ 				//select: DLPF_250HZ, DLPF_184HZ, DLPF_92HZ, DLPF_41HZ, DLPF_20HZ, DLPF_10HZ, DLPF_5HZ, DLPF_3600HZ
+  #define MPU9250_Gyroscope_DLPF_cutoff  DLPF_41HZ 				//select: DLPF_250HZ, DLPF_184HZ, DLPF_92HZ, DLPF_41HZ, DLPF_20HZ, DLPF_10HZ, DLPF_5HZ, DLPF_3600HZ
   #define MPU9250_Accelerometer_filter_choice  0x01				//select: 0x01 Enable, 0x00 bypass
   #define MPU9250_Accelerometer_DLPF_cutoff  DLPF_5HZ 		//select: DLPF_218HZ_0, DLPF_218HZ_1, DLPF_99HZ, DLPF_45HZ, DLPF_21HZ, DLPF_10HZ, DLPF_5HZ, DLPF_420HZ
   #define MPU9250_filter_algorithm	MADGWICK 							//select: MADGWICK, MAHONY, NONE
@@ -948,8 +948,8 @@ void loggingTask(void *pvParameters) {
           log_time_base = esp_timer_get_time();
           portEXIT_CRITICAL(&frameCounterMux);
           
-          // Queue acts as a seamless bridge. Unwritten old frames will simply 
-          // pour into the beginning of the new file without any data drop!
+          // Purge queued frames to prevent old data from leaking into the new file
+          xQueueReset(dataQueue);
 
           strcpy(current_log_filename, filename); 
           logFile = sd.open(current_log_filename, FILE_WRITE);
@@ -1420,10 +1420,10 @@ void saveCalibration() {
   EEPROM.put(addr, mpu.getMagScaleZ()); addr += sizeof(float);
   
   // CRC over magic + all floats to detect silent corruption
-  uint8_t calData[46];
-  for (int i = 0; i < 46; i++) calData[i] = EEPROM.read(i);
-  uint16_t crc = calcCRC16(calData, 46);
-  EEPROM.put(46, crc);
+  uint8_t calData[50];
+  for (int i = 0; i < 50; i++) calData[i] = EEPROM.read(i);
+  uint16_t crc = calcCRC16(calData, 50);
+  EEPROM.put(50, crc);
   EEPROM.commit();
 }
 
@@ -1454,10 +1454,10 @@ void loadCalibration() {
   }
 
   uint16_t storedCrc;
-  EEPROM.get(46, storedCrc);
-  uint8_t calData[46];
-  for (int i = 0; i < 46; i++) calData[i] = EEPROM.read(i);
-  if (calcCRC16(calData, 46) != storedCrc) {
+  EEPROM.get(50, storedCrc);
+  uint8_t calData[50];
+  for (int i = 0; i < 50; i++) calData[i] = EEPROM.read(i);
+  if (calcCRC16(calData, 50) != storedCrc) {
     Serial.println("WARNING: Calibration CRC mismatch! Data corrupted. Using factory defaults.");
     u8g2.clearBuffer();
     u8g2.drawStr(10, 12, "Cal CRC Error");
