@@ -1,0 +1,141 @@
+﻿<?xml version="1.0" encoding="utf-8"?><gpx creator="Garmin Desktop App" version="1.1" xsi:schemaLocation="http://www.topografix.com/GPX/1/1 http://www.topografix.com/GPX/1/1/gpx.xsd http://www.garmin.com/xmlschemas/WaypointExtension/v1 http://www8.garmin.com/xmlschemas/WaypointExtensionv1.xsd http://www.garmin.com/xmlschemas/TrackPointExtension/v1 http://www.garmin.com/xmlschemas/TrackPointExtensionv1.xsd http://www.garmin.com/xmlschemas/GpxExtensions/v3 http://www8.garmin.com/xmlschemas/GpxExtensionsv3.xsd http://www.garmin.com/xmlschemas/ActivityExtension/v1 http://www8.garmin.com/xmlschemas/ActivityExtensionv1.xsd http://www.garmin.com/xmlschemas/AdventuresExtensions/v1 http://www8.garmin.com/xmlschemas/AdventuresExtensionv1.xsd http://www.garmin.com/xmlschemas/PressureExtension/v1 http://www.garmin.com/xmlschemas/PressureExtensionv1.xsd http://www.garmin.com/xmlschemas/TripExtensions/v1 http://www.garmin.com/xmlschemas/TripExtensionsv1.xsd http://www.garmin.com/xmlschemas/TripMetaDataExtensions/v1 http://www.garmin.com/xmlschemas/TripMetaDataExtensionsv1.xsd http://www.garmin.com/xmlschemas/ViaPointTransportationModeExtensions/v1 http://www.garmin.com/xmlschemas/ViaPointTransportationModeExtensionsv1.xsd http://www.garmin.com/xmlschemas/CreationTimeExtension/v1 http://www.garmin.com/xmlschemas/CreationTimeExtensionsv1.xsd http://www.garmin.com/xmlschemas/AccelerationExtension/v1 http://www.garmin.com/xmlschemas/AccelerationExtensionv1.xsd http://www.garmin.com/xmlschemas/PowerExtension/v1 http://www.garmin.com/xmlschemas/PowerExtensionv1.xsd http://www.garmin.com/xmlschemas/VideoExtension/v1 http://www.garmin.com/xmlschemas/VideoExtensionv1.xsd" xmlns="http://www.topografix.com/GPX/1/1" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:wptx1="http://www.garmin.com/xmlschemas/WaypointExtension/v1" xmlns:gpxtrx="http://www.garmin.com/xmlschemas/GpxExtensions/v3" xmlns:gpxtpx="http://www.garmin.com/xmlschemas/TrackPointExtension/v1" xmlns:gpxx="http://www.garmin.com/xmlschemas/GpxExtensions/v3" xmlns:trp="http://www.garmin.com/xmlschemas/TripExtensions/v1" xmlns:adv="http://www.garmin.com/xmlschemas/AdventuresExtensions/v1" xmlns:prs="http://www.garmin.com/xmlschemas/PressureExtension/v1" xmlns:tmd="http://www.garmin.com/xmlschemas/TripMetaDataExtensions/v1" xmlns:vptm="http://www.garmin.com/xmlschemas/ViaPointTransportationModeExtensions/v1" xmlns:ctx="http://www.garmin.com/xmlschemas/CreationTimeExtension/v1" xmlns:gpxacc="http://www.garmin.com/xmlschemas/AccelerationExtension/v1" xmlns:gpxpx="http://www.garmin.com/xmlschemas/PowerExtension/v1" xmlns:vidx1="http://www.garmin.com/xmlschemas/VideoExtension/v1">
+
+  <metadata>
+    <link href="http://www.garmin.com">
+      <text>Garmin International</text>
+    </link>
+    <time>2026-06-20T11:08:29Z</time>
+    <bounds maxlat="29.469165159389377" maxlon="55.692283501848578" minlat="29.466945715248585" minlon="55.68788887001574" />
+  </metadata>
+
+  <trk>
+    <name>2026-06-20 08:07:52</name>
+    <extensions>
+      <gpxx:TrackExtension>
+        <gpxx:DisplayColor>Magenta</gpxx:DisplayColor>
+      </gpxx:TrackExtension>
+      <gpxtrkx:TrackStatsExtension xmlns:gpxtrkx="http://www.garmin.com/xmlschemas/TrackStatsExtension/v1">
+        <gpxtrkx:Distance>488</gpxtrkx:Distance>
+      </gpxtrkx:TrackStatsExtension>
+    </extensions>
+    <trkseg>
+      <trkpt lat="29.469165159389377" lon="55.692282747477293">
+        <ele>1762.71</ele>
+        <time>2026-06-20T03:30:39Z</time>
+      </trkpt>
+      <trkpt lat="29.469162644818425" lon="55.692283501848578">
+        <ele>1762.23</ele>
+        <time>2026-06-20T03:30:53Z</time>
+      </trkpt>
+      <trkpt lat="29.469108078628778" lon="55.692270090803504">
+        <ele>1762.23</ele>
+        <time>2026-06-20T03:31:28Z</time>
+      </trkpt>
+      <trkpt lat="29.469097433611751" lon="55.692146373912692">
+        <ele>1761.27</ele>
+        <time>2026-06-20T03:31:50Z</time>
+      </trkpt>
+      <trkpt lat="29.469005903229117" lon="55.691915787756443">
+        <ele>1760.79</ele>
+        <time>2026-06-20T03:32:12Z</time>
+      </trkpt>
+      <trkpt lat="29.4687978643924" lon="55.691611021757126">
+        <ele>1760.79</ele>
+        <time>2026-06-20T03:32:37Z</time>
+      </trkpt>
+      <trkpt lat="29.46860583499074" lon="55.691312123090029">
+        <ele>1759.8299999999999</ele>
+        <time>2026-06-20T03:33:03Z</time>
+      </trkpt>
+      <trkpt lat="29.468456637114286" lon="55.691068461164832">
+        <ele>1759.3499999999999</ele>
+        <time>2026-06-20T03:33:25Z</time>
+      </trkpt>
+      <trkpt lat="29.468391509726644" lon="55.690947845578194">
+        <ele>1758.8699999999999</ele>
+        <time>2026-06-20T03:33:38Z</time>
+      </trkpt>
+      <trkpt lat="29.468353455886245" lon="55.690837623551488">
+        <ele>1760.79</ele>
+        <time>2026-06-20T03:33:40Z</time>
+      </trkpt>
+      <trkpt lat="29.468254968523979" lon="55.690626399591565">
+        <ele>1759.3499999999999</ele>
+        <time>2026-06-20T03:33:55Z</time>
+      </trkpt>
+      <trkpt lat="29.468177938833833" lon="55.690475357696414">
+        <ele>1759.3499999999999</ele>
+        <time>2026-06-20T03:34:09Z</time>
+      </trkpt>
+      <trkpt lat="29.468071069568396" lon="55.690269581973553">
+        <ele>1758.8699999999999</ele>
+        <time>2026-06-20T03:34:25Z</time>
+      </trkpt>
+      <trkpt lat="29.467995883896947" lon="55.690098758786917">
+        <ele>1758.3900000000001</ele>
+        <time>2026-06-20T03:34:40Z</time>
+      </trkpt>
+      <trkpt lat="29.46789002045989" lon="55.689907316118479">
+        <ele>1759.3499999999999</ele>
+        <time>2026-06-20T03:34:57Z</time>
+      </trkpt>
+      <trkpt lat="29.467813158407807" lon="55.689774630591273">
+        <ele>1758.8699999999999</ele>
+        <time>2026-06-20T03:35:10Z</time>
+      </trkpt>
+      <trkpt lat="29.46780301630497" lon="55.689751412719488">
+        <ele>1757.9100000000001</ele>
+        <time>2026-06-20T03:35:12Z</time>
+      </trkpt>
+      <trkpt lat="29.467632444575429" lon="55.689396690577269">
+        <ele>1757.9100000000001</ele>
+        <time>2026-06-20T03:35:35Z</time>
+      </trkpt>
+      <trkpt lat="29.46762565523386" lon="55.68938110023737">
+        <ele>1757.9100000000001</ele>
+        <time>2026-06-20T03:35:36Z</time>
+      </trkpt>
+      <trkpt lat="29.467506296932697" lon="55.689111035317183">
+        <ele>1756.47</ele>
+        <time>2026-06-20T03:35:58Z</time>
+      </trkpt>
+      <trkpt lat="29.467379730194807" lon="55.688863098621368">
+        <ele>1756.95</ele>
+        <time>2026-06-20T03:36:21Z</time>
+      </trkpt>
+      <trkpt lat="29.467372270300984" lon="55.688847089186311">
+        <ele>1755.99</ele>
+        <time>2026-06-20T03:36:23Z</time>
+      </trkpt>
+      <trkpt lat="29.467258024960756" lon="55.688617760315537">
+        <ele>1755.5</ele>
+        <time>2026-06-20T03:36:42Z</time>
+      </trkpt>
+      <trkpt lat="29.467184012755752" lon="55.688457079231739">
+        <ele>1755.99</ele>
+        <time>2026-06-20T03:36:58Z</time>
+      </trkpt>
+      <trkpt lat="29.467163560912013" lon="55.688415504992008">
+        <ele>1755.02</ele>
+        <time>2026-06-20T03:37:01Z</time>
+      </trkpt>
+      <trkpt lat="29.46713020093739" lon="55.688343672081828">
+        <ele>1755.99</ele>
+        <time>2026-06-20T03:37:07Z</time>
+      </trkpt>
+      <trkpt lat="29.467110252007842" lon="55.688309473916888">
+        <ele>1754.54</ele>
+        <time>2026-06-20T03:37:10Z</time>
+      </trkpt>
+      <trkpt lat="29.466986954212189" lon="55.688029685989022">
+        <ele>1755.5</ele>
+        <time>2026-06-20T03:37:30Z</time>
+      </trkpt>
+      <trkpt lat="29.466945715248585" lon="55.68788887001574">
+        <ele>1755.02</ele>
+        <time>2026-06-20T03:37:46Z</time>
+      </trkpt>
+    </trkseg>
+  </trk>
+
+</gpx>
