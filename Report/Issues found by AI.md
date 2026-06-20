@@ -95,10 +95,36 @@
 ### Low / Informational
 
 - [x] **SPI pins conflict with PSRAM** — GPIO 11/12/13 (FSPI) are shared with Quad PSRAM on some ESP32-S3 modules, causing bus contention when the SD card uses the same pins.
-  *[NOT AN ISSUE on N16R3: This module uses Octal PSRAM, which connects via internal SPI0/1 controller — completely separate from FSPI. No bus sharing or conflict.]*
+  *[NOT AN ISSUE on N16R8: This module uses Octal PSRAM, which connects via internal SPI0/1 controller — completely separate from FSPI. No bus sharing or conflict.]*
 
 - [x] **Recursive OLED `u8g2.begin()` calls** — `u8g2.begin()` is called on every wake-from-sleep and menu entry, causing 200-500ms blocking delays.
   *[INTENTIONAL: OLED is non-soldered (hot-plug hazard). `begin()` re-discovers the device via I2C init if physically reconnected. Comments added at L697-699 and L715-717 explaining the rationale.]*
 
 - [x] **Uninitialized stack frame for CRC** — `LogFrame frame;` on the stack may contain stale bytes if the union payload changes to a smaller member in the future.
   *[DEFENSIVE: Changed to `LogFrame frame = {}` at L306 and `LogFrame flushFrame = {}` at L610. Current code has no bug (imu struct fills all 32 union bytes), but zero-init prevents future issues.]*
+
+---
+
+## 6. Bug Fixes & Technical Debt (v2.2)
+
+### Critical
+
+- [x] **GPS lat/lon always zero** — JavaScript sent lat/lon as quoted strings in JSON, causing `body.substring(...)` to receive string literals instead of numeric values. All GPS start/end frames stored lat=0.0, lon=0.0.
+  *[FIXED: Added `parseFloat()` in JavaScript `sendGPS()` function before JSON.stringify, so JSON contains unquoted numeric values that the server correctly parses as floats.]*
+
+- [x] **`writeGPSFrame()` ignores alt and time parameters** — The function signature accepted `float alt` and `uint32_t time` but never stored them in the LogFrame GPS union. Altitude and epoch fields were always zero in written GPS frames.
+  *[FIXED: Added `gpsFrame.payload.gps.alt = alt` and `gpsFrame.payload.gps.epoch = time` before CRC computation and SD write.]*
+
+### Moderate
+
+- [x] **Time field UTC-only and readonly** — The HTML form used `new Date().toISOString()` which produced UTC time, and the field was marked `readonly` so users could not correct it. This made GPS anchor timestamps mismatch local time by the UTC offset.
+  *[FIXED: Changed to local time display using `toLocaleString()`, removed `readonly` attribute, and updated `sendGPS()` parser to read the field value (allowing user edits).]*
+
+- [x] **SdFat / ESP32 FS.h File class collision** — Including `<WebServer.h>` pulled in ESP32 `<FS.h>` which defines `File` as a class, conflicting with SdFat's `File` typedef. The compiler error prevented building with WiFi GPS features.
+  *[FIXED: Added `#define File SdFat_File_` before WebServer include and `#undef File` after, renaming SdFat's File to avoid the collision without changing all usage sites.]*
+
+- [x] **OLED sleep disables GPS state display** — The OLED auto-off timer could put the display to sleep during GPS WAITING state, leaving the user without visible SSID/IP information needed to connect their phone.
+  *[FIXED: Auto-sleep skipped when `current_state` is STATE_GPS_WAITING, STATE_GPS_PROMPT_START, STATE_GPS_PROMPT_END, or STATE_GPS_CONFIRM_EXIT.]*
+
+- [x] **GPS data stale after CONFIRM_EXIT or PROMPT_START NO** — If the user exited the GPS prompt without providing data, `phone_gps.has_start` / `has_end` remained true, causing stale GPS data to be written on the next file.
+  *[FIXED: `phone_gps.has_start = false` set in PROMPT_START NO branch and CONFIRM_EXIT YES branch to clear stale state.]*

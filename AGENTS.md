@@ -6,7 +6,7 @@ Fix consecutive TAG button presses lost, verify old-code PDR accuracy against GP
 
 ## Constraints & Preferences
 
-- ESP32-S3 N16R3 with 16MB Flash + 8MB PSRAM
+- ESP32-S3 N16R8 with 16MB Flash + 8MB Octal PSRAM
 - Browser Geolocation API requires HTTPS — use manual lat/lon entry on web page instead
 - WiFi AP password: "deadreckoner", SSID: "DeadReckoner-S3"
 - No auto-timeout on GPS pairing — user exits via SELECT + confirmation

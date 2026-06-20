@@ -6,7 +6,7 @@
  * =========================================================================
  * PROJECT: DeadReckoner
  * VERSION: 2.1 (QueueReset, parametric task rate, zero-init frames, OLED hot-plug docs)
- * DEVICE: ESP32-S3 N16R3 (16MB Flash + 8MB Octal PSRAM)
+ * DEVICE: ESP32-S3 N16R8 (16MB Flash + 8MB Octal PSRAM)
  * =========================================================================
  * WIRING DIAGRAM
  * -------------------------------------------------------------------------

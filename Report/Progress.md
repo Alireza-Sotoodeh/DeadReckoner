@@ -1,4 +1,4 @@
-## Software Architecture Evolution & Development Phases (ESP32-S3 N16R3)
+## Software Architecture Evolution & Development Phases (ESP32-S3 N16R8)
 
 The development of DeadReckoner followed a staged architecture-driven roadmap. Each phase established the technical foundation required for subsequent phases. The progression reflects the actual implementation history of the project, from early sensor evaluation to the current multi-core data-logging platform.
 
@@ -281,35 +281,25 @@ Tools were developed to analyze recorded datasets and verify system performance.
 
 ---
 
-#### Phase 10: Offline PDR Pipeline & Post-Processing [PLANNED]
+#### Phase 10: Offline PDR Pipeline & GPS-Aided Verification [COMPLETED]
 
-This phase will develop the Python-based Pedestrian Dead Reckoning pipeline to reconstruct the traveled path from logged IMU data.
+The Python-based Pedestrian Dead Reckoning pipeline was implemented in `compare_paths.py` and verified against ground-truth GPS (Garmin eTrex 30x + Geo Tracker Android app).
 
 - [x] **GPS Fields Reserved in LogFrame:** Prepare the logging structure for GNSS data.
-
 - [x] **GPS Payload Reservation:** Reserve binary payload space for future GNSS records through a shared LogFrame union architecture.
-
 - [x] **Future-Proof Log Structure:** Design the logging format to support mixed IMU and GPS event packets without breaking compatibility.
+- [x] **Binary Parser & Verification:** Parse 45-byte/47-byte BIN files, validate CRC-16, extract timestamps + quaternions + acceleration.
+- [x] **World-Frame Acceleration Rotation:** Transform body-frame acceleration using stored quaternions (for step detection analysis).
+- [x] **Step Detection:** Peak-finding on acceleration magnitude for footstep identification (Weinberg empirical formula).
+- [x] **Step Length Estimation:** Weinberg empirical formula for per-step distance.
+- [x] **Heading from Quaternions:** Extract magnetometer-stabilized yaw for each step from firmware Madgwick quaternions.
+- [x] **GPX Parsing:** Parse both Garmin and Geo Tracker GPX formats for ground-truth comparison.
+- [x] **Brute-Force Heading Alignment:** Search 0–360° (0.5° steps) for optimal heading offset between PDR and GPS paths.
+- [x] **PDR Accuracy Metrics:** Compute path length, GPS distance, and error percentage per segment.
+- [x] **Trajectory Visualization:** 2D path plots with matplotlib, per-segment and summary overlay plots.
+- [ ] **ZUPT + RTS Smoother:** Bidirectional batch optimization over entire walk for minimal drift (planned enhancement).
 
-- [ ] Binary Parser & CRC Verification: Read 47-byte frames, validate CRC-16, extract timestamps + quaternions + acceleration.
-
-- [ ] World-Frame Acceleration Rotation: Transform body-frame acceleration using stored quaternions.
-
-- [ ] Step Detection: Peak-finding on acceleration magnitude for footstep identification.
-
-- [ ] Step Length Estimation: Weinberg empirical formula.
-
-- [ ] Heading from Quaternions: Extract magnetometer-stabilized yaw for each step.
-
-- [ ] ZUPT + RTS Smoother: Bidirectional batch optimization over entire walk for minimal drift.
-
-- [ ] Trajectory Visualization: 2D path plot and distance metrics with matplotlib.
-
-- [ ] **Dedicated UART Configuration:** Configure a hardware UART for the S6MV2 GNSS receiver.
-
-- [ ] **NMEA Parsing Engine:** Decode GNSS position and timing messages.
-
-- [ ] **Coordinate Injection & GPS-IMU Fusion:** Align 1 Hz GPS with 100 Hz IMU for absolute position anchoring.
+**Verification Results:** 5 walk segments tested, avg error 9.3% (best 3.2%, worst 14.3%). IMU-only PDR is sufficient — GPS and BMP280 are not required for dead reckoning.
 
 ---
 
@@ -326,7 +316,34 @@ Hardware diagnostic and validation tool set for the GY-GPS6Mv2 (NEO-6M) GPS modu
 
 ---
 
-#### Phase 12: GPX Fusion Tool (Python/PyQt6) [COMPLETED]
+#### Phase 12.5: PDR vs GPS Verification [COMPLETED]
+
+Offline comparison tool that validates the PDR pipeline against ground-truth GPS tracks.
+
+- [x] **compare_paths.py:** Full PDR pipeline: binary parser, Weinberg step detection, quaternion yaw heading, GPX parser (Garmin + Geo Tracker), brute-force heading alignment, per-segment metrics.
+- [x] **Analysis Output:** Summary table with error % per segment; overlay plots saved to `analysis/` directory.
+- [x] **Interactive Mode:** Slider-based tuning of heading offset and Kalman smoothing gain.
+
+---
+
+#### Phase 13: WiFi GPS Pairing (Phone-Based) [COMPLETED]
+
+Phone-based GPS start/end anchoring via ESP32 WiFi soft-AP and captive portal. Enables absolute position reference for each log file.
+
+- [x] **WiFi AP + DNS Captive Portal:** ESP32 creates "DeadReckoner-S3" AP with password "deadreckoner". DNS redirects browsing phones to embedded HTML form.
+- [x] **Phone GPS Data Entry:** Browser-based form with lat, lon, alt (optional), and date/time fields. JavaScript parses local time to Unix epoch, sends JSON via POST to `/gps`.
+- [x] **GPS Frames (0xBB/0xCC):** `writeGPSFrame()` stores lat (double), lon (double), alt (float), epoch (uint32_t) in LogFrame GPS union. 0xBB = start anchor, 0xCC = end anchor.
+- [x] **State Machine Integration:** GPS prompts (PROMPT_START, PROMPT_END, WAITING with SSID+IP display, CONFIRM_EXIT) integrated into UI state machine.
+- [x] **Trigger Points:** GPS prompt at boot (one-shot), Create New File, Format (each file gets its own anchor). Shutdown prompts for end GPS.
+- [x] **Deferred File Creation:** When GPS start is pending, file creation is deferred until pairing completes (so 0xBB is the first frame after header).
+- [x] **SdFat/FS.h Conflict Resolved:** `#define File SdFat_File_` macro rename before WebServer include prevents C++ name collision with ESP32 FS.h.
+- [x] **OLED Sleep Prevention:** Auto-sleep skipped during GPS WAITING, PROMPT_START, PROMPT_END, CONFIRM_EXIT states.
+- [x] **GPS Bug Fixes:** JSON string-vs-number fix (`parseFloat()` in JS), `writeGPSFrame()` now correctly stores alt and epoch, time field changed from UTC readonly to editable local time.
+- [ ] **UART NEO-6M GPS Module:** Direct GPS module integration (without phone) — pending extension.
+
+---
+
+#### Phase 14: GPX Fusion Tool (Python/PyQt6) [COMPLETED]
 
 A PyQt6 desktop application at `Code_deadreckoner/Python/GPXFusion/fusion_ui.py` that fuses GPS logs from Garmin eTrex 30x and Geo Tracker Android app into a single accurate path using a Kalman filter with RTS smoothing.
 
