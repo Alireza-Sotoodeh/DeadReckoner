@@ -310,3 +310,35 @@ This phase will develop the Python-based Pedestrian Dead Reckoning pipeline to r
 - [ ] **NMEA Parsing Engine:** Decode GNSS position and timing messages.
 
 - [ ] **Coordinate Injection & GPS-IMU Fusion:** Align 1 Hz GPS with 100 Hz IMU for absolute position anchoring.
+
+---
+
+#### Phase 12: GPX Fusion Tool (Python/PyQt6) [COMPLETED]
+
+A PyQt6 desktop application at `Code_deadreckoner/Python/GPXFusion/fusion_ui.py` that fuses GPS logs from Garmin eTrex 30x and Geo Tracker Android app into a single accurate path using a Kalman filter with RTS smoothing.
+
+- [x] **GPX Parser:** Parse standard GPX + Geo Tracker `geotracker:meta` extensions (accuracy `c`, speed `s`). Source detection by filename substring.
+- [x] **Kalman Filter Engine:** Constant-velocity motion model in local meters (equirectangular projection). Per-device noise: Geo Tracker uses reported `c` field, Garmin defaults to 6 m.
+- [x] **RTS Backward Smoother:** Bidirectional Rauch–Tung–Striebel pass over entire fused sequence.
+- [x] **Time Grid Interpolation:** Resample all device tracks to a common 1 Hz grid.
+- [x] **Offline Map (matplotlib):** Static map with lat/lon grid, color-coded raw tracks, bold red fused path, start/end markers, stats overlay box. No internet required.
+- [x] **Online Map (folium):** Interactive Leaflet map with 5 tile providers (OpenStreetMap, CartoDB positron, CartoDB dark_matter, Esri WorldImagery, Esri WorldTopoMap).
+- [x] **Map Mode Switching:** QComboBox toggles between offline and online. Online grayed out if folium/PyQt6-WebEngine missing.
+- [x] **Tile Provider Selection:** QComboBox triggers map regeneration on change.
+- [x] **Proxy Settings:** ProxyDialog (QDialog) with enable checkbox, host QLineEdit, port QSpinBox. Applied to connectivity check and folium tile fetching.
+- [x] **Connectivity Check:** `urllib` HEAD request to jsdelivr CDN before loading folium map.
+- [x] **Walk Group Management:** Tabs for organizing walks. "+ Add Walk" / "− Remove" buttons.
+- [x] **GPX File Import:** QFileDialog + drag-and-drop support. File info panel on selection.
+- [x] **Fuse Button:** Green-styled QPushButton. Runs Kalman fusion on all files in the current tab.
+- [x] **Export Fused GPX:** Save fused result as standard GPX via QFileDialog.
+- [x] **Stats Panel:** Shows fused path: points, distance (km), duration (min), avg speed (m/s).
+- [x] **Control Panel:** Process Noise, Geo Tracker Noise, Garmin Noise spinboxes + RTS Smoother checkbox.
+- [x] **Refresh Map Button:** Regenerates current map mode.
+- [x] **Matplotlib Zoom Buttons:** Zoom In (+), Zoom Out (−), Reset (R) — adjusts plot margin factor.
+- [x] **Resize Handling:** `resizeEvent` re-scales pixmap in offline mode; calls `map.invalidateSize()` for online folium map.
+- [x] **QWebEngineView Unparent Fix:** `setParent(None)` before `setHtml()` makes `loadFinished` fire for CDN-script pages. Reparent with CSS viewport fix on load.
+- [x] **Compositor null texture fix:** Preserve web view size via `resize(size)` before unparenting.
+- [x] **Stylesheet Fixes:** `.QWidget` selector to avoid subclass interference. QPushButton `:pressed` state. QComboBox styling. QSpinBox up/down button sub-controls. QStackedWidget background.
+- [x] **Stats panel fixed height:** `setFixedHeight(64)` prevents layout shift after fusion.
+
+---

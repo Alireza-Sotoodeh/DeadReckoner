@@ -297,6 +297,26 @@ The final extension will add GNSS support and time alignment.
 - [ ] **Time Sync:** Align 1 Hz GPS updates with 100 Hz IMU samples.
 - [ ] **Trajectory Validation:** Verify synchronized offline reconstruction.
 
+#### Phase 12: GPX Fusion Tool [COMPLETED]
+
+A PyQt6 desktop application for fusing GPS logs from Garmin eTrex 30x and Geo Tracker Android app into a single accurate track using a Kalman filter with RTS smoothing.
+
+- [x] **GPX Parser:** Read standard GPX + Geo Tracker `geotracker:meta` extensions (accuracy `c`, speed `s`). Source detection by filename.
+- [x] **Kalman Filter Engine:** Constant-velocity motion model in local meters (equirectangular projection). Per-device noise (Geo Tracker uses reported `c` accuracy, Garmin defaults to 6 m).
+- [x] **RTS Smoother:** Bidirectional backward pass for optimal batch estimation.
+- [x] **Interpolation:** Resample all tracks to a common 1 Hz grid.
+- [x] **Offline Map (matplotlib):** Static map with lat/lon grid, color-coded raw tracks, red fused path, start/end markers, stats overlay. No internet required.
+- [x] **Online Map (folium):** Interactive Leaflet map with 5 tile providers (OSM, CartoDB, Esri satellite/topo). Proxy settings. Connectivity check.
+- [x] **Proxy Dialog:** Enable/disable proxy, host/port configuration.
+- [x] **File Management:** Tabs per walk group, drag-and-drop GPX import, file info panel.
+- [x] **Export:** Save fused path as standard GPX.
+- [x] **Dual Map Mode:** QComboBox switches between offline and online. Online mode grayed out if dependencies missing.
+- [x] **Tile Provider Switching:** QComboBox selects tile set; map regenerates on change.
+- [x] **QWebEngineView Unparent Fix:** `setParent(None)` before `setHtml()` enables `loadFinished` with CDN scripts. Viewport CSS fix applied on load.
+- [x] **Fuse Button:** Green QPushButton with `:hover`/`:pressed` states.
+- [x] **Stats Panel:** Shows fused path statistics (points, distance, duration, speed).
+- [x] **Refresh & Zoom Buttons:** Refresh map in current mode; zoom in/out/reset for matplotlib map.
+
 ---
 
 ## 6. Firmware Flashing Configuration (`ESP32-S3 N16R8`)
@@ -722,6 +742,10 @@ It shows how the architecture evolved from the earliest prototype to the current
 | 2026-06-19 | EEPROM CRC-16 integrity           | Added CRC-16 over magic + 11 calibration floats (addr 46). Corrupt data detected on load with OLED + LED + buzzer alert.                             |
 | 2026-06-19 | SPI recovery power-cycle delay    | Added 10ms `vTaskDelay` between `SPI.end()` and `SPI.begin()` in `attemptSDRecovery()`.                                                              |
 | 2026-06-19 | Version 2.0 + comment cleanup     | Updated version, date, fixed 8 stale/typo comments (absolute→relative timestamp, 45→47 bytes, 7→8 items, etc.).                                      |
+| 2026-06-20 | GPX Fusion Tool — initial version  | Built PyQt6 GUI for fusing Garmin + Geo Tracker GPX logs. Kalman filter with RTS smoother, dual map modes (matplotlib offline / folium online), proxy dialog, file group management. |
+| 2026-06-20 | GPX Fusion — QWebEngineView fix    | Fixed `loadFinished` not firing on parented views for folium HTML with CDN scripts. Unparent + reparent pattern with viewport CSS sizing.              |
+| 2026-06-20 | GPX Fusion — button/UI fixes       | Added `QPushButton:pressed` state, `QComboBox` and `QStackedWidget` styling, fixed proxy status message bug, added matplotlib zoom buttons.            |
+| 2026-06-20 | GPX Fusion — stats panel fixed height | `setFixedHeight(64)` on `FusedStatsPanel` to prevent layout shift after fusion. Fixed `Compositor returned null texture` by preserving web view size before unparenting. |
 
 ---
 
@@ -745,6 +769,7 @@ The immediate next step is developing the offline PDR pipeline in Python. GPS in
 | Offline analysis tools        | Complete |
 | Offline PDR pipeline (Python) | Planned  |
 | GPS integration               | Future   |
+| **GPX Fusion Tool**           | Complete |
 
 ---
 

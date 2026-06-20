@@ -67,6 +67,7 @@ flowchart LR
 - SD card boot scan and sequential file naming
 - MPU disconnect detection and emergency shutdown
 - MATLAB binary reader for offline plotting and validation
+- **GPX Fusion Tool** — PyQt6 desktop app for fusing Garmin eTrex 30x and Geo Tracker GPS logs using a Kalman filter + RTS smoother, with both offline (matplotlib) and online (folium) map visualization
 
 ---
 
@@ -84,6 +85,7 @@ flowchart LR
 | OLED menu and diagnostics  | Complete    |
 | Offline analysis tools     | Complete    |
 | GPS integration            | In progress |
+| **GPX Fusion Tool**        | Complete    |
 
 ---
 
@@ -126,6 +128,11 @@ Code_deadreckoner/
 ├── ESP32_S3/
 ├── nodeMUC8266/
 ├── Matlab/
+├── Python/
+│   └── GPXFusion/
+│       ├── fusion_ui.py            # PyQt6 GUI: Kalman filter fuse + maps
+│       ├── requirements.txt        # Core dependencies
+│       └── data/                   # Sample GPX test logs
 └── ...
 Diagram_deadreckoner/
 ├── SD card adaptors-3.jpg
@@ -135,6 +142,25 @@ Diagram_deadreckoner/
 Test- Sanity Check/
 └── ...
 ```
+
+---
+
+## GPX Fusion Tool
+
+A PyQt6 desktop application at `Code_deadreckoner/Python/GPXFusion/fusion_ui.py` that fuses GPS logs from a **Garmin eTrex 30x** and the **Geo Tracker** Android app into a single high-accuracy path.
+
+**Fusion engine:** Constant-velocity Kalman filter in local meters (equirectangular projection) with per-device noise tuning and an optional Rauch–Tung–Striebel backward smoother.
+
+**Map modes:**
+- **Offline** — Static matplotlib map with lat/lon grid, color-coded raw tracks, bold fused path, start/end markers, stats overlay. No internet required.
+- **Online** — Interactive folium Leaflet map with 5 tile providers (OSM, CartoDB, Esri satellite/topo), proxy settings, and connectivity check.
+
+**Usage:**
+```
+pip install PyQt6 gpxpy numpy pandas scipy matplotlib
+python fusion_ui.py
+```
+*Optional: `pip install folium PyQt6-WebEngine` for online mode.*
 
 ---
 

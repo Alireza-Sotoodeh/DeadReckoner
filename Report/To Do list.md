@@ -42,4 +42,10 @@
 
 ---
 
-## 
+## 5. GPX Fusion Tool (Python/PyQt6)
+
+- [ ] **Online map resize after fuse:** Folium map container shows wrong dimensions after clicking "Fuse Selected Walk" in online mode. Layout settling timing needs investigation.
+- [ ] **Matplotlib zoom in online mode:** Zoom buttons currently only affect offline mode. Extend to folium maps (programmatic `setZoom()`).
+- [ ] **GPX export elevation:** Export currently saves only lat/lon/time. Add elevation if available in fused result.
+
+---
