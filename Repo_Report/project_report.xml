@@ -14,14 +14,14 @@
   <project_identity>
     <name>DeadReckoner</name>
     <language>MATLAB</language>
-    <total_files>90</total_files>
-    <total_lines>112583</total_lines>
+    <total_files>95</total_files>
+    <total_lines>126278</total_lines>
     <dependencies>0</dependencies>
-    <git_commits>162</git_commits>
+    <git_commits>179</git_commits>
   </project_identity>
 
   <architecture_overview>
-    Project 'DeadReckoner' is a MATLAB project. Contains 2 source file(s) with 27 function(s) and 3 class(es). 2 file(s) have imports, referencing 14 external package(s). Repository has 90 total file(s) and ~112583 line(s) of code.
+    Project 'DeadReckoner' is a MATLAB project. Contains 2 source file(s) with 27 function(s) and 3 class(es). 2 file(s) have imports, referencing 14 external package(s). Repository has 95 total file(s) and ~126278 line(s) of code.
   </architecture_overview>
 
   <description>
@@ -122,15 +122,20 @@ The project started as a small IMU prototype and evolved into a multi-core embed
     │   ├── SD card adaptors-4.png
     │   └── pinsNodeMUC8266.jpg
     ├── Repo_Report/
+    │   ├── project_report.md
+    │   ├── project_report.txt
+    │   ├── project_report.xml
+    │   └── project_report_1.md
     ├── Report/
     │   ├── Issues found by AI.md
     │   ├── Progress.md
     │   ├── Report.md
-    │   ├── Report2.md
     │   └── To Do list.md
     ├── Test- Sanity Check/
     │   ├── Chip_Identification_ESP/
     │   │   └── Chip_Identification_ESP.ino
+    │   ├── GY-GPS6Mv2/
+    │   │   └── GY-GPS6Mv2.ino
     │   ├── MPU9250/
     │   │   └── MPU9250.ino
     │   ├── OLED/
@@ -161,6 +166,7 @@ The project started as a small IMU prototype and evolved into a multi-core embed
     │       └── microSDCardModule5V_nanoVersion/
     │           └── microSDCardModule5V_nanoVersion.ino
     ├── .gitattributes
+    ├── .gitignore
     ├── README.md
     └── project_summarizer.py
     ]]>
@@ -174,16 +180,22 @@ The project started as a small IMU prototype and evolved into a multi-core embed
       
       ]]>
     </file>
+    <file path=".gitignore" language="" lines="2">
+      <![CDATA[
+      /Repo_Report
+      
+      ]]>
+    </file>
     <file path="Code_deadreckoner/ESP32_S3/ESP32_S3.ino" language="" lines="201">
       <![CDATA[
-      // Last Edit: 2026-06-12 19:05:00
-      // Reason for Last Edit: Implemented Union structure for memory optimization and prepared PSRAM integration.
+      // Last Edit: 2026-06-19
+      // Reason for Last Edit: CRC-16 per frame, EEPROM CRC, 100 Hz rate limiter, gap timestamp fix, vTaskDelay conversion, WDT-safe format yields, SPI recovery delay, EEPROM user notification, comment cleanup.
       // Author: Alireza Sotoodeh
       
       /*
        * =========================================================================
        * PROJECT: DeadReckoner
-       * VERSION: 1.9 (Advanced SD Manager UI + Stealth Mode + CC LED & Active Buzzer)
+       * VERSION: 2.0 (CRC-16, EEPROM CRC, 100 Hz rate limit, gap timestamp fix, WDT-safe format)
        * * WIRING DIAGRAM
        * -------------------------------------------------------------------------
        * Component Pin | MCU Pin       | Note / Hardware Reasoning
@@ -292,12 +304,12 @@ The project started as a small IMU prototype and evolved into a multi-core embed
         #define TAG_BLINK_MS 100                                  
         // buttons 
         #define Press_to_ShutDown_MS 3000
-        // menue 
+        // menu 
         #define MENU_ITEMS_COUNT 5
       // =========================================================================
       // PARAMETRIC BANDWIDTH & MEMORY ENGINE
       // =========================================================================
-        #define DATA_FRAME_SIZE            45     
+        #define DATA_FRAME_SIZE            47     
         #define SAMPLING_RATE_HZ           100    
         #define BYTES_PER_SECOND           (DATA_FRAME_SIZE * SAMPLING_RATE_HZ)
         #define BYTES_PER_HOUR             ((uint64_t)BYTES_PER_SECOND * 3600)
@@ -305,7 +317,7 @@ The project started as a small IMU prototype and evolved into a multi-core embed
         #define QUEUE_LENGTH               50000  
         #define PSRAM_BUFFER_SIZE_MB       ((float)(QUEUE_LENGTH * DATA_FRAME_SIZE) / (1024.0 * 1024.0))
       // =========================================================================
-      // Calabiriation
+      // Calibration
       // =========================================================================
         #define EEPROM_MAGIC_NUMBER       0xDEAD
         #define EEPROM_MAGIC_ADDR         0
@@ -315,13 +327,14 @@ The project started as a small IMU prototype and evolved into a multi-core embed
       void print_calibration();
       void saveCalibration();
       void loadCalibration();
+      uint16_t calcCRC16(const uint8_t* data, uint16_t len);
       /*//////////////////////////// RTOS Data Structures ////////////////////////////*/
       
       #pragma pack(push, 1) // Force absolute 1-byte alignment for all enclosed structures
-      // Optimized Parametric Binary structure using Union (Guaranteed Exactly 45 Bytes)
+      // Optimized Parametric Binary structure using Union 
       typedef struct {
           uint32_t frame_seq;  // 4 Bytes: Monotonic sequential index for frame drop tracking
-          uint64_t timestamp;  // 8 Bytes: Absolute hardware microsecond timestamp from boot-up (Prevents 71-min overflow)
+          uint64_t timestamp;  // 8 Bytes: Relative microsecond timestamp from log start (esp_timer_get_time() - log_time_base)
           uint8_t event_flag;  // 1 Byte: 0=IMU, 1=TAG, 0xAA=SD_GAP, 0xBB=GPS
           
           // Memory Overlap: Total payload size strictly 32 Bytes
@@ -338,6 +351,7 @@ The project started as a small IMU prototype and evolved into a multi-core embed
               } gps;
           } payload;
           
+          uint16_t crc;
       } LogFrame;
       #pragma pack(pop) // Restore default compiler alignment
       
@@ -374,8 +388,6 @@ The project started as a small IMU prototype and evolved into a multi-core embed
       // Hardware spinlocks for multi-core thread safety
         portMUX_TYPE frameCounterMux = portMUX_INITIALIZER_UNLOCKED;
         portMUX_TYPE tagEventMux = portMUX_INITIALIZER_UNLOCKED; 
-      
-      // Tracks the active file to resume appending after failure
       ... (truncated at 200 lines)
       ]]>
     </file>
@@ -2982,209 +2994,74 @@ The project started as a small IMU prototype and evolved into a multi-core embed
       
       ]]>
     </file>
-    <file path="Report/Issues found by AI.md" language="Markdown" lines="201">
+    <file path="Report/Issues found by AI.md" language="Markdown" lines="66">
       <![CDATA[
-      # Issues found by AI (ESP32-S3 DeadReckoner Code Review Report)
+      # Issues found by AI — Remaining Action Items
+      
+      > `[x]` = resolved in ESP32_S3.ino v2.0. Unchecked items remain open.
       
       ---
       
-      ## deep seek
+      ## 1. Logical Errors & Bugs
       
-      ### 1. Logical Errors (Bugs)
+      ### Critical
       
-      #### Critical (Crash or complete malfunction)
+      - [x] **MPU temperature read from wrong core** — `mpu.getTemperature()` is called in `loggingTask` (Core 1) while `mpu.update()` runs in `sensorTask` (Core 0). The MPU9250 library is not thread-safe. Move temperature read to `sensorTask` and pass via queue.
+        *[FIXED: `getTemperature()` called in `sensorTask` (Core 0) at line 330, same task as `mpu.update()` — no thread-safety issue.]*
       
-      - **Local variables declared inside infinite loop tasks** – Variables like `last_mpu_data_time` and `is_muted` are re-initialized each loop iteration, resetting timers and state every few ms.  
-        *Fix: Move them before `for(;;)` or use `static`.*
+      - [x] **Inconsistent recovery file naming** — `attemptSDRecovery` uses `%03d%03d.BIN` while main logs use `DR_LOG_%03d.BIN`. Unify to a single format (e.g., `DR_LOG_%03d_%03d.BIN`) and adjust all scanning/counting logic.
+        *[INTENTIONAL: `%03d%03d.BIN` is an O(1) direct-open format for fast SD recovery; scan logic at lines 762–775 handles both naming patterns correctly.]*
       
-      - **Concurrent access to MPU object from two cores** – `loggingTask` calls `mpu.getTemperature()` while `sensorTask` calls `mpu.update()`; library is not thread-safe.  
-        *Fix: Read temperature inside `sensorTask` and pass via queue, or add a mutex.*
+      - [ ] **Consecutive TAG button presses lost** — `tag_event_triggered` is a single flag; rapid presses within 5ms are collapsed into one. Replace with a small queue or counter.
       
-      - **Inconsistent file naming for recovery logs** – `attemptSDRecovery` uses `%03d%03d.BIN` but main logs use `DR_LOG_%03d.BIN`, breaking scanning and file counting.  
-        *Fix: Use unified format like `DR_LOG_%03d_%03d.BIN`.*
+      - [ ] **`global_frame_counter` reset on new file** — Counter restarts from 0 when creating a new log file, causing duplicate sequence numbers across files. Keep it system-wide monotonic.
       
-      #### Moderate (Unexpected behavior)
+      ### Moderate
       
-      - **`delay()` used inside FreeRTOS task** – Blocks `loggingTask` for 1 second, missing button events and frame processing.  
-        *Fix: Replace with `vTaskDelay(pdMS_TO_TICKS(1000))`.*
+      - [ ] **UI rendering depends on sensor data** — Button handling and OLED refresh are tied to `xQueueReceive`. If the queue stalls, the UI freezes. Move UI tasks outside the receive block.
       
-      - **OLED auto-sleep check placed inside queue receive block** – If no frame arrives, sleep never triggers even if timeout passes.  
-        *Fix: Move the check outside the `xQueueReceive` condition.*
+      - [x] **`delay()` calls outside RTOS context** — `delay(2000)` in setup and `delay(1000)` in calibration functions are safe but should be converted to `vTaskDelay` where possible for consistency.
+        *[PARTIAL: calibration `delay()` calls (×3) replaced with `vTaskDelay()` at lines 1348, 1354, 1393. Setup delays remain as-is (pre-RTOS context).]*
       
-      - **Consecutive TAG button presses lost** – `tag_event_triggered` is a single flag; rapid presses within 5ms result in single tag.  
-        *Fix: Use a small queue or counter for tags.*
+      ## 2. Redundant / Dead Code
       
-      - **`global_frame_counter` reset when creating new file** – Frame numbers restart from 0, causing duplicate sequence numbers in MATLAB analysis.  
-        *Fix: Do not reset counter; keep it system-wide monotonic.*
+      - [ ] **Redundant `global_frame_counter = 0` in setup** — Variable is already zero-initialized at declaration; the explicit reset is unnecessary.
       
-      ### 2. Redundant Lines / Variables
+      - [ ] **`error_handled` flag simplification** — The boolean flag and its branching logic can be simplified into a direct state check.
       
-      | Item                               | Reason to remove                                                          |
-      | ---------------------------------- | ------------------------------------------------------------------------- |
-      | `lastPrintMillis`                  | Never used anywhere in code.                                              |
-      | `#define update_rate_oled 1500`    | Defined but never used; code uses literal `1500` instead.                 |
-      | `font_10_pixel`, `font_5_pixel`    | Defined but only `font_8_pixel` is set; can be removed or unified.        |
-      | `#define MPU9250_IMU_ADDRESS 0x68` | Macro defined but later code uses `0x68` directly; use the macro instead. |
-      | Duplicate `Wire.setTimeout(50)`    | One in `setup` is enough; `Wire.begin()` in recovery resets it anyway.    |
+      ## 3. Stability & Reliability Risks
       
-      ### 3. Potential Hardware/Software Stability Issues
+      - [ ] **No internal watchdog configured** — No `esp_task_wdt_init` or task-level watchdog reset. A stuck task can hang the system silently.
       
-      | Issue                                                       | Description                                                                                                 |
-      | ----------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
-      | **Watchdog Timer**                                          | `delay(1000)` in `loggingTask` can trigger watchdog reset if task blocks too long.                          |
-      | **PSRAM missing or disabled**                               | If PSRAM not available, `heap_caps_malloc` fails and system halts in infinite loop.                         |
-      | **FAT filesystem corruption**                               | Sudden power loss during SD write may corrupt files; a large capacitor on power rail helps.                 |
-      | **I2C bus noise**                                           | MPU9250 and OLED use separate I2C buses; lack of external pull-ups may cause communication errors.          |
-      | **SPI vs software I2C interference**                        | High-speed SD SPI (20MHz) may disturb bit-bang I2C for OLED during heavy writes.                            |
-      | **`last_interaction_millis` wrongly updated on long press** | During SELECT hold, `last_interaction_millis` refreshes every loop, preventing 3-second shutdown detection. |
+      - [x] **CRC/checksum per frame** — Logged frames have no integrity check. Corrupted records cannot be detected during offline analysis. Add a 2-byte CRC16 to `LogFrame`.
+        *[FIXED: CRC-16-IBM (poly 0xA001) added as `uint16_t crc` field in `LogFrame`. Computed before every `xQueueSend` in `sensorTask` and every gap-frame SD write in `loggingTask`. `DATA_FRAME_SIZE` updated 45→47.]*
       
-      ### 4. Ideas for Improved Stability & Performance
+      - [ ] **File metadata header** — No header stores firmware version, sampling rate, calibration version, or session info at the start of log files.
       
-      1. Move all state variables in tasks outside the infinite loop (fixes critical bug #1).  
-      2. Add internal watchdog with `esp_task_wdt_init` and reset it in each task.  
-      3. Protect MPU access with a mutex or read temperature inside `sensorTask`.  
-      4. Unify log file naming format to `DR_LOG_%03d_%03d.BIN` and adjust recovery scanning.  
-      5. Replace all `delay()` with `vTaskDelay()` and restructure blocking UI paths.  
-      6. Implement deep sleep after prolonged inactivity to save battery.  
-      7. Check `sd.card()->isBusy()` before each write and react faster to sync failures.  
-      8. Add real-time CSV output over Serial for MATLAB live monitoring.  
-      9. Reduce MPU sampling rate to 10Hz after 30 seconds of no movement.  
-      10. Store last frame sequence number and file offset in a settings file on SD for resume after power loss.
+      - [ ] **Stack overflow not verified** — `loggingTask` stack (8192 bytes) with multiple buffers (`char lines[8][32]`, `snprintf`, u8g2 frames) should be checked with `uxTaskGetStackHighWaterMark()`.
       
-      ### 5. Final Score (out of 10)
+      - [ ] **SD card busy check** — No `sd.card()->isBusy()` verification before writes; can lead to silent write failures under heavy load.
       
-      > **Current score: 6.5/10**  
-      > *Reason:* Advanced architecture (RTOS, PSRAM, recovery, UI) is excellent, but critical bugs (task-local variables, MPU race condition, file naming inconsistency) severely impact reliability.
+      - [ ] **Adaptive sampling rate** — No idle slowdown. Sampling continues at 100 Hz even when the device is stationary for extended periods.
       
-      > **After fixing critical bugs (#1 to #3): 8.5/10**
+      - [ ] **Actual sampling rate not recorded** — MATLAB assumes a fixed 100 Hz; real timing varies with task scheduling. Measure and store actual inter-frame intervals.
       
-      ---
+      ## 4. Missing Features & Improvements
       
-      ## Chat GPT
+      - [ ] **Deep sleep mode** — No low-power state after prolonged inactivity. Could save significant battery in field deployments.
       
-      ### Critical Issues
+      - [ ] **Real-time CSV/Serial output** — No optional ASCII streaming for MATLAB live monitoring or debugging.
       
-      #### 1. MPU/I2C Race Condition
+      - [ ] **SD settings file for resume** — No persistent storage of last frame sequence number and file offset for recovery after power loss.
       
-      Both `sensorTask()` and `loggingTask()` access the MPU object from different CPU cores without synchronization. This may cause corrupted sensor readings, I2C lockups, or random system instability.
+      - [ ] **Event logging system** — Limited to gap frames only. No structured log of system events (start, stop, calibration, recovery attempts, errors).
       
-      #### 2. Missing Real Timestamp
+      - [ ] **Double buffering** — Single queue architecture; a double-buffer design could improve throughput and reduce write contention.
       
-      The system assumes a fixed 100 Hz sampling rate using `frame_seq`, but actual timing varies due to task scheduling and I2C latency. This can significantly reduce the accuracy of MATLAB-based analysis.
+      - [ ] **Task health monitoring** — No heartbeat or status reporting from individual tasks. Stalled tasks go undetected.
       
-      #### 3. Silent Queue Overflow
+      - [ ] **`Serial.print` cleanup in production** — Debug serial prints remain in several production paths. Guard with `#ifdef DEBUG` or remove.
       
-      The return value of `xQueueSend()` is not checked. When the queue becomes full, samples may be dropped without any indication or error reporting.
-      
-      #### 4. Incomplete SD Recovery Marker
-      
-      A gap frame is generated during SD recovery, but the corresponding event flag is not assigned. As a result, data gaps may not be correctly detected during post-processing.
-      
-      ### Major Issues
-      
-      #### 5. Calibration Data Not Validated
-      
-      Calibration parameters are loaded directly from EEPROM without checking validity, version, or integrity. Corrupted EEPROM data may produce incorrect sensor outputs.
-      
-      #### 6. UI Logic Depends on Sensor Data
-      
-      Button handling and UI updates are tied to queue reception. If sensor updates stop temporarily, the user interface may become unresponsive.
-      
-      #### 7. Non-Graceful Shutdown
-      
-      The queue is flushed during shutdown, but the sensor task may still generate new samples. This can lead to the loss of final data frames.
-      
-      #### 8. Incorrect File Counting
-      
-      The SD information menu only counts files matching a specific naming pattern. Recovery fragments may be excluded from statistics.
-      
-      #### 9. Excessive SD Recovery Attempts
-      
-      Repeated SD failures can continuously trigger recovery routines, causing performance degradation and excessive file operations.
-      
-      #### 10. Missing Data Integrity Check
-      
-      Logged frames do not contain a CRC or checksum. Corrupted records cannot be detected during offline analysis.
-      
-      ### Minor Issues
-      
-      #### 11. Unused State (`STATE_SUBMENU_MSG`)
-      
-      A menu state is defined and rendered but is never entered. This increases code complexity without providing functionality.
-      
-      #### 12. Unused Variables
-      
-      Variables such as `lastPrintMillis` are declared but never used and can be safely removed.
-      
-      #### 13. Frequent SD File Scanning
-      
-      Repeated use of file existence checks may reduce UI responsiveness and increase SD card access overhead.
-      
-      #### 14. Complex File Naming Scheme
-      
-      The current file naming structure complicates maintenance, indexing, and recovery operations.
-      
-      #### 15. No Dedicated Task Health Monitoring
-      
-      The firmware lacks task-level heartbeat or watchdog monitoring, making it harder to detect stalled tasks.
-      
-      #### 16. Extremely Large Queue
-      
-      A queue size of 50,000 frames improves buffering but increases memory usage and delays overflow detection.
-      
-      #### 17. Limited Runtime Diagnostics
-      
-      No statistics are maintained for dropped frames, recovery attempts, MPU failures, or SD failures.
-      
-      ### Recommended Improvements
-      
-      #### 18. Add File Metadata Header
-      
-      Store firmware version, sampling rate, calibration version, and session information at the beginning of each log file.
-      
-      #### 19. Read Temperature in Sensor Task
-      
-      Acquire MPU temperature together with motion data to eliminate cross-core access to the sensor object.
-      
-      #### 20. Implement Event Logging
-      
-      Store important system events such as start, stop, SD recovery, and sensor errors inside the log file.
-      
-      #### 21. Use Double Buffering
-      
-      A double-buffer architecture can improve throughput and reduce dependency on queue performance during SD writes.
-      
-      #### 22. Monitor Actual Sampling Rate
-      
-      Measure and record the real sampling frequency to simplify validation and improve offline analysis accuracy.
-      
-      ### Overall Assessment
-      
-      | Category                 | Count |
-      | ------------------------ | ----- |
-      | Critical Issues          | 4     |
-      | Major Issues             | 6     |
-      | Minor Issues             | 7     |
-      | Recommended Improvements | 5     |
-      
-      **Overall Score:** **6.5 / 10**
-      
-      The software architecture is well organized and demonstrates good use of FreeRTOS, PSRAM buffering, and fault recovery mechanisms. However, several reliability and data-integrity issues should be addressed before considering the system production-ready for long-duration data logging applications.
-      
-      ---
-      
-      ## claude
-      
-      **Project:** DeadReckoner v1.9 | **Score: 7.0 / 10**
-      
-      ### 1. Logical Errors
-      
-      #### 🔴 Critical
-      
-      | #   | Location            | Issue                                                    | Description                                                                                                                                                  |
-      | --- | ------------------- | -------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-      | L1  | Lines 907–996       | **OLED & Power Management inside `xQueueReceive` block** | Phase 4 rendering and sleep timeout checks only execute when a new frame arrives. If the queue is momentarily empty, the OLED freezes and never sleeps.      |
-      ... (truncated at 200 lines)
       ]]>
     </file>
     <file path="Report/Progress.md" language="Markdown" lines="201">
@@ -3322,6 +3199,8 @@ The project started as a small IMU prototype and evolved into a multi-core embed
       
       - [x] **Frame Sequence Tracking:** Add monotonic frame numbering for drop detection and recovery analysis.
       
+      - [x] **CRC-16 Per-Frame Integrity:** Add bit-by-bit CRC-16-IBM checksum to every `LogFrame` for silent corruption detection during offline analysis.
+      
       - [x] **Dropped Frame Accounting:** Monitor queue overflows and track lost samples during runtime.
       
       - [x] **PSRAM Queue Architecture:** Introduce a large PSRAM-backed logging queue to decouple acquisition and storage workloads.
@@ -3387,224 +3266,19 @@ The project started as a small IMU prototype and evolved into a multi-core embed
       - [x] **Watchdog-Safe Queue Draining:** Prevent resets while flushing large buffered datasets.
       
       ---
-      
-      #### Phase 8: User Interface & Operational Monitoring [COMPLETED]
       ... (truncated at 200 lines)
       ]]>
     </file>
     <file path="Report/Report.md" language="Markdown" lines="201">
       <![CDATA[
-      # Signal-Free Offline Tracking System: Progress & Architecture Report
-      
-      **Author:** Alireza Sotoodeh
-      
-      **Version:** 1.0.0 
-      
-      **Date:** June 3, 2026
-      
-      **Name of project:** DeadReckoner
-      
-      ---
-      
-      ## 1. Hardware Inventory
-      
-      The following components are currently available for the development and testing of the tracking system:
-      
-      ### Microcontrollers
-      
-      - **NodeMCU ESP8266MOD:** Current prototype board. Features a single-core processor and limited memory.
-      - **ESP32-S3 N16R8:** Advanced dual-core MCU with 16MB Flash and 8MB PSRAM. Built for heavy IoT and AI/data logging tasks.
-      - **ESP32 WIFI+BT Type-C:** Standard ESP32 dual-core module with modern USB-C interface.
-      
-      ### Sensors & Modules
-      
-      - **MPU9250:** 9-axis IMU (3-axis Accel, 3-axis Gyro, 3-axis Mag). Excellent for high-precision sensor fusion.
-      - **MPU6500:** 6-axis IMU (Accel + Gyro). Lacks magnetometer, making it prone to yaw drift over time.
-      - **GY-25:** Tilt/serial angle sensor module (usually incorporates an MPU6050 with an onboard MCU for angle calculation).
-      - **HW-123:** Generic module designation (often associated with specific sensor breakouts; requires specific part verification).
-      - **BMP280:** Barometric pressure and temperature sensor. Highly accurate for altitude tracking.
-      - **S6MV2 (GPS):** GNSS module for global positioning. Essential for outdoor signal-free tracking.
-      - **OLED 0.91-inch:** I2C monochrome display (128x32) for live status monitoring.
-      
-      ---
-      
-      ## 2. Microcontroller Comparison
-      
-      | Feature / MCU        | NodeMCU (ESP8266)    | ESP32 (Standard)    | ESP32-S3 (N16R8)                     |
-      | -------------------- | -------------------- | ------------------- | ------------------------------------ |
-      | **Cores**            | 1 (Tensilica L106)   | 2 (Xtensa LX6)      | 2 (Xtensa LX7 + Vector instructions) |
-      | **Clock Speed**      | 80 / 160 MHz         | 160 / 240 MHz       | 240 MHz                              |
-      | **SRAM**             | ~50 KB usable        | 520 KB              | 512 KB                               |
-      | **External RAM**     | None                 | Usually None        | **8 MB PSRAM**                       |
-      | **Flash Memory**     | 4 MB                 | 4 MB                | **16 MB**                            |
-      | **Active Power**     | ~80 mA               | ~160 mA             | ~240 mA (w/ PSRAM active)            |
-      | **Deep Sleep**       | ~20 µA               | ~10 µA              | **~7 µA**                            |
-      | **Hardware I2C**     | 1 Bus (Often shared) | 2 Independent Buses | 2 Independent Buses                  |
-      | **Est. Price (USD)** | 3.00 - 4.00          | 4.00 - 6.00         | 7.00 - 10.00                         |
-      
-      ---
-      
-      ## 3. Best Choices & Justifications
-      
-      Based on the goal of creating an **Offline Logging System**, the recommended hardware stack is:
-      
-      1. **Core Controller: `ESP32-S3 N16R8`.**
-         - **Reason:** The massive 16MB Flash allows for extensive onboard LittleFS data logging without needing an immediate SD Card module. The 8MB PSRAM handles large data buffers. The dual-core architecture is mandatory to separate high-frequency IMU reading (Core 0) from low-frequency SD writing/GPS reading (Core 1), preventing sensor data loss (blocking delays).
-      2. **Primary IMU: `MPU9250`.** 
-         - ***Reasoning:*** The 9-axis capability allows the Madgwick filter to correct yaw drift using the magnetometer, which is impossible with the 6-axis MPU6500.
-      3. **Positioning: S6MV2 GPS.**
-         - ***Reasoning:*** Provides the absolute global coordinates needed to anchor the relative movements calculated by the IMU.
-      
-      ---
-      
-      ## 4. Codebase Analysis & Logic Breakdown
-      
-      ### 4.1 NodeMCU Firmware (`nodeMUC8266.ino`)
-      
-      The current firmware serves as a data-streaming prototype. It initializes the IMU, applies a Madgwick filter, and streams quaternion and acceleration data via Serial.
-      
-      **Key Logic Blocks:**
-      
-      - **Sensor Initialization & Madgwick Filter:** The MPU9250 is configured via Hardware I2C. The Madgwick filter is used to fuse raw sensor data into quaternions (`Qw, Qx, Qy, Qz`). This is computationally heavy but mathematically superior to Euler angles (avoids gimbal lock).
-      - **OLED Separation:** The OLED uses Software I2C (`U8G2_SSD1306_128X32_UNIVISION_F_SW_I2C`). *Logic:* This intentionally prevents the slow display updates from congesting the Hardware I2C bus, ensuring the IMU can be sampled rapidly.
-      - **EEPROM Calibration Routine (Flawed):** The code initiates a calibration sequence and saves bias data to EEPROM. However, the `loadCalibration()` function retrieves the data but lacks the setter methods to apply them back to the `mpu` object, rendering the saved calibration inert.
-      - **Serial Bottleneck:** Data is transmitted using `Serial.print()` with float-to-string conversion. This is highly inefficient for data logging and will consume significant CPU cycles.
-      
-      ### 4.2 MATLAB Visualization (`visual.m`)
-      
-      A script designed to parse the incoming serial stream and render a real-time 3D orientation vector.
-      
-      **Key Logic Blocks:**
-      
-      - **Serial Handling:** Uses `serialport` and waits for a valid 4-value string. It employs a `try-catch` block, ensuring the script does not crash if corrupted data arrives over the serial line.
-      - **Math Transformation (`quat2rotm`):** Converts the incoming quaternion stream into a 3x3 Rotation Matrix. It extracts the X, Y, and Z column vectors to plot the 3D quiver arrows, successfully translating mathematical orientation into visual space.
-      
-      ---
-      
-      ## 5. Hardware Migration Rationale: ESP8266 to ESP32-S3
-      
-      Before finalizing the software architecture, it is crucial to document the exact engineering reasons for migrating from the `NodeMCU (ESP8266)` to the `ESP32-S3`. The tracking system's requirements have outgrown the physical limitations of the legacy ESP8266 chip.
-      
-      1. **Processing Bottlenecks (Single vs. Dual Core):** The ESP8266 is a single-core processor. It cannot read the MPU9250 at 100Hz, apply the complex Madgwick filter, and write data to an SD card simultaneously without blocking delays. The ESP32-S3 provides a dual-core architecture, allowing strict separation of sensor fusion (Core 0) and data logging (Core 1).
-      2. **Memory Constraints:** The ESP8266 has limited usable SRAM (~50 KB) and Flash memory (4 MB). Buffer queues for offline logging quickly cause memory overflow. The ESP32-S3 variant selected (N16R8) offers massive headroom with 16 MB of Flash and 8 MB of PSRAM, enabling robust data buffering.
-      3. **Peripheral Routing:** The ESP32-S3 features a complete IO MUX matrix, allowing us to map the Hardware I2C buses to any GPIO pin, eliminating the bus congestion issues seen on the ESP8266 prototype.
-      
-      ---
-      
-      ## 6. Firmware Flashing Configuration (`ESP32-S3 N16R8`)
-      
-      *Comprehensive Arduino IDE settings required to utilize the full 16MB Flash and 8MB PSRAM, ensuring stable FreeRTOS execution and maximum data logging capacity.*
-      
-      - **Board:** ESP32S3 Dev Module
-      
-      - **USB CDC On Boot:** Disabled
-      
-      - **CPU Frequency:** 240MHz (WiFi)
-      
-      - **Core Debug Level:** None
-      
-      - **USB DFU On Boot:** Disabled
-      
-      - **Erase All Flash Before Sketch Upload:** Disabled
-      
-      - **Events Run On:** Core 1
-      
-      - **Flash Mode:** QIO 80MHz
-      
-      - **Flash Size:** 16MB (128Mb)
-      
-      - **JTAG Adapter:** Disabled
-      
-      - **Arduino Runs On:** Core 1
-      
-      - **USB Firmware MSC On Boot:** Disabled
-      
-      - **Partition Scheme:** 16M Flash (e.g., 3MB APP/9.9MB FATFS) *[CRITICAL: Must not be 4MB default]*
-      
-      - **PSRAM:** OPI PSRAM
-      
-      - **Upload Mode:** UART0 / Hardware CDC
-      
-      - **Upload Speed:** 921600
-      
-      - **USB Mode:** Hardware CDC and JTAG
-      
-      - **Zigbee Mode:** Disabled
-      
-      ---
-      
-      ## 7. Multi-Core Architecture & Concurrency Management
-      
-      Moving to a dual-core processor introduces a critical system design challenge: **Concurrency and Shared Memory Interference**.
-      
-      ### 7.1 The Race Condition Problem
-      
-      In a dual-core tracking system, tasks operate at vastly different frequencies:
-      
-      - **Core 0 (Sensor Fusion):** Reads the IMU and calculates quaternions continuously at high speeds (100 Hz).
-      - **Core 1 (Data Logging):** Writes data to non-volatile memory (LittleFS or SD Card). Flash write operations are slow and inherently blocking.
-      
-      If both cores attempt to access the same global orientation variables simultaneously, a **Race Condition** occurs. Core 1 might read an incomplete data set before Core 0 finishes updating it, resulting in corrupted logs and destroying the 3D trajectory reconstruction in MATLAB. Standard Mutex locks are not viable here, as locking the data during a slow SD card write would force Core 0 to wait, dropping critical high-frequency IMU reads.
-      
-      ### 7.2 The Solution: Producer-Consumer Pattern via FreeRTOS Queues
-      
-      To completely decouple the cores while ensuring 100% data integrity, the system utilizes the **Producer-Consumer architecture** using FreeRTOS Queues.
-      
-      1. **Data Encapsulation:** All variables for a single point in time are packed into a rigid `C struct`. Crucially, to prevent precision loss (truncation) that causes map-drift, GPS coordinates are defined as 64-bit `double` types.
-      2. **The Queue (Buffer):** A thread-safe FIFO (First-In, First-Out) queue is allocated in the ESP32's RAM.
-      3. **Task Separation:** Core 0 (Producer) reads sensors and pushes structs to the back of the queue without blocking. Core 1 (Consumer) wakes up, pops blocks from the front of the queue, and writes them to storage in binary format.
-      
-      ### 7.3 Core Data Structure & Memory Calculation
-      
-      ```c
-      // Data structure for a single logging frame (Binary Logging)
-      typedef struct {
-       uint32_t timestamp; // 4 bytes: Time since boot
-       float q[4]; // 16 bytes: Quaternions (qw, qx, qy, qz)
-       float accel[3]; // 12 bytes: Accelerations (ax, ay, az)
-       double gps_lat; // 8 bytes: Latitude (cm-level precision)
-       double gps_lng; // 8 bytes: Longitude (cm-level precision)
-      } LogFrame; // Total Size: 48 Bytes per frame
-      
-      // FreeRTOS Queue Handle declaration
-      QueueHandle_t dataQueue;
-      ```
-      
-      **Buffer Sizing Analysis:** To ensure zero data loss during high-latency SD card operations, the system must buffer data.
-      
-      - **Target Frequency:** 100 Hz (100 frames/sec)
-      
-      - **Target Buffer Duration:** 3 seconds of maximum latency tolerance
-      
-      - **Queue Depth required:** 300 items
-      
-      - **RAM Footprint:** 300 items * 48 bytes = **14,400 bytes (14.06 KB)** This memory footprint is safely accommodated by the ESP32-S3's internal SRAM, leaving the 8MB PSRAM completely free for larger operational tasks.
-      
-      ---
-      
-      ## 8. Hardware & Filter Validation (Test Results)
-      
-      To ensure the reliability of the Dead Reckoning system during periods of GPS signal loss, the MPU9250 IMU and the FreeRTOS-based Madgwick filter underwent three rigorous physical tests. The raw quaternion data was streamed to MATLAB (`visual.m`) for mathematical analysis.
-      
-      ### 8.1 Test 1: Static Drift (Zero-Rate Offset)
-      
-      - **Objective:** Measure the accumulated error (drift) over a 15-minute stationary period to evaluate baseline stability.
-      - **Methodology:** Device kept completely still on an isolated, flat surface for ~900 seconds post-calibration.
-      - **Results:**
-        - **Max Roll Drift:** 0.43°
-        - **Max Pitch Drift:** 0.39°
-        - **Max Yaw Drift:** 2.73° (over 15 minutes)
-      ... (truncated at 200 lines)
-      ]]>
-    </file>
-    <file path="Report/Report2.md" language="Markdown" lines="201">
-      <![CDATA[
-      # Signal-Free Offline Tracking System: Progress & Architecture Report
+      # DeadReckoner: Pedestrian Dead Reckoning Data Logger — Architecture & Progress Report
       
       **Author:** Alireza Sotoodeh  
       **Project:** DeadReckoner  
-      **Version:** 2.0.0  
-      **Date:** June 12, 2026  
+      **Version:** 2.1.0  
+      **Date:** June 19, 2026
+      
+      > **Project Goal:** A wearable IMU data logger that records 100 Hz 9-axis inertial data (quaternions, linear acceleration, temperature) to SD card with per-frame CRC-16 integrity. The logged data is post-processed offline on a PC using Pedestrian Dead Reckoning (PDR) algorithms — step detection, heading from Madgwick-fused quaternions, and Zero Velocity Update (ZUPT) with batch smoothing — to reconstruct the traveled path with minimal drift over multi-hour missions, without GPS.  
       
       ---
       
@@ -3637,15 +3311,15 @@ The project started as a small IMU prototype and evolved into a multi-core embed
       
       ### Sensors & Modules
       
-      | Module         | Function          | Notes                                                          |
-      | -------------- | ----------------- | -------------------------------------------------------------- |
-      | MPU9250        | 9-axis IMU        | Main motion sensor for quaternion and acceleration estimation. |
-      | MPU6500        | 6-axis IMU        | Early prototype sensor used during the research phase.         |
-      | GY-25          | Tilt sensor       | Used for comparison and sensor-validation experiments.         |
-      | HW-123         | Generic module    | Included in early hardware exploration and verification.       |
-      | BMP280         | Barometric sensor | Reserved for altitude-related extensions.                      |
-      | S6MV2 (GPS)    | GNSS module       | Planned for global positioning and time anchoring.             |
-      | OLED 0.91-inch | Status display    | Used for runtime feedback, menus, and error reporting.         |
+      | Module         | Function          | Notes                                                                                                                            |
+      | -------------- | ----------------- | -------------------------------------------------------------------------------------------------------------------------------- |
+      | MPU9250        | 9-axis IMU        | Main motion sensor for quaternion and acceleration estimation. Excellent for high-precision sensor fusion with Madgwick filter.  |
+      | MPU6500        | 6-axis IMU        | Early prototype sensor used during the research phase. Lacks magnetometer, prone to yaw drift over time.                         |
+      | GY-25          | Tilt sensor       | Used for comparison and sensor-validation experiments. Typically incorporates an MPU6050 with onboard MCU for angle calculation. |
+      | HW-123         | Generic module    | Included in early hardware exploration and verification.                                                                         |
+      | BMP280         | Barometric sensor | Reserved for altitude-related extensions. Highly accurate for barometric altitude tracking to offset Z-axis drift.               |
+      | S6MV2 (GPS)    | GNSS module       | Planned for global positioning and time anchoring. Essential for outdoor signal-free tracking and trajectory anchoring.          |
+      | OLED 0.91-inch | Status display    | Used for runtime feedback, menus, and error reporting. I2C monochrome 128x32 display, intentionally isolated on a secondary bus. |
       
       ---
       
@@ -3663,6 +3337,7 @@ The project started as a small IMU prototype and evolved into a multi-core embed
       | SD logging             | Reliable binary storage on external media.            |
       | Fault handling         | Safe shutdown and recovery on sensor failure.         |
       | Validation tools       | MATLAB-based analysis and result inspection.          |
+      | PSRAM buffering        | Massive 50,000-frame queue for zero-loss acquisition. |
       | GPS preparation        | GNSS-ready data structure for future fusion.          |
       
       ---
@@ -3677,15 +3352,23 @@ The project started as a small IMU prototype and evolved into a multi-core embed
       **ESP32-S3 N16R8** was selected as the main controller.  
       The dual-core CPU, PSRAM, and larger Flash space made it suitable for continuous IMU acquisition and blocking storage operations.
       
+      The migration from ESP8266 was driven by three fundamental hardware limits that could not be resolved through software optimisation alone:
+      
+      1. **Processing Bottlenecks (Single vs. Dual Core):** The ESP8266 single-core processor cannot read the MPU9250 at 100 Hz, apply the Madgwick filter, and write data to an SD card simultaneously without blocking delays. The ESP32-S3 separates sensor fusion (Core 0) from data logging (Core 1) strictly.
+      
+      2. **Memory Constraints:** The ESP8266 has ~50 KB usable SRAM and 4 MB Flash. Buffer queues for offline logging cause memory overflow. The ESP32-S3 N16R8 offers 16 MB Flash and 8 MB PSRAM, enabling the 50,000-frame PSRAM queue (~2.14 MB) used in the current architecture.
+      
+      3. **Peripheral Routing:** The ESP32-S3 features a complete IO MUX matrix that maps hardware I2C buses to any GPIO pin, eliminating bus congestion issues and enabling physical segregation of the IMU and SD card buses.
+      
       ### 3.2 Primary IMU
       
       **MPU9250** became the preferred IMU.  
-      It provides accelerometer, gyroscope, and magnetometer data, which improves long-term orientation tracking compared with the MPU6500.
+      It provides accelerometer, gyroscope, and magnetometer data, which improves long-term orientation tracking compared with the MPU6500. The 9-axis capability allows the Madgwick filter to correct yaw drift using the magnetometer, which is impossible with a 6-axis IMU.
       
       ### 3.3 Storage Medium
       
       A **3.3V DIY SD adapter** was finalized for logging.  
-      The adapter was chosen after multiple failed and successful tests with other SD card modules and SPI clock settings.
+      The adapter was chosen after multiple failed and successful tests with other SD card modules and SPI clock settings. The pure 3.3V logic path bypasses level-shifter failures seen on commercial 5V modules.
       
       ### 3.4 Display Layer
       
@@ -3747,6 +3430,7 @@ The project started as a small IMU prototype and evolved into a multi-core embed
       - [x] **Wiring Redesign:** Update the hardware connections for the new controller.
       - [x] **Flash Configuration:** Prepare the board settings for large-memory operation.
       - [x] **Bring-Up Verification:** Validate the migrated platform before adding complexity.
+      - [x] **Pin Relocation:** Move away from GPIO 9 and 10 due to internal Flash/PSRAM strapping line conflicts.
       
       #### Phase 2: RTOS & Multi-Core Framework [COMPLETED]
       
@@ -3759,6 +3443,7 @@ The project started as a small IMU prototype and evolved into a multi-core embed
       - [x] **Thread-Safe Communication:** Avoid shared-state corruption across cores.
       - [x] **Race Condition Mitigation:** Remove direct concurrent memory access.
       - [x] **Timing Stability:** Keep acquisition deterministic under continuous load.
+      - [x] **Spinlock Protection:** Add portMUX_TYPE critical sections for frame counter and tag event atomicity across cores.
       
       #### Phase 3: Calibration & I2C Optimization [COMPLETED]
       
@@ -3771,6 +3456,8 @@ The project started as a small IMU prototype and evolved into a multi-core embed
       - [x] **Bus Collision Prevention:** Pause acquisition during blocking EEPROM access.
       - [x] **Dual-I2C Topology:** Move OLED traffic to the secondary bus.
       - [x] **I2C Validation:** Verify that the buses remained stable in normal use.
+      - [x] **EEPROM Magic Number:** Add sentinel value (0xDEAD) to detect corrupt or uninitialized EEPROM and prevent loading garbage bias data.
+      - [x] **I2C Bus Timeout:** Configure Wire.setTimeout(50) to prevent hardware bus hangs if lines are pulled low.
       
       #### Phase 4: Hardware Validation & Performance Testing [COMPLETED]
       
@@ -3784,25 +3471,10 @@ The project started as a small IMU prototype and evolved into a multi-core embed
       - [x] **Filter Validation:** Confirm that the fusion output stayed consistent.
       - [x] **Analysis Tools:** Create visualization scripts for offline review.
       
-      #### Phase 5: SD Card Storage Architecture [COMPLETED]
-      
-      The storage subsystem was selected and tested as a reliable logging target.
-      
-      - [x] **SD Interface Study:** Compare several SD card module options.
-      - [x] **SPI Storage Path:** Adopt SPI as the physical logging interface.
-      - [x] **Standalone SD Tests:** Validate the module without the full firmware stack.
-      - [x] **Adapter Selection:** Finalize the 3.3V DIY SD adapter.
-      - [x] **Signal Integrity Tuning:** Reduce the SPI clock to a stable operating point.
-      - [x] **Storage Benchmarking:** Measure practical write throughput.
-      - [x] **Final Validation:** Confirm successful logging under repeated tests.
-      
-      #### Phase 6: Binary Logging Framework [COMPLETED]
-      
-      The text-based logging path was replaced with a structured binary pipeline.
       ... (truncated at 200 lines)
       ]]>
     </file>
-    <file path="Report/To Do list.md" language="Markdown" lines="42">
+    <file path="Report/To Do list.md" language="Markdown" lines="46">
       <![CDATA[
       # To Do List - DeadReckoner
       
@@ -3826,25 +3498,29 @@ The project started as a small IMU prototype and evolved into a multi-core embed
       
       ---
       
-      ## 3. Software Engineering & Post-Processing (MATLAB)
+      ## 3. Offline PDR Pipeline (Python Post-Processing)
       
-      - [ ] Research and implement the primary Dead Reckoning localization filter:
-        - [ ] Zero Velocity Update (ZUPT)
-        - [ ] Step Hunter / Step Length Estimation (SHS)
-        - [ ] LSTM / Deep Learning Sequence Modeling
+      - [ ] **Phase 1: Binary parser** — Read 47-byte frames from .BIN, verify CRC-16, extract timestamps + quaternions + linear acceleration
+      - [ ] **Phase 2: World-frame rotation** — Rotate body-frame linear acceleration to world frame using firmware Madgwick quaternions
+      - [ ] **Phase 3: Step detection** — Peak detection on acceleration magnitude
+      - [ ] **Phase 4: Step length** — Weinberg empirical formula
+      - [ ] **Phase 5: Heading** — Yaw angle from firmware quaternions (magnetometer-corrected)
+      - [ ] **Phase 6: ZUPT + RTS smoother** — Bidirectional batch optimization over entire walk for sub-3% drift
+      - [ ] **Phase 7: Path visualization** — 2D trajectory plot with matplotlib
+      - [ ] (Future) BMP280 barometric altitude for 3D tracking
+      - [ ] (Future) GPS correction for absolute position anchoring
       
       ---
       
       ## 4. Hardware & Electrical Engineering Challenges
       
-      - [ ] **SD Card Inrush Current Protection:** Add $10\mu\text{F}$ or $47\mu\text{F}$ decoupling capacitors in parallel with $0.1\mu\text{F}$ right at the SD slot to prevent Brownout resets.
+      - [x] **SD Card Inrush Current Protection:** Add $10\mu\text{F}$ or $47\mu\text{F}$ decoupling capacitors in parallel with $0.1\mu\text{F}$ right at the SD slot to prevent Brownout resets.
       - [ ] **I2C Signal Integrity:** Mount rigid $4.7\text{k}\Omega$ external pull-up resistors on SDA/SCL lines to guard MPU9250 against logging noise.
       - [ ] **Hardware Button Debouncing:** Solder a $0.1\mu\text{F}$ ceramic capacitor in parallel across tactile switch lines to absorb mechanical bouncing noise.
       
       ---
       
       ## 
-      
       
       ]]>
     </file>
@@ -3902,6 +3578,98 @@ The project started as a small IMU prototype and evolved into a multi-core embed
       void loop() {
         // Static diagnostic test does not require loop execution
         delay(1000); 
+      }
+      ]]>
+    </file>
+    <file path="Test- Sanity Check/GY-GPS6Mv2/GY-GPS6Mv2.ino" language="" lines="88">
+      <![CDATA[
+      /*
+       * =========================================================================
+       * PROJECT: NEO-6M (GY-GPS6Mv2) Hardware Diagnostic & Validation Tool
+       * MCU: Arduino Uno (ATmega328P)
+       * =========================================================================
+       * WIRING DIAGRAM (Software Serial Communication)
+       * -------------------------------------------------------------------------
+       * GY-GPS6Mv2 Pin | Arduino Uno Pin | Note
+       * -------------------------------------------------------------------------
+       * VCC            | 5V or 3.3V      | Connected to Uno 5V rail
+       * GND            | GND             | Common system ground
+       * TX             | Pin 2           | Uno RX (Receives data from GPS TX)
+       * RX             | Pin 3           | Uno TX (Sends config to GPS RX - Optional)
+       * =========================================================================
+       */
+      
+      #include <SoftwareSerial.h>
+      #include <TinyGPSPlus.h>
+      
+      #define GPS_RX_PIN 2
+      #define GPS_TX_PIN 3
+      #define GPS_BAUDRATE 9600
+      
+      TinyGPSPlus gps;
+      SoftwareSerial gpsSerial(GPS_RX_PIN, GPS_TX_PIN);
+      
+      void setup() {
+          // Initialize primary hardware serial for computer monitoring
+          Serial.begin(115200);
+          delay(1000); 
+      
+          Serial.println(F("\n=============================================="));
+          Serial.println(F("   NEO-6M GPS Diagnostic Tool (Arduino Uno)   "));
+          Serial.println(F("==============================================\n"));
+      
+          Serial.println(F("[*] Initializing Software Serial for GPS on Pins 2(RX), 3(TX)..."));
+          gpsSerial.begin(GPS_BAUDRATE);
+      
+          Serial.println(F("[+] SUCCESS: Software Serial Port Active."));
+          Serial.println(F("[*] Waiting for satellite lock..."));
+          Serial.println(F("[!] NOTE: Antenna must have a clear, direct view of the sky."));
+          Serial.println(F("[!] A Cold Start may take 5 to 15 minutes to secure a fix."));
+          Serial.println(F("\n>>> Starting Live GPS Data Stream <<<\n"));
+      }
+      
+      void loop() {
+          // Read incoming characters from Software Serial stream safely
+          while (gpsSerial.available() > 0) {
+              gps.encode(gpsSerial.read());
+          }
+      
+          // Process and print values only when a fresh, valid location sentence is decoded
+          if (gps.location.isUpdated()) {
+              Serial.print(F("SATS: "));
+              Serial.print(gps.satellites.value());
+              
+              Serial.print(F("  |  LAT: "));
+              Serial.print(gps.location.lat(), 6);
+              
+              Serial.print(F("  |  LNG: "));
+              Serial.print(gps.location.lng(), 6);
+              
+              Serial.print(F("  |  ALT: "));
+              Serial.print(gps.altitude.meters(), 1);
+              
+              Serial.print(F("m  |  SPEED: "));
+              Serial.print(gps.speed.kmph(), 1);
+              
+              Serial.print(F("km/h  |  TIME: "));
+              if (gps.time.isValid()) {
+                  if (gps.time.hour() < 10) Serial.print("0");
+                  Serial.print(gps.time.hour()); Serial.print(":");
+                  if (gps.time.minute() < 10) Serial.print("0");
+                  Serial.print(gps.time.minute()); Serial.print(":");
+                  if (gps.time.second() < 10) Serial.print("0");
+                  Serial.print(gps.time.second());
+              } else {
+                  Serial.print(F("N/A"));
+              }
+              Serial.println();
+          }
+      
+          // Hardware Timeout Trap to capture bad connections or wiring swaps
+          if (millis() > 5000 && gps.charsProcessed() < 10) {
+              Serial.println(F("[-] CRITICAL ERROR: No data from GPS. Check Pin 2 and Pin 3 wiring."));
+              delay(2000);
+          }
       }
       ]]>
     </file>
@@ -5626,12 +5394,38 @@ The project started as a small IMU prototype and evolved into a multi-core embed
       </file>
     </import_graph>
 
+    <config_files>
+      <file name=".gitignore">
+        <![CDATA[
+        /Repo_Report
+        
+        ]]>
+      </file>
+    </config_files>
+
   </code_analysis>
 
   <git_history>
-    <total_commits>162</total_commits>
+    <total_commits>179</total_commits>
 
     <![CDATA[
+    455a760  2026-06-19 19:18:15  Alireza Sotoodeh  fix comments
+    a5cafd0  2026-06-19 19:12:50  Alireza Sotoodeh  fix 7: Add short delay after SPI.end before reinit
+    5945ffb  2026-06-19 19:11:48  Alireza Sotoodeh  fix 6-1: Notify on invalid calibration with LED and buzzer
+    b68edd0  2026-06-19 19:09:09  Alireza Sotoodeh  fix 6: Add CRC check for EEPROM calibration data
+    8cd705e  2026-06-19 19:05:29  Alireza Sotoodeh  fix 5: Increase WDT yields in loggingTask (WDT risk during Format)
+    61ef3b9  2026-06-19 19:03:41  Alireza Sotoodeh  fix 4: Increase SensorTask stack size to 8KB
+    a87b935  2026-06-19 19:02:44  Alireza Sotoodeh  fix 3: Don't reset last_interaction_millis on UP/DOWN if SELECT is being held
+    66f43b8  2026-06-19 19:01:00  Alireza Sotoodeh  fix 100Hz sensor loop and Gap frame timestamp
+    989d69f  2026-06-19 18:57:48  Alireza Sotoodeh  Report: add CRC-16 frames & offline PDR pipeline
+    69e900e  2026-06-19 18:56:34  Alireza Sotoodeh  Add CRC to log frames and use RTOS delays
+    626fed7  2026-06-19 18:22:13  Alireza Sotoodeh  Report: mark delay and CRC issues fixed
+    32d1c99  2026-06-19 17:45:41  Alireza Sotoodeh  Mark resolved issues and add notes in reports
+    bc05eb8  2026-06-17 23:04:53  Alireza Sotoodeh  Add NEO-6M GPS diagnostic Arduino sketch
+    cbe8efa  2026-06-17 17:30:27  Alireza Sotoodeh  Update Report.md from project_report.md: add project_summarizer.py to Phase 9, expand timeline with 16 missing entries
+    fbb60a2  2026-06-15 17:34:45  Alireza Sotoodeh  Merge Report.md (v1.0.0) into Report2.md (v2.0.0); promote v2.0.0 as main
+    74d602b  2026-06-15 17:28:21  Alireza Sotoodeh  Create .gitignore
+    649eda8  2026-06-15 17:22:56  Alireza Sotoodeh  Add generated project report (MD/TXT/XML)
     bc779b4  2026-06-15 15:13:39  Alireza Sotoodeh  Clean up To Do list.md: remove completed items, keep pending only
     d6fc8e6  2026-06-15 15:09:01  Alireza Sotoodeh  Add project_summarizer interactive report tool
     b50fcc2  2026-06-15 13:32:42  Alireza Sotoodeh  Update Progress.md with storage, recovery, UI
@@ -5796,26 +5590,178 @@ The project started as a small IMU prototype and evolved into a multi-core embed
     d72b9ad  2025-07-12 18:41:59  Alireza Sotoodeh  Initial commit
     ]]>
 
-    <commit index="1" hash="bc779b4" author="Alireza Sotoodeh" date="2026-06-15 15:13:39 +0330">
+    <commit index="1" hash="455a760" author="Alireza Sotoodeh" date="2026-06-19 19:18:15 +0330">
+      <![CDATA[
+      fix comments
+      ]]>
+    </commit>
+    <commit index="2" hash="a5cafd0" author="Alireza Sotoodeh" date="2026-06-19 19:12:50 +0330">
+      <![CDATA[
+      fix 7: Add short delay after SPI.end before reinit
+      
+      In attemptSDRecovery(), insert a 10 ms vTaskDelay after SPI.end() to allow the SPI hardware to power-cycle before calling SPI.begin()/sd.begin(). This reduces race conditions when reinitializing the SD SPI interface after closing the log file.
+      ]]>
+    </commit>
+    <commit index="3" hash="5945ffb" author="Alireza Sotoodeh" date="2026-06-19 19:11:48 +0330">
+      <![CDATA[
+      fix 6-1: Notify on invalid calibration with LED and buzzer
+      
+      Add visual and audible alerts when calibration data is missing or CRC-check fails. The code now displays a brief message on the u8g2 OLED, pulses LED_RED_PIN and emits two buzzer beeps (using ALARM_BEEP_MS) before falling back to factory bias defaults. This improves user feedback for EEPROM calibration errors while preserving existing fallback behavior.
+      ]]>
+    </commit>
+    <commit index="4" hash="b68edd0" author="Alireza Sotoodeh" date="2026-06-19 19:09:09 +0330">
+      <![CDATA[
+      fix 6: Add CRC check for EEPROM calibration data
+      
+      Compute and store a 16-bit CRC when saving calibration values and verify it when loading. The saver computes CRC over the first 46 bytes (magic + calibration floats) and writes the uint16_t CRC at EEPROM offset 46 before committing. The loader reads the stored CRC, recomputes the CRC over the same 46 bytes, and if it doesn't match logs a warning, resets sensor biases/scales to safe defaults and aborts loading to protect the Madgwick filter from corrupt floats. Uses calcCRC16 to perform the checksum.
+      ]]>
+    </commit>
+    <commit index="5" hash="8cd705e" author="Alireza Sotoodeh" date="2026-06-19 19:05:29 +0330">
+      <![CDATA[
+      fix 5: Increase WDT yields in loggingTask (WDT risk during Format)
+      
+      Adjust vTaskDelay timings in loggingTask to better feed the watchdog during long operations. The inner recovery-file-delete yield was increased from 1ms to 2ms and the parent-iteration baseline yield was increased from 1ms to 3ms; accompanying comments were updated to reflect the intent to yield for WDT servicing.
+      ]]>
+    </commit>
+    <commit index="6" hash="61ef3b9" author="Alireza Sotoodeh" date="2026-06-19 19:03:41 +0330">
+      <![CDATA[
+      fix 4: Increase SensorTask stack size to 8KB
+      
+      Raise the sensorTask stack allocation from 4096 to 8192 bytes to provide more headroom for larger local data or deeper call stacks and reduce risk of stack overflows. Task remains pinned to core 0 with the same priority and handle usage unchanged.
+      ]]>
+    </commit>
+    <commit index="7" hash="a87b935" author="Alireza Sotoodeh" date="2026-06-19 19:02:44 +0330">
+      <![CDATA[
+      fix 3: Don't reset last_interaction_millis on UP/DOWN if SELECT is being held
+      
+      Prevent the inactivity timestamp from being reset while the select button is held. The change conditions the update of last_interaction_millis on !selectWasPressed in the tag, up, and down button handlers in Code_deadreckoner/ESP32_S3/ESP32_S3.ino so holding select won't mask other interactions or continually reset the inactivity timer.
+      ]]>
+    </commit>
+    <commit index="8" hash="66f43b8" author="Alireza Sotoodeh" date="2026-06-19 19:01:00 +0330">
+      <![CDATA[
+      fix 100Hz sensor loop and Gap frame timestamp
+      
+      Use vTaskDelayUntil in sensorTask with a 10ms period (initialize xLastWakeTime) to enforce a stable 100Hz sampling loop and remove the ad-hoc vTaskDelay yield. In loggingTask, capture log_time_base inside the critical section alongside the frame sequence, and make gapFrame.timestamp relative to that time base (esp_timer_get_time() - local_time_base) so gap/frame timestamps are consistent with IMU frames. These changes improve timing determinism and timestamp alignment between sensor and logging code.
+      ]]>
+    </commit>
+    <commit index="9" hash="989d69f" author="Alireza Sotoodeh" date="2026-06-19 18:57:48 +0330">
+      <![CDATA[
+      Report: add CRC-16 frames & offline PDR pipeline
+      
+      Update project report and TODOs to document per-frame CRC and a shift to an offline Pedestrian Dead Reckoning (PDR) pipeline. Bumped version/date and renamed report header; LogFrame expanded from 45â†’47 bytes to include a 2-byte CRC-16-IBM (poly 0xA001) computed before queue send and SD writes. Phase 10 was rewritten into a Python-based PDR pipeline (binary parsing + CRC verification, world-frame rotation, step detection, Weinberg step length, heading from quaternions, ZUPT/RTS smoothing, visualization). Timeline and status tables updated (perfboard assembly, CRC addition, vTaskDelay conversion), and the To Do list now enumerates the PDR implementation phases.
+      ]]>
+    </commit>
+    <commit index="10" hash="69e900e" author="Alireza Sotoodeh" date="2026-06-19 18:56:34 +0330">
+      <![CDATA[
+      Add CRC to log frames and use RTOS delays
+      
+      Introduce a 16-bit CRC into LogFrame for on-disk/frame integrity and update DATA_FRAME_SIZE accordingly (45 -> 47). Add calcCRC16() implementation and compute/set CRC when frames are produced (sensorTask) and when writing gap markers (loggingTask). Replace blocking delay() calls with vTaskDelay(pdMS_TO_TICKS()) for proper FreeRTOS behavior during calibration and status display. Minor struct/comment cleanup to reflect the new frame layout.
+      ]]>
+    </commit>
+    <commit index="11" hash="626fed7" author="Alireza Sotoodeh" date="2026-06-19 18:22:13 +0330">
+      <![CDATA[
+      Report: mark delay and CRC issues fixed
+      
+      Update Report/Issues found by AI.md to reflect implemented fixes: mark `delay()` usage as partially addressed (calibration `delay()` calls replaced with `vTaskDelay()` at lines 1348, 1354, 1393; setup delays remain pre-RTOS) and mark CRC/checksum per frame as added. Notes that a CRC-16-IBM (poly 0xA001) `uint16_t crc` field was added to `LogFrame`, computed before each `xQueueSend` in `sensorTask` and for gap-frame SD writes in `loggingTask`, and `DATA_FRAME_SIZE` was updated from 45 to 47.
+      ]]>
+    </commit>
+    <commit index="12" hash="32d1c99" author="Alireza Sotoodeh" date="2026-06-19 17:45:41 +0330">
+      <![CDATA[
+      Mark resolved issues and add notes in reports
+      
+      Update Report/Issues found by AI.md and Report/To Do list.md: mark MPU temperature read and recovery file naming items as resolved and add explanatory notes (FIXED / INTENTIONAL). Update the legend to indicate `[x]` = resolved in ESP32_S3.ino v1.9. Mark SD card inrush capacitor item as resolved in the To Do list and perform minor formatting/whitespace cleanup.
+      ]]>
+    </commit>
+    <commit index="13" hash="bc05eb8" author="Alireza Sotoodeh" date="2026-06-17 23:04:53 +0330">
+      <![CDATA[
+      Add NEO-6M GPS diagnostic Arduino sketch
+      
+      Add GY-GPS6Mv2.ino: an Arduino Uno (ATmega328P) diagnostic/validation sketch for NEO-6M (GY-GPS6Mv2) using SoftwareSerial and TinyGPSPlus. Initializes Serial at 115200 and SoftwareSerial on pins 2(RX)/3(TX) at 9600 baud, streams live GPS data, and prints satellite count, latitude, longitude, altitude, speed, and time. Includes wiring notes, cold-start/antenna reminders, and a hardware timeout that alerts if no GPS data is received within ~5s (charsProcessed < 10).
+      ]]>
+    </commit>
+    <commit index="14" hash="cbe8efa" author="Alireza Sotoodeh" date="2026-06-17 17:30:27 +0330">
+      <![CDATA[
+      Update Report.md from project_report.md: add project_summarizer.py to Phase 9, expand timeline with 16 missing entries
+      
+      Based on Repo_Report/project_report.md (auto-generated project analysis):
+      
+      Phase 9 additions:
+      - Added Project Documentation Generator entry for project_summarizer.py
+        (1216 lines, 26 functions, outputs MD/TXT/XML reports with full git
+        history, directory tree, and source signature analysis)
+      
+      Timeline expansion (16 new entries):
+      - 2026-06-12: AI code review report (Issues found by AI.md)
+      - 2026-06-14: Expand data frame & O(1) naming (45-byte LogFrame, max_log_id)
+      - 2026-06-14: Thread-safe frame counter (portMUX_TYPE critical sections)
+      - 2026-06-14: Dropped frame tracking (red LED on queue overflow)
+      - 2026-06-14: Expand SD menu to 8 items (Drops entry, fixed navigation)
+      - 2026-06-14: Safe log wipe protocol (suspend sensor, purge parents+fragments)
+      - 2026-06-14: Recovery log & vTaskDelay support
+      - 2026-06-14: Remove dead STATE_SUBMENU_MSG code
+      - 2026-06-14: MPU settings helper (configureMPUSettings)
+      - 2026-06-14: Log file validation post-MPU-recovery
+      - 2026-06-14: Gap frame zero-initialization fix
+      - 2026-06-14: Recovery ID increment order fix
+      - 2026-06-15: Timing & SD math robustness (64-bit torn reads, >32GB overflow)
+      - 2026-06-15: Relative timestamps & OLED reinit (log_time_base)
+      - 2026-06-15: Project summarizer tool (project_summarizer.py)
+      - 2026-06-15: Generated project report (MD/TXT/XML)
+      - 2026-06-15: .gitignore configuration (Repo_Report exclusion)
+      - 2026-06-15: To Do list cleanup (remove completed items)
+      - 2026-06-15: Progress.md update (storage, recovery, UI, memory phases)
+      ]]>
+    </commit>
+    <commit index="15" hash="fbb60a2" author="Alireza Sotoodeh" date="2026-06-15 17:34:45 +0330">
+      <![CDATA[
+      Merge Report.md (v1.0.0) into Report2.md (v2.0.0); promote v2.0.0 as main
+      
+      - Enriched Hardware Inventory Â§1 with component descriptions
+      - Added 3-point ESP8266->ESP32-S3 migration rationale to Â§3
+      - Expanded Multi-Core Â§7 with race condition details and LogFrame code
+      - Restored numeric test results (0.43deg drift, 0.07deg RTZ, 0.57deg vibration) to Â§8
+      - Added SPI sweep table (1-26 MHz) and bandwidth calculations to Â§9
+      - Added pinout table, Challenges & Solutions, Phase 4 summary to Â§10
+      - Detailed 8-item SD Manager scrolling menu and confirmation traps in Â§11
+      - Documented SOS alarm, dynamic SD recovery, I2C timeout in Â§12
+      - Expanded timeline from 11 to 42 entries covering all important commits
+      - Added Phase 10 (PSRAM Buffering) as a separate architecture phase
+      - Bumped GPS to Phase 11 with PSRAM now documented as completed
+      - Added Â§14 Current Status table and Â§2 Project Evolution Summary
+      ]]>
+    </commit>
+    <commit index="16" hash="74d602b" author="Alireza Sotoodeh" date="2026-06-15 17:28:21 +0330">
+      <![CDATA[
+      Create .gitignore
+      ]]>
+    </commit>
+    <commit index="17" hash="649eda8" author="Alireza Sotoodeh" date="2026-06-15 17:22:56 +0330">
+      <![CDATA[
+      Add generated project report (MD/TXT/XML)
+      
+      Add LLM-optimized project report in three formats: Repo_Report/project_report.md, .txt, and .xml. The report documents the DeadReckoner project (identity, file reference, import dependency graph, function/class signatures, directory tree) and includes a detailed git history and commit summaries; intended for project documentation, analysis, and tooling consumption.
+      ]]>
+    </commit>
+    <commit index="18" hash="bc779b4" author="Alireza Sotoodeh" date="2026-06-15 15:13:39 +0330">
       <![CDATA[
       Clean up To Do list.md: remove completed items, keep pending only
       ]]>
     </commit>
-    <commit index="2" hash="d6fc8e6" author="Alireza Sotoodeh" date="2026-06-15 15:09:01 +0330">
+    <commit index="19" hash="d6fc8e6" author="Alireza Sotoodeh" date="2026-06-15 15:09:01 +0330">
       <![CDATA[
       Add project_summarizer interactive report tool
       
       Introduce project_summarizer.py â€” an interactive CLI tool to generate project documentation and machine-friendly context. It extracts git commit history, builds a directory tree, computes file stats and project summary (README, requirements), and performs code analysis (Python function/class signatures, import dependency graph, config file collection, optional file contents). Outputs include a human-readable text report, an LLM-optimized Markdown report, and a prompt-optimized XML export; optional token estimation via tiktoken. The script uses rich for UI and questionary for prompts, saves reports to an output folder, and includes spinner/progress UX and overwrite handling.
       ]]>
     </commit>
-    <commit index="3" hash="b50fcc2" author="Alireza Sotoodeh" date="2026-06-15 13:32:42 +0330">
+    <commit index="20" hash="b50fcc2" author="Alireza Sotoodeh" date="2026-06-15 13:32:42 +0330">
       <![CDATA[
       Update Progress.md with storage, recovery, UI
       
       Expand the project progress report to document extensive storage, logging, recovery, UI, and analysis improvements. Adds detailed binary LogFrame design (packed/union payloads), 64-bit timestamps, PSRAM-backed buffering and queue architecture, deterministic file naming, gap-frame markers, frame sequencing and dropped-frame accounting, SD recovery/fragment logging and write verification, watchdog-safe shutdowns, and FAT/performance fixes. Also documents UI/monitoring enhancements (OLED menus, storage dashboard, runtime recovery feedback, log management), a new Phase 8.5 (memory optimization & scalability), data-analysis toolchain updates (fragment reconstruction, garbage-frame filtering, quaternion/euler visualization), and reserved GPS payloads for future GNSS integration.
       ]]>
     </commit>
-    <commit index="4" hash="71b59a6" author="Alireza Sotoodeh" date="2026-06-15 10:57:32 +0330">
+    <commit index="21" hash="71b59a6" author="Alireza Sotoodeh" date="2026-06-15 10:57:32 +0330">
       <![CDATA[
       Fix timing, SD math, and logging robustness
       
@@ -5833,264 +5779,264 @@ The project started as a small IMU prototype and evolved into a multi-core embed
       These changes improve multi-core timestamp correctness, SD capacity math reliability, and runtime robustness during heavy I/O.
       ]]>
     </commit>
-    <commit index="5" hash="1d7378d" author="Alireza Sotoodeh" date="2026-06-15 10:45:39 +0330">
+    <commit index="22" hash="1d7378d" author="Alireza Sotoodeh" date="2026-06-15 10:45:39 +0330">
       <![CDATA[
       Relative timestamps, OLED reinit, buzzer beeps
       
       Introduce log_time_base (uint64_t) and record frame.timestamp as esp_timer_get_time() - log_time_base so timestamps are relative to the current log. Initialize log_time_base at initial boot and whenever the frame/ log counters are reset (inside critical sections). Add a two-beep audible pattern when entering the safety/green-LED state. Improve OLED resilience by calling u8g2.begin(), setFont() and setPowerSave(0) on wake and when entering the menu, and force a UI update to avoid stale displays. These changes improve timestamp consistency across log files and recoverability of the display/hardware feedback after hot-plug or power events.
       ]]>
     </commit>
-    <commit index="6" hash="0a27909" author="Alireza Sotoodeh" date="2026-06-14 18:04:57 +0330">
+    <commit index="23" hash="0a27909" author="Alireza Sotoodeh" date="2026-06-14 18:04:57 +0330">
       <![CDATA[
       Improve SD recovery and new log file creation
       
       Disable hardware alarms (LED/buzzer) before calling blocking SD recovery to prevent continuous buzzer output. Ensure thread-safe capture and monotonic increment of the frame sequence counter and capture a 64-bit microsecond timestamp. After successful recovery, explicitly clear/reset hardware signals and provide user feedback. When creating a new log file, sync and close the previous file, safely bump the max_log_id to guarantee a new filename, reset recovery and frame counters within a critical section, and null-check the opened file to set a critical error if creation fails. Added clarifying comments and minor cleanup.
       ]]>
     </commit>
-    <commit index="7" hash="19e696d" author="Alireza Sotoodeh" date="2026-06-14 17:25:58 +0330">
+    <commit index="24" hash="19e696d" author="Alireza Sotoodeh" date="2026-06-14 17:25:58 +0330">
       <![CDATA[
       Expand SD menu to 8 items and fix actions
       
       Add an 8th item to the SD submenu and correct navigation and action mappings to avoid off-by-one/select bugs. Adjust sdMenuCursor bounds (0..7) and remap SELECT behavior so the new "Drops" entry jumps to Live View; shift Create/Format/Back handling to the correct indices and default confirmation focus to NO for safety. Add a null-check after dynamic log file creation to set sd_critical_error on failure. Improve robustness during full card wipe: suspend the sensor task while wiping, insert small vTaskDelay yields to avoid WDT timeouts, reset max_log_id after format, reset the data queue, and reopen the initial log file. Minor whitespace/cleanup changes and UI update triggers retained.
       ]]>
     </commit>
-    <commit index="8" hash="f734a62" author="Alireza Sotoodeh" date="2026-06-14 17:07:36 +0330">
+    <commit index="25" hash="f734a62" author="Alireza Sotoodeh" date="2026-06-14 17:07:36 +0330">
       <![CDATA[
       Track dropped frames and fix SD menu/UI
       
       Add dropped_frames_count to global state and increment it when xQueueSend fails, providing LED_RED feedback on silent queue overflows to help diagnose missed frames. Zero-initialize gapFrame with memset before populating and perform global_frame_counter updates inside the frameCounterMux critical section to avoid uninitialized data and race conditions. Update SD submenu UI: expand the lines buffer, add a "Drops" entry, shift menu indices, and handle the new SD menu cursor case to return to the main menu. Misc: minor comment cleanup.
       ]]>
     </commit>
-    <commit index="9" hash="c809e2f" author="Alireza Sotoodeh" date="2026-06-14 16:58:24 +0330">
+    <commit index="26" hash="c809e2f" author="Alireza Sotoodeh" date="2026-06-14 16:58:24 +0330">
       <![CDATA[
       Make frame sequence counter thread-safe
       
       Clear the LogFrame structure and protect capture/increment of global_frame_counter with a critical section (portENTER_CRITICAL/portEXIT_CRITICAL). This ensures the frame_seq is assigned atomically and monotonically to avoid race conditions and uninitialized/garbage bytes in the frame.
       ]]>
     </commit>
-    <commit index="10" hash="73cdf91" author="Alireza Sotoodeh" date="2026-06-14 15:35:43 +0330">
+    <commit index="27" hash="73cdf91" author="Alireza Sotoodeh" date="2026-06-14 15:35:43 +0330">
       <![CDATA[
       Expand data frame & add O(1) log naming
       
       Increase DATA_FRAME_SIZE from 41 to 45 and change frame timestamp from uint32_t to uint64_t to prevent the ~71-minute esp_timer overflow; corresponding timestamp assignments removed 32-bit casts. Add max_log_id to track the highest DR_LOG index and replace the sd.exists scanning loop with an O(1) instantaneous file creation path (increments max_log_id, capped at 999). Ensure new-file creation resets global_frame_counter under mutex and purges the dataQueue so new logs start from a sterile buffer. Initialize max_log_id in setup and apply small formatting/comment clarifications.
       ]]>
     </commit>
-    <commit index="11" hash="0a1eadd" author="Alireza Sotoodeh" date="2026-06-14 15:17:04 +0330">
+    <commit index="28" hash="0a1eadd" author="Alireza Sotoodeh" date="2026-06-14 15:17:04 +0330">
       <![CDATA[
       Safely wipe logs: suspend sensor, purge SD
       
       During SD wipe confirmation the sensor task is now suspended/resumed to avoid concurrent access. The delete loop was enhanced to remove parent logs and orphaned recovery fragments, and a short vTaskDelay is added each iteration to feed the watchdog. After wiping the code resets current_log_filename, global_log_id, global_recovery_id and zeroes global_frame_counter inside a critical section, resets the data queue, reopens a fresh log file, and updates the UI. These changes prevent race conditions, watchdog resets, and stale frames leaking into the new session.
       ]]>
     </commit>
-    <commit index="12" hash="23ce3b7" author="Alireza Sotoodeh" date="2026-06-14 15:13:07 +0330">
+    <commit index="29" hash="23ce3b7" author="Alireza Sotoodeh" date="2026-06-14 15:13:07 +0330">
       <![CDATA[
       Remove unused STATE_SUBMENU_MSG and handlers
       
       Delete the deprecated STATE_SUBMENU_MSG enum value and remove its navigation and rendering code in Code_deadreckoner/ESP32_S3/ESP32_S3.ino. This cleans up the UI state machine by eliminating an unused message submenu, removing the select/back handling and the drawStr rendering block, and simplifies conditional branches with no intended functional changes.
       ]]>
     </commit>
-    <commit index="13" hash="7385d3b" author="Alireza Sotoodeh" date="2026-06-14 14:59:50 +0330">
+    <commit index="30" hash="7385d3b" author="Alireza Sotoodeh" date="2026-06-14 14:59:50 +0330">
       <![CDATA[
       Support recovery logs and use vTaskDelay
       
       Detect recovery-style .BIN files (exactly 10 chars with first 6 digits) in addition to existing DR_LOG_ parent sessions and include them in totalFilesCount. Replace blocking delay() calls with FreeRTOS vTaskDelay(pdMS_TO_TICKS(...)) for the buzzer and the "All Logs Cleared!" pause to avoid blocking the logging task and potential watchdog starvation.
       ]]>
     </commit>
-    <commit index="14" hash="b528985" author="Alireza Sotoodeh" date="2026-06-14 14:56:35 +0330">
+    <commit index="31" hash="b528985" author="Alireza Sotoodeh" date="2026-06-14 14:56:35 +0330">
       <![CDATA[
       Add configureMPUSettings helper
       
       Introduce configureMPUSettings(MPU9250Setting&) to centralize MPU9250 setting assignments (accel/gyro/mag/fifo/filter). Replace duplicated manual initialization in setup() and attemptMPURecovery() with the new helper to reduce code duplication and improve maintainability; no functional behavior changes.
       ]]>
     </commit>
-    <commit index="15" hash="9cafc3e" author="Alireza Sotoodeh" date="2026-06-14 14:53:17 +0330">
+    <commit index="32" hash="9cafc3e" author="Alireza Sotoodeh" date="2026-06-14 14:53:17 +0330">
       <![CDATA[
       Remove unused SD recovery timer variable
       
       Delete the unused `last_sd_recovery_attempt` variable from sensorTask in ESP32_S3.ino. This cleans up an unnecessary local variable, avoiding potential compiler warnings and slightly reducing memory usage while keeping existing MPU recovery logic intact.
       ]]>
     </commit>
-    <commit index="16" hash="4cb4971" author="Alireza Sotoodeh" date="2026-06-14 14:51:20 +0330">
+    <commit index="33" hash="4cb4971" author="Alireza Sotoodeh" date="2026-06-14 14:51:20 +0330">
       <![CDATA[
       Validate log file after MPU recovery
       
       After recovering the MPU, validate the reopened log file and set sd_critical_error if the file pointer is invalid to avoid silent write failures (addresses FIX ISSUE 5). Also make minor loggingTask cleanup: ensure periodic sync sets sd_critical_error on failure and adjust closing braces/formatting for the loggingTask function.
       ]]>
     </commit>
-    <commit index="17" hash="baf3ece" author="Alireza Sotoodeh" date="2026-06-14 14:46:45 +0330">
+    <commit index="34" hash="baf3ece" author="Alireza Sotoodeh" date="2026-06-14 14:46:45 +0330">
       <![CDATA[
       Zero-initialize gap LogFrame before SD write
       
       When recovering the SD card, fully clear the LogFrame used as a gap marker to eliminate any uninitialized/garbage bytes. Replace selective payload memsets with a single memset(&gapFrame, 0, sizeof(LogFrame)) and then assign frame_seq, timestamp and event_flag before writing the sterile block to the log file. This ensures consistent, deterministic gap records during SD recovery.
       ]]>
     </commit>
-    <commit index="18" hash="b5937cf" author="Alireza Sotoodeh" date="2026-06-14 14:44:54 +0330">
+    <commit index="35" hash="b5937cf" author="Alireza Sotoodeh" date="2026-06-14 14:44:54 +0330">
       <![CDATA[
       Fix runtime display and EEPROM offset
       
       Compute displayed runtime from receivedFrame.timestamp (microseconds) instead of deriving seconds from frame_seq, ensuring the on-screen T: value reflects real elapsed time. Also fix EEPROM calibration storage by starting writes after the 16-bit magic (addr = sizeof(uint16_t)) and consolidating addr increments so each float is stored at the correct offset, preventing overlap with the magic value.
       ]]>
     </commit>
-    <commit index="19" hash="1795018" author="Alireza Sotoodeh" date="2026-06-14 14:32:29 +0330">
+    <commit index="36" hash="1795018" author="Alireza Sotoodeh" date="2026-06-14 14:32:29 +0330">
       <![CDATA[
       Increment recovery ID after SD file open
       
       Fixes Issue #9: generate the recovery filename from the current validated indices and only increment global_recovery_id after the SD file is successfully opened. Previously the index was incremented before verifying the file open, which could lead to skipped or mismatched filenames on failure. Also updates comments and cleans up minor whitespace.
       ]]>
     </commit>
-    <commit index="20" hash="23b0d02" author="Alireza Sotoodeh" date="2026-06-14 14:30:28 +0330">
+    <commit index="37" hash="23b0d02" author="Alireza Sotoodeh" date="2026-06-14 14:30:28 +0330">
       <![CDATA[
       Improve SD space calc and file counting
       
       Prevent arithmetic overflow for large SD cards by casting cluster calculations to uint64_t and compute sd_total_gb. Replace slow brute-force sd.exists() loop with a high-speed directory iteration (openNext) that filters for ".BIN" files and counts only files starting with "DR_LOG_". Add safer buffer sizes, explicit file/root closes, and ensure SD-related globals are zeroed in the fallback branch. These changes improve performance and correctness when scanning large cards and many log files.
       ]]>
     </commit>
-    <commit index="21" hash="50661c2" author="Alireza Sotoodeh" date="2026-06-14 14:26:36 +0330">
+    <commit index="38" hash="50661c2" author="Alireza Sotoodeh" date="2026-06-14 14:26:36 +0330">
       <![CDATA[
       Add timestamp to LogFrame and update frame size
       
       Increase DATA_FRAME_SIZE to 41 and add a uint32_t timestamp to the packed LogFrame to capture a high-precision microsecond hardware timestamp. Populate frame.timestamp in sensorTask (using esp_timer_get_time()) and for SD gap frames in loggingTask, and ensure gap frames' payloads are zeroed to avoid garbage. Update display logic to compute runtime from the hardware timestamp (microseconds -> seconds) instead of frame_seq. Small comment and struct documentation updates to reflect the new parametric binary layout.
       ]]>
     </commit>
-    <commit index="22" hash="3dba014" author="Alireza Sotoodeh" date="2026-06-14 14:20:13 +0330">
+    <commit index="39" hash="3dba014" author="Alireza Sotoodeh" date="2026-06-14 14:20:13 +0330">
       <![CDATA[
       Add EEPROM sentinel and robust calibration load/save
       
       Introduce an EEPROM magic sentinel (EEPROM_MAGIC_NUMBER / EEPROM_MAGIC_ADDR) and reserve space for it. saveCalibration() now writes the magic before calibration floats and loadCalibration() validates the magic first; if missing, it logs a warning, applies factory defaults (zero biases, unit scales) and aborts loading to avoid reading corrupt floats. Adjusts address offsets accordingly and adds a calibration header comment. This improves robustness of calibration persistence across reboots.
       ]]>
     </commit>
-    <commit index="23" hash="986aa4c" author="Alireza Sotoodeh" date="2026-06-14 12:02:47 +0330">
+    <commit index="40" hash="986aa4c" author="Alireza Sotoodeh" date="2026-06-14 12:02:47 +0330">
       <![CDATA[
       Update Issues found by AI.md
       ]]>
     </commit>
-    <commit index="24" hash="96593bd" author="Alireza Sotoodeh" date="2026-06-14 12:02:43 +0330">
+    <commit index="41" hash="96593bd" author="Alireza Sotoodeh" date="2026-06-14 12:02:43 +0330">
       <![CDATA[
       Initialize SD gap LogFrame before write
       
       Fix SD recovery gap frame initialization to avoid writing garbage bytes. Previously the gap frame used 0xFFFFFFFF and left payload/identifiers uninitialized. Now the commit sets frame_seq to global_frame_counter, marks event_flag as 0xAA to identify the SD_GAP event, clears the IMU payload fields with memset, and forces a synced write to ensure a sterile gap marker and improve log integrity during SD recovery.
       ]]>
     </commit>
-    <commit index="25" hash="82eaf99" author="Alireza Sotoodeh" date="2026-06-14 12:00:35 +0330">
+    <commit index="42" hash="82eaf99" author="Alireza Sotoodeh" date="2026-06-14 12:00:35 +0330">
       <![CDATA[
       Add spinlocks for frame counter and tag events
       
       Introduce two portMUX_TYPE spinlocks (frameCounterMux, tagEventMux) and use portENTER_CRITICAL/portEXIT_CRITICAL around accesses to global_frame_counter and tag_event_triggered. Protects incrementing/initializing the frame sequence and setting/clearing the waypoint tag flag across cores (sensorTask and loggingTask) to prevent race conditions and inconsistent frame_seq or tag events on ESP32-S3 multicore operation. Comments added to clarify intent.
       ]]>
     </commit>
-    <commit index="26" hash="40f38a9" author="Alireza Sotoodeh" date="2026-06-14 11:54:38 +0330">
+    <commit index="43" hash="40f38a9" author="Alireza Sotoodeh" date="2026-06-14 11:54:38 +0330">
       <![CDATA[
       Add calibration prototypes and reorder globals
       
       Move and consolidate several preprocessor defines and global declarations for clarity, add forward declarations for calibration functions (performCalibration, print_calibration, saveCalibration, loadCalibration) to avoid scope issues, and reorder UI/menu-related globals (MENU_ITEMS_COUNT, menuItems, menuCursor, subMenuMsg) and log filename. Also cleaned up spacing/indentation and removed duplicated QUEUE_LENGTH define. No functional logic changes intendedâ€”just reorganization and preparatory prototypes.
       ]]>
     </commit>
-    <commit index="27" hash="e184656" author="Alireza Sotoodeh" date="2026-06-14 11:36:52 +0330">
+    <commit index="44" hash="e184656" author="Alireza Sotoodeh" date="2026-06-14 11:36:52 +0330">
       <![CDATA[
       Move OLED auto-off and trigger force UI update
       
       Relocates the OLED auto-off power management check in loggingTask from before the graphics rendering phase to after rendering completes. When the timeout is hit the code now sets power save, updates currentState, and sets force_update_ui = true to ensure the UI state is refreshed when entering sleep. Also includes a tiny whitespace cleanup in setup().
       ]]>
     </commit>
-    <commit index="28" hash="e9e168c" author="Alireza Sotoodeh" date="2026-06-14 11:34:07 +0330">
+    <commit index="45" hash="e9e168c" author="Alireza Sotoodeh" date="2026-06-14 11:34:07 +0330">
       <![CDATA[
       Add bandwidth metrics, PSRAM sizing & IMU temp
       
       Introduce a parametric bandwidth/memory engine (DATA_FRAME_SIZE, SAMPLING_RATE_HZ, BYTES_PER_SECOND, BYTES_PER_HOUR, MB_PER_HOUR, QUEUE_LENGTH, PSRAM_BUFFER_SIZE_MB) to compute PSRAM buffer sizing and dynamic bandwidth. Add imu.temp to LogFrame, populate it in sensorTask, and display the stored temperature on the OLED (use receivedFrame.payload.imu.temp instead of calling mpu.getTemperature() directly). Replace the hardcoded 11.88 MB/hr with MB_PER_HOUR when estimating remaining SD hours, move/clean up the QUEUE_LENGTH definition, and print the computed PSRAM buffer size at setup. Update struct size/comments and perform minor formatting/whitespace cleanups.
       ]]>
     </commit>
-    <commit index="29" hash="39aaedf" author="Alireza Sotoodeh" date="2026-06-14 11:06:37 +0330">
+    <commit index="46" hash="39aaedf" author="Alireza Sotoodeh" date="2026-06-14 11:06:37 +0330">
       <![CDATA[
       Add AI-generated code review report
       
       Add Report/Issues found by AI.md containing a comprehensive AI review of the ESP32-S3 DeadReckoner firmware. The document consolidates findings from multiple reviewers (deep seek, ChatGPT, Claude), enumerates critical/major/minor issues (thread-safety, SD recovery, timing, data integrity, UI and power handling), provides recommended fixes and improvements, and includes overall scores. This file is intended to guide remediation and prioritize reliability and performance fixes.
       ]]>
     </commit>
-    <commit index="30" hash="aaf1c56" author="Alireza Sotoodeh" date="2026-06-13 23:41:37 +0330">
+    <commit index="47" hash="aaf1c56" author="Alireza Sotoodeh" date="2026-06-13 23:41:37 +0330">
       <![CDATA[
       Rewrite To Do list with structured sections
       
       Rework the DeadReckoner To Do list: cleaned up formatting, reorganized and consolidated items into clear sections (Core Data Logging & Architecture, UI/UX, MATLAB/Postâ€‘processing, Hardware). Updated and checked completed tasks (SD dynamic recovery, PSRAM buffering, frame size reduction, gap frames, queue fixes, pin relocations, MATLAB stitcher, safe shutdown, etc.), added concrete hardware recommendations (decoupling caps, I2C pullups, button debouncing), and clarified outstanding action items (MPU9250 health tracking, GPS integration, BMP280, watchâ€‘dog evaluation, ZUPT/SHS/LSTM research). Removed older unstructured entries and improved readability for easier tracking and prioritization.
       ]]>
     </commit>
-    <commit index="31" hash="5d6f761" author="Alireza Sotoodeh" date="2026-06-13 23:29:43 +0330">
+    <commit index="48" hash="5d6f761" author="Alireza Sotoodeh" date="2026-06-13 23:29:43 +0330">
       <![CDATA[
       Purge dataQueue on log start and after wipe
       
       Call xQueueReset(dataQueue) in loggingTask when creating a new log file and after clearing all logs. This critical fix clears stale sensor frames that may accumulate during menu interactions or formatting, ensuring new recordings start from a clean buffer and preventing leaked frames from being written to new sessions. Also includes small comment/formatting tweaks around the reset logic.
       ]]>
     </commit>
-    <commit index="32" hash="d2947c3" author="Alireza Sotoodeh" date="2026-06-13 23:24:30 +0330">
+    <commit index="49" hash="d2947c3" author="Alireza Sotoodeh" date="2026-06-13 23:24:30 +0330">
       <![CDATA[
       Yield to watchdog during SD flush; clarify SD calc
       
       Remove unused lastPrintMillis variable. Add a flushCount and periodic vTaskDelay during dataQueue flushing so the RTOS Task Watchdog is fed every 500 frames, preventing hard resets when emptying large PSRAM-backed buffers to SD. Clarify SD free/remaining capacity calculations and document the dynamic bandwidth assumption (33 bytes * 100 Hz = 11.88 MB/hour). Minor comment and spacing adjustments.
       ]]>
     </commit>
-    <commit index="33" hash="b898876" author="Alireza Sotoodeh" date="2026-06-13 22:51:50 +0330">
+    <commit index="50" hash="b898876" author="Alireza Sotoodeh" date="2026-06-13 22:51:50 +0330">
       <![CDATA[
       Adjust SD remaining-hours calculation
       
       Update the remaining-hours estimate to reflect the new data rate/format by changing the divisor from 20.16 to 11.88 (matches the optimized 33-byte packed frame architecture at 100Hz). Also keep the 64-bit cast for cluster arithmetic to avoid overflow on large SD cards and add an explanatory inline comment.
       ]]>
     </commit>
-    <commit index="34" hash="d18b758" author="Alireza Sotoodeh" date="2026-06-13 22:47:05 +0330">
+    <commit index="51" hash="d18b758" author="Alireza Sotoodeh" date="2026-06-13 22:47:05 +0330">
       <![CDATA[
       Remove xQueueReset to avoid race condition
       
       Delete the call to xQueueReset(dataQueue) in loggingTask and add a comment explaining the reason: resetting the queue could race with Core 0 which is buffering valid pre-fusion IMU frames, causing those frames to be lost. This preserves recently produced data when resuming logging and documents the critical fix.
       ]]>
     </commit>
-    <commit index="35" hash="756fa36" author="Alireza Sotoodeh" date="2026-06-13 17:53:44 +0330">
+    <commit index="52" hash="756fa36" author="Alireza Sotoodeh" date="2026-06-13 17:53:44 +0330">
       <![CDATA[
       Fix SD capacity overflow on large cards
       
       Cast cluster*sector multiplication to 64-bit to avoid 32-bit overflow on large SD cards (>32GB). sd_free_mb and sd_total_mb are now computed from (uint64_t)freeClusters/totalClusters before division, preventing incorrect capacity values. Kept existing remaining-hours and GB calculations unchanged. Also cleaned up minor stray whitespace and preserved existing file/count resets and menu cursor initialization.
       ]]>
     </commit>
-    <commit index="36" hash="18df5bb" author="Alireza Sotoodeh" date="2026-06-13 17:51:07 +0330">
+    <commit index="53" hash="18df5bb" author="Alireza Sotoodeh" date="2026-06-13 17:51:07 +0330">
       <![CDATA[
       Remove parent logs and nested recovery fragments
       
       Enhance log-sweeping routine to delete both parent log files (DR_LOG_%03d.BIN) and any sequential child recovery fragments (%03d%03d.BIN). Iterates parent IDs 1â€“999 and for each parent loops over child fragments incrementing j until no more fragments exist, removing each found file. This prevents orphaned recovery chunks from accumulating on the SD card after crashes or rollovers and then resets the current log filename and global log/recovery IDs.
       ]]>
     </commit>
-    <commit index="37" hash="7c4c10b" author="Alireza Sotoodeh" date="2026-06-13 17:48:29 +0330">
+    <commit index="54" hash="7c4c10b" author="Alireza Sotoodeh" date="2026-06-13 17:48:29 +0330">
       <![CDATA[
       Use global frame counter and reset on log events
       
       Introduce a volatile global_frame_counter and remove the local shadowed variable in sensorTask to ensure a single frame counter shared across tasks. Reset global_frame_counter when starting a new log, after recovery/rollover, and during setup so frame numbering is consistent across sessions. Also includes minor whitespace/comment cleanups.
       ]]>
     </commit>
-    <commit index="38" hash="c2042e5" author="Alireza Sotoodeh" date="2026-06-13 17:33:15 +0330">
+    <commit index="55" hash="c2042e5" author="Alireza Sotoodeh" date="2026-06-13 17:33:15 +0330">
       <![CDATA[
       Add safe long-press shutdown and SD flush
       
       Introduce a safe shutdown sequence triggered by a long press of the SELECT button. Added Press_to_ShutDown_MS (3000ms) and a volatile system_shutdown_requested flag; sensorTask will pause data generation when shutdown is requested. loggingTask now implements a smart long-press detector: holding SELECT for the threshold wakes the display, shows status, drains remaining frames from the PSRAM/data queue to the open log file, syncs and closes the file, updates LEDs/UI, and then halts the system loop to ensure it is safe to power off. Also adjusted short-press behavior to only trigger on quick releases to avoid accidental immediate actions.
       ]]>
     </commit>
-    <commit index="39" hash="aae3057" author="Alireza Sotoodeh" date="2026-06-13 17:23:08 +0330">
+    <commit index="56" hash="aae3057" author="Alireza Sotoodeh" date="2026-06-13 17:23:08 +0330">
       <![CDATA[
       Display elapsed time instead of frame seq
       
       Replace the raw frame sequence number with a human-readable elapsed time computed from frame_seq assuming a 100 Hz frame rate. The code now divides frame_seq by 100 to get total seconds, derives minutes and seconds, and formats them as T:MMM:SS (zero-padded) at the same display position. The MPU temperature display is left unchanged.
       ]]>
     </commit>
-    <commit index="40" hash="276a5f4" author="Alireza Sotoodeh" date="2026-06-13 17:12:42 +0330">
+    <commit index="57" hash="276a5f4" author="Alireza Sotoodeh" date="2026-06-13 17:12:42 +0330">
       <![CDATA[
       Improve SD runtime recovery and UI feedback
       
       Add a small SD_recoverd_signal_MS macro and rework the runtime SD-card recovery path to be non-blocking and more user-friendly. Introduces a hardware alarm layer that pulses the red LED and buzzer (100ms on every 1000ms) while in SD failure state, and keeps that rhythm independent of slower recovery attempts. Recovery attempts are gated by Attempt_Runtime_SD_recovery_MS to avoid repeated sd.begin() timeouts; when recovery runs it wakes the display, shows the active filename, resets LEDs to green briefly, and uses SD_recoverd_signal_MS for the brief user-visible pause. Loop yields reduced to 10ms to prevent watchdog starvation while preserving the recovery trap.
       ]]>
     </commit>
-    <commit index="41" hash="a2c7a71" author="Alireza Sotoodeh" date="2026-06-13 16:55:30 +0330">
+    <commit index="58" hash="a2c7a71" author="Alireza Sotoodeh" date="2026-06-13 16:55:30 +0330">
       <![CDATA[
       Move BinReader tests, add V5, tighten jump filter
       
       Reorganize BinReader test assets into Code_deadreckoner/Matlab/3-BinReader/Tests (many test files and images renamed/moved) and add a new set of recovery test artifacts. Reduce the garbage-filter jump threshold in v4.m (jumps > 50000 -> jumps > 500) to detect smaller sequence gaps. Add a new V5.m: a rewritten BinReader pipeline that chains DR_LOG and recovery files, decodes packed frames, computes diagnostics (drops, RMS, stats), plots session summaries, and includes robustness fixes (sessionData naming, drop detection, clamp helper).
       ]]>
     </commit>
-    <commit index="42" hash="49fc4a0" author="Alireza Sotoodeh" date="2026-06-13 16:54:36 +0330">
+    <commit index="59" hash="49fc4a0" author="Alireza Sotoodeh" date="2026-06-13 16:54:36 +0330">
       <![CDATA[
       Add global log/recovery IDs and improved recovery naming
       
@@ -6099,33 +6045,33 @@ The project started as a small IMU prototype and evolved into a multi-core embed
       Other changes: update SD root scan to use global_log_id, count both main and recovery-style files when estimating total files, reset/clear queues and UI flags at appropriate points, add a brief UI pause to show recovery feedback, and minor cleanup of comments and LED/buzzer control sequencing. These changes improve robustness and make recovered sessions easier to identify and resume safely.
       ]]>
     </commit>
-    <commit index="43" hash="a9abe2b" author="Alireza Sotoodeh" date="2026-06-13 16:53:58 +0330">
+    <commit index="60" hash="a9abe2b" author="Alireza Sotoodeh" date="2026-06-13 16:53:58 +0330">
       <![CDATA[
       Update To Do list.md
       ]]>
     </commit>
-    <commit index="44" hash="12969b5" author="Alireza Sotoodeh" date="2026-06-12 21:40:34 +0330">
+    <commit index="61" hash="12969b5" author="Alireza Sotoodeh" date="2026-06-12 21:40:34 +0330">
       <![CDATA[
       Mark Queue Overflow and 100Hz write fix done
       
       Update Report/To Do list.md to mark the 'Queue Overflow' task and the 'remove 100HZ writing and fix it for 1HZ (memory usage issue)' task as completed. Minor formatting/spacing adjusted in the checklist; no functional code changes.
       ]]>
     </commit>
-    <commit index="45" hash="72ea622" author="Alireza Sotoodeh" date="2026-06-12 20:45:04 +0330">
+    <commit index="62" hash="72ea622" author="Alireza Sotoodeh" date="2026-06-12 20:45:04 +0330">
       <![CDATA[
       Report: update To Do list tasks and notes
       
       Mark several checklist items as done and add MPU9250 recovery details. SD card runtime failure and GPIO9/10 pin change were checked off. MPU9250 section was expanded and partially completed: keep data by using Frame Sequence + Gap Frame, switch to PSRAM and a compact save format, and add MATLAB code to reassemble fragments. Added an OLED power-reset issue entry, cleaned up formatting and minor checklist reordering.
       ]]>
     </commit>
-    <commit index="46" hash="2c07c5a" author="Alireza Sotoodeh" date="2026-06-12 20:44:48 +0330">
+    <commit index="63" hash="2c07c5a" author="Alireza Sotoodeh" date="2026-06-12 20:44:48 +0330">
       <![CDATA[
       Optimize LogFrame, add PSRAM queue & SD recovery
       
       Reduce LogFrame size by introducing a packed union payload to overlap IMU and GPS fields (forced 1-byte alignment), and update all producers/consumers to use the union layout. Add esp_heap_caps.h and implement a large PSRAM-backed static FreeRTOS queue (QUEUE_LENGTH = 50000) via heap_caps_malloc + xQueueCreateStatic, with fatal error handling if PSRAM allocation fails. Revise SD recovery to create REC_ prefixed recovery files and update current_log_filename, and adjust gap-frame clearing to zero the union payload correctly. Also update OLED display formatting for the new payload layout and minor housekeeping (last-edit comment).
       ]]>
     </commit>
-    <commit index="47" hash="f8cf9f5" author="Alireza Sotoodeh" date="2026-06-12 20:44:24 +0330">
+    <commit index="64" hash="f8cf9f5" author="Alireza Sotoodeh" date="2026-06-12 20:44:24 +0330">
       <![CDATA[
       Move BinReader data to Tests and add v4
       
@@ -6134,14 +6080,14 @@ The project started as a small IMU prototype and evolved into a multi-core embed
       v4.m implements an improved merge-and-decoding flow: replaces strict sequence matching with an Absolute Distance Minimizer for smart stitching, adds a garbage-frame filter to trim corrupted SD-card tails, supports overlap allowances for PSRAM cases, and produces payload decoding, diagnostics and plots (acceleration, orientation, frame continuity) with drop/gap detection.
       ]]>
     </commit>
-    <commit index="48" hash="fba5d59" author="Alireza Sotoodeh" date="2026-06-12 20:40:06 +0330">
+    <commit index="65" hash="fba5d59" author="Alireza Sotoodeh" date="2026-06-12 20:40:06 +0330">
       <![CDATA[
       Add PSRAM recovery test data and v3 MATLAB reader
       
       Add test dataset and a new MATLAB reader for PSRAM recovery testing. Files added under data/3-test recovery with PSRAM: three PNGs, DR_LOG_001.BIN, REC_001.BIN, REC_002.BIN, ResutCommandWindow.txt (sample run output), and v3.m. The v3.m script implements a Relational Sequence Chaining (Greedy Stitcher) to automatically merge crashed SD sessions without an RTC, extracts frame metadata, stitches fragments by sequence numbers (with safety gap checks), decodes IMU/orientation payloads, computes session stats (merged frames, recovery gaps, missing frames) and generates diagnostic plots.
       ]]>
     </commit>
-    <commit index="49" hash="d664e11" author="Alireza Sotoodeh" date="2026-06-12 19:39:13 +0330">
+    <commit index="66" hash="d664e11" author="Alireza Sotoodeh" date="2026-06-12 19:39:13 +0330">
       <![CDATA[
       Reorganize MATLAB files and add BIN parser
       
@@ -6155,60 +6101,60 @@ The project started as a small IMU prototype and evolved into a multi-core embed
       This change cleans up folder organization and introduces a dedicated binary-log parser for recovery and integrity analysis.
       ]]>
     </commit>
-    <commit index="50" hash="f401a2b" author="Alireza Sotoodeh" date="2026-06-12 18:38:40 +0330">
+    <commit index="67" hash="f401a2b" author="Alireza Sotoodeh" date="2026-06-12 18:38:40 +0330">
       <![CDATA[
       SD runtime recovery and pin remap
       
       Implement dynamic SD-card runtime recovery and remap a few unsafe pins. Adds attemptSDRecovery() and an sd_critical_error interceptor that detects write/sync failures, retries SPI re-init, reopens the same filename for append, and injects a gap recovery frame into the log when recovery succeeds. Introduces current_log_filename, recovery timing macros (Attempt_Runtime_SD_recovery_MS, Recheck_SD_beforeBoot_MS), and UI/LED/buzzer feedback during SD error retries. Also reorganizes pin/setting blocks, moves SD CS from GPIO10 to GPIO15, moves TAG button from GPIO9 to GPIO14, refactors LogFrame to use frame_seq, adds a global frame counter and related MPU retry timing macro, and tweaks logging/open logic to preserve and reuse the active log filename. Misc: updated header comment and small timing/RTOS adjustments for more responsive recovery handling.
       ]]>
     </commit>
-    <commit index="51" hash="5e9c419" author="Alireza Sotoodeh" date="2026-06-12 15:21:13 +0330">
+    <commit index="68" hash="5e9c419" author="Alireza Sotoodeh" date="2026-06-12 15:21:13 +0330">
       <![CDATA[
       Update To Do list with finding the final issues
       
       Expand the project To Do list with runtime recovery items and hardware considerations. Added SD card "Runtime Failure" and SD Dynamic Recovery, MPU9250 Dynamic Recovery and an mpu_critical_error item for calibration; clarified safe shutdown and software solution. Added Queue Overflow handling suggestion (use frame_sequence_number instead of timestamp in LogFrame), GPS logging rate fix (100Hz -> 1Hz), watchdog consideration, BMP280 for Z-axis deficits, and change recommendation for GPIO9/10 (flash/strapping pins). New "Hardware challenges" section covers brownout mitigation (capacitance recommendations), I2C pull-up resistor (4.7k for MPU9250), and key debouncing (0.1ÂµF across key).
       ]]>
     </commit>
-    <commit index="52" hash="175ddba" author="Alireza Sotoodeh" date="2026-06-12 14:44:16 +0330">
+    <commit index="69" hash="175ddba" author="Alireza Sotoodeh" date="2026-06-12 14:44:16 +0330">
       <![CDATA[
       Update README.md
       ]]>
     </commit>
-    <commit index="53" hash="53ee269" author="Alireza Sotoodeh" date="2026-06-12 14:44:06 +0330">
+    <commit index="70" hash="53ee269" author="Alireza Sotoodeh" date="2026-06-12 14:44:06 +0330">
       <![CDATA[
       Update To Do list.md
       ]]>
     </commit>
-    <commit index="54" hash="ae8b760" author="Alireza Sotoodeh" date="2026-06-12 14:30:50 +0330">
+    <commit index="71" hash="ae8b760" author="Alireza Sotoodeh" date="2026-06-12 14:30:50 +0330">
       <![CDATA[
       Add comprehensive project reports and TODO
       
       Add detailed documentation for the DeadReckoner project: new Progress.md (development phases and status), Report2.md (v2.0 full Progress & Architecture Report with hardware inventory, architecture, tests, binary logging format, and timeline), and To Do list.md (action items). Also rename/clean up existing report file to Report/Report.md and update firmware flashing configuration section. These changes consolidate design history, testing results, and next steps for development and GNSS integration.
       ]]>
     </commit>
-    <commit index="55" hash="109b15d" author="Alireza Sotoodeh" date="2026-06-11 22:18:56 +0330">
+    <commit index="72" hash="109b15d" author="Alireza Sotoodeh" date="2026-06-11 22:18:56 +0330">
       <![CDATA[
       DYNAMIC RECOVERY PROTOCOL for MPU reconnection
       ]]>
     </commit>
-    <commit index="56" hash="fff0137" author="Alireza Sotoodeh" date="2026-06-11 22:01:44 +0330">
+    <commit index="73" hash="fff0137" author="Alireza Sotoodeh" date="2026-06-11 22:01:44 +0330">
       <![CDATA[
       Update Progress & Architecture Report.md
       ]]>
     </commit>
-    <commit index="57" hash="61546f3" author="Alireza Sotoodeh" date="2026-06-11 21:09:23 +0330">
+    <commit index="74" hash="61546f3" author="Alireza Sotoodeh" date="2026-06-11 21:09:23 +0330">
       <![CDATA[
       implement MPU9250 critical disconnect trap and boot-time SD scanning
       
       Implemented a robust critical error handling mechanism for the MPU9250 sensor. The system now monitors I2C communication; upon a disconnection, it safely syncs/closes the log file and enters an infinite SOS loop with visual/audible alerts. Added a boot-time scanning sequence for the SD card to display existing log counts and the next filename, providing better pre-mission feedback. Removed legacy calibration prompts to streamline the startup sequence.
       ]]>
     </commit>
-    <commit index="58" hash="1e77d9b" author="Alireza Sotoodeh" date="2026-06-11 20:34:19 +0330">
+    <commit index="75" hash="1e77d9b" author="Alireza Sotoodeh" date="2026-06-11 20:34:19 +0330">
       <![CDATA[
       fix (Total: XX.X GB) in submenu SD card
       ]]>
     </commit>
-    <commit index="59" hash="cc09b6b" author="Alireza Sotoodeh" date="2026-06-11 20:26:26 +0330">
+    <commit index="76" hash="cc09b6b" author="Alireza Sotoodeh" date="2026-06-11 20:26:26 +0330">
       <![CDATA[
       update menu - SD card sub menu
       
@@ -6222,22 +6168,22 @@ The project started as a small IMU prototype and evolved into a multi-core embed
       i should fix (Total: XX.X GB)
       ]]>
     </commit>
-    <commit index="60" hash="2441549" author="Alireza Sotoodeh" date="2026-06-11 17:26:05 +0330">
+    <commit index="77" hash="2441549" author="Alireza Sotoodeh" date="2026-06-11 17:26:05 +0330">
       <![CDATA[
       update menu - mute buzzer menu
       ]]>
     </commit>
-    <commit index="61" hash="82630a8" author="Alireza Sotoodeh" date="2026-06-11 17:16:46 +0330">
+    <commit index="78" hash="82630a8" author="Alireza Sotoodeh" date="2026-06-11 17:16:46 +0330">
       <![CDATA[
       update menu - display mode
       ]]>
     </commit>
-    <commit index="62" hash="34b6077" author="Alireza Sotoodeh" date="2026-06-11 16:49:15 +0330">
+    <commit index="79" hash="34b6077" author="Alireza Sotoodeh" date="2026-06-11 16:49:15 +0330">
       <![CDATA[
       added buzzer and LED for Tag and SD card failure
       ]]>
     </commit>
-    <commit index="63" hash="a19f32f" author="Alireza Sotoodeh" date="2026-06-10 22:22:11 +0330">
+    <commit index="80" hash="a19f32f" author="Alireza Sotoodeh" date="2026-06-10 22:22:11 +0330">
       <![CDATA[
       try to update oled-phase 4
       
@@ -6245,446 +6191,446 @@ The project started as a small IMU prototype and evolved into a multi-core embed
       2- sleep oled after some time to save power
       ]]>
     </commit>
-    <commit index="64" hash="74f1cf1" author="Alireza Sotoodeh" date="2026-06-10 18:05:30 +0330">
+    <commit index="81" hash="74f1cf1" author="Alireza Sotoodeh" date="2026-06-10 18:05:30 +0330">
       <![CDATA[
       try to update oled- phase 3
       
       added Sd card calculation sub menu
       ]]>
     </commit>
-    <commit index="65" hash="a6f7e2a" author="Alireza Sotoodeh" date="2026-06-10 16:25:03 +0330">
+    <commit index="82" hash="a6f7e2a" author="Alireza Sotoodeh" date="2026-06-10 16:25:03 +0330">
       <![CDATA[
       try to update oled phase 2
       ]]>
     </commit>
-    <commit index="66" hash="e0a9af6" author="Alireza Sotoodeh" date="2026-06-10 16:14:20 +0330">
+    <commit index="83" hash="e0a9af6" author="Alireza Sotoodeh" date="2026-06-10 16:14:20 +0330">
       <![CDATA[
       try to update oled- phase 1
       ]]>
     </commit>
-    <commit index="67" hash="20b4be7" author="Alireza Sotoodeh" date="2026-06-10 14:59:53 +0330">
+    <commit index="84" hash="20b4be7" author="Alireza Sotoodeh" date="2026-06-10 14:59:53 +0330">
       <![CDATA[
       Update Progress & Architecture Report.md
       ]]>
     </commit>
-    <commit index="68" hash="0b6d062" author="Alireza Sotoodeh" date="2026-06-09 15:46:21 +0330">
+    <commit index="85" hash="0b6d062" author="Alireza Sotoodeh" date="2026-06-09 15:46:21 +0330">
       <![CDATA[
       Create Lipo_VS_LIIon.png
       ]]>
     </commit>
-    <commit index="69" hash="06d4af0" author="Alireza Sotoodeh" date="2026-06-09 15:46:19 +0330">
+    <commit index="86" hash="06d4af0" author="Alireza Sotoodeh" date="2026-06-09 15:46:19 +0330">
       <![CDATA[
       Create Li-ion-battery-discharge-voltage-curve.png
       ]]>
     </commit>
-    <commit index="70" hash="3a02459" author="Alireza Sotoodeh" date="2026-06-09 13:36:22 +0330">
+    <commit index="87" hash="3a02459" author="Alireza Sotoodeh" date="2026-06-09 13:36:22 +0330">
       <![CDATA[
       first version of a bin file reader (MATLAB code)
       ]]>
     </commit>
-    <commit index="71" hash="62a3aa7" author="Alireza Sotoodeh" date="2026-06-09 12:33:17 +0330">
+    <commit index="88" hash="62a3aa7" author="Alireza Sotoodeh" date="2026-06-09 12:33:17 +0330">
       <![CDATA[
       update for SD card logger
       ]]>
     </commit>
-    <commit index="72" hash="2d598a3" author="Alireza Sotoodeh" date="2026-06-09 11:40:52 +0330">
+    <commit index="89" hash="2d598a3" author="Alireza Sotoodeh" date="2026-06-09 11:40:52 +0330">
       <![CDATA[
       speed test Sd card
       ]]>
     </commit>
-    <commit index="73" hash="63c2d1f" author="Alireza Sotoodeh" date="2026-06-08 17:22:48 +0330">
+    <commit index="90" hash="63c2d1f" author="Alireza Sotoodeh" date="2026-06-08 17:22:48 +0330">
       <![CDATA[
       added test analyzer for no SD card mode
       ]]>
     </commit>
-    <commit index="74" hash="b92c2d9" author="Alireza Sotoodeh" date="2026-06-08 16:57:49 +0330">
+    <commit index="91" hash="b92c2d9" author="Alireza Sotoodeh" date="2026-06-08 16:57:49 +0330">
       <![CDATA[
       Update Progress & Architecture Report.md
       ]]>
     </commit>
-    <commit index="75" hash="ff103ec" author="Alireza Sotoodeh" date="2026-06-08 16:32:36 +0330">
+    <commit index="92" hash="ff103ec" author="Alireza Sotoodeh" date="2026-06-08 16:32:36 +0330">
       <![CDATA[
       Final SD card Test (success!)
       ]]>
     </commit>
-    <commit index="76" hash="f4be198" author="Alireza Sotoodeh" date="2026-06-08 16:32:09 +0330">
+    <commit index="93" hash="f4be198" author="Alireza Sotoodeh" date="2026-06-08 16:32:09 +0330">
       <![CDATA[
       SD card Test
       ]]>
     </commit>
-    <commit index="77" hash="56e2f99" author="Alireza Sotoodeh" date="2026-06-08 13:04:57 +0330">
+    <commit index="94" hash="56e2f99" author="Alireza Sotoodeh" date="2026-06-08 13:04:57 +0330">
       <![CDATA[
       Create Chip_Identification_ESP.ino
       ]]>
     </commit>
-    <commit index="78" hash="571117f" author="Alireza Sotoodeh" date="2026-06-08 12:31:36 +0330">
+    <commit index="95" hash="571117f" author="Alireza Sotoodeh" date="2026-06-08 12:31:36 +0330">
       <![CDATA[
       clean up and added some test for SD card
       ]]>
     </commit>
-    <commit index="79" hash="c64fab2" author="Alireza Sotoodeh" date="2026-06-08 11:04:07 +0330">
+    <commit index="96" hash="c64fab2" author="Alireza Sotoodeh" date="2026-06-08 11:04:07 +0330">
       <![CDATA[
       added SD card test (all methods has been failed)
       ]]>
     </commit>
-    <commit index="80" hash="71b1203" author="Alireza Sotoodeh" date="2026-06-05 21:10:39 +0330">
+    <commit index="97" hash="71b1203" author="Alireza Sotoodeh" date="2026-06-05 21:10:39 +0330">
       <![CDATA[
       added SD card Diagram
       ]]>
     </commit>
-    <commit index="81" hash="38a5df4" author="Alireza Sotoodeh" date="2026-06-05 20:15:23 +0330">
+    <commit index="98" hash="38a5df4" author="Alireza Sotoodeh" date="2026-06-05 20:15:23 +0330">
       <![CDATA[
       diagram SD card adaptors
       ]]>
     </commit>
-    <commit index="82" hash="d61bf42" author="Alireza Sotoodeh" date="2026-06-05 20:14:00 +0330">
+    <commit index="99" hash="d61bf42" author="Alireza Sotoodeh" date="2026-06-05 20:14:00 +0330">
       <![CDATA[
       Standalone Sanity Check for SPI SD Card Module
       ]]>
     </commit>
-    <commit index="83" hash="95b4553" author="Alireza Sotoodeh" date="2026-06-05 03:57:14 +0330">
+    <commit index="100" hash="95b4553" author="Alireza Sotoodeh" date="2026-06-05 03:57:14 +0330">
       <![CDATA[
       Sanity Check for SPI SD Card Module
       ]]>
     </commit>
-    <commit index="84" hash="4770619" author="Alireza Sotoodeh" date="2026-06-04 22:18:46 +0330">
+    <commit index="101" hash="4770619" author="Alireza Sotoodeh" date="2026-06-04 22:18:46 +0330">
       <![CDATA[
       Hardware & Filter Validation (Test Results)
       ]]>
     </commit>
-    <commit index="85" hash="49a098e" author="Alireza Sotoodeh" date="2026-06-04 22:18:32 +0330">
+    <commit index="102" hash="49a098e" author="Alireza Sotoodeh" date="2026-06-04 22:18:32 +0330">
       <![CDATA[
       Vibration Rejection test result
       ]]>
     </commit>
-    <commit index="86" hash="490ca10" author="Alireza Sotoodeh" date="2026-06-04 21:09:55 +0330">
+    <commit index="103" hash="490ca10" author="Alireza Sotoodeh" date="2026-06-04 21:09:55 +0330">
       <![CDATA[
       Clean up and add a second test (Dynamic Return-to-Zero)
       ]]>
     </commit>
-    <commit index="87" hash="3ff7a07" author="Alireza Sotoodeh" date="2026-06-04 16:28:32 +0330">
+    <commit index="104" hash="3ff7a07" author="Alireza Sotoodeh" date="2026-06-04 16:28:32 +0330">
       <![CDATA[
       Drift Test Visualizer
       ]]>
     </commit>
-    <commit index="88" hash="4fe7d7c" author="Alireza Sotoodeh" date="2026-06-04 16:28:10 +0330">
+    <commit index="105" hash="4fe7d7c" author="Alireza Sotoodeh" date="2026-06-04 16:28:10 +0330">
       <![CDATA[
       Update Progress & Architecture Report.md
       ]]>
     </commit>
-    <commit index="89" hash="6db47c8" author="Alireza Sotoodeh" date="2026-06-04 15:41:16 +0330">
+    <commit index="106" hash="6db47c8" author="Alireza Sotoodeh" date="2026-06-04 15:41:16 +0330">
       <![CDATA[
       fix OLED
       ]]>
     </commit>
-    <commit index="90" hash="e5a2f29" author="Alireza Sotoodeh" date="2026-06-04 15:33:59 +0330">
+    <commit index="107" hash="e5a2f29" author="Alireza Sotoodeh" date="2026-06-04 15:33:59 +0330">
       <![CDATA[
       ix issues before test
       
       Fixed EEPROM load bug (added setters) and migrated OLED to Hardware I2C (Wire1).
       ]]>
     </commit>
-    <commit index="91" hash="5fe3bf7" author="Alireza Sotoodeh" date="2026-06-04 15:31:49 +0330">
+    <commit index="108" hash="5fe3bf7" author="Alireza Sotoodeh" date="2026-06-04 15:31:49 +0330">
       <![CDATA[
       Firmware Flashing Configuration (ESP32-S3 N16R8)
       ]]>
     </commit>
-    <commit index="92" hash="6b28855" author="Alireza Sotoodeh" date="2026-06-04 15:03:10 +0330">
+    <commit index="109" hash="6b28855" author="Alireza Sotoodeh" date="2026-06-04 15:03:10 +0330">
       <![CDATA[
       Update Progress & Architecture Report.md
       ]]>
     </commit>
-    <commit index="93" hash="66e7771" author="Alireza Sotoodeh" date="2026-06-04 14:59:02 +0330">
+    <commit index="110" hash="66e7771" author="Alireza Sotoodeh" date="2026-06-04 14:59:02 +0330">
       <![CDATA[
       Sanity Check for OLED 0.91
       ]]>
     </commit>
-    <commit index="94" hash="8a65805" author="Alireza Sotoodeh" date="2026-06-04 14:46:46 +0330">
+    <commit index="111" hash="8a65805" author="Alireza Sotoodeh" date="2026-06-04 14:46:46 +0330">
       <![CDATA[
       Basic I2C sanity check MPU9250
       ]]>
     </commit>
-    <commit index="95" hash="5b4c454" author="Alireza Sotoodeh" date="2026-06-04 13:05:46 +0330">
+    <commit index="112" hash="5b4c454" author="Alireza Sotoodeh" date="2026-06-04 13:05:46 +0330">
       <![CDATA[
       Updated wiring diagram
       ]]>
     </commit>
-    <commit index="96" hash="b099dad" author="Alireza Sotoodeh" date="2026-06-04 13:05:08 +0330">
+    <commit index="113" hash="b099dad" author="Alireza Sotoodeh" date="2026-06-04 13:05:08 +0330">
       <![CDATA[
       Update Progress & Architecture Report.md
       ]]>
     </commit>
-    <commit index="97" hash="08459b3" author="Alireza Sotoodeh" date="2026-06-03 19:32:06 +0330">
+    <commit index="114" hash="08459b3" author="Alireza Sotoodeh" date="2026-06-03 19:32:06 +0330">
       <![CDATA[
       dual core with Free Atreus
       ]]>
     </commit>
-    <commit index="98" hash="0ee83a3" author="Alireza Sotoodeh" date="2026-06-03 19:09:52 +0330">
+    <commit index="115" hash="0ee83a3" author="Alireza Sotoodeh" date="2026-06-03 19:09:52 +0330">
       <![CDATA[
       Update Progress & Architecture Report.md
       ]]>
     </commit>
-    <commit index="99" hash="ef89423" author="Alireza Sotoodeh" date="2026-06-03 18:43:14 +0330">
+    <commit index="116" hash="ef89423" author="Alireza Sotoodeh" date="2026-06-03 18:43:14 +0330">
       <![CDATA[
       Create ESP32_S3.ino
       ]]>
     </commit>
-    <commit index="100" hash="d77ccbc" author="Alireza Sotoodeh" date="2026-06-03 18:42:35 +0330">
+    <commit index="117" hash="d77ccbc" author="Alireza Sotoodeh" date="2026-06-03 18:42:35 +0330">
       <![CDATA[
       Create Progress & Architecture Report.md
       ]]>
     </commit>
-    <commit index="101" hash="6ed1539" author="Alireza Sotoodeh" date="2026-06-03 17:00:09 +0330">
+    <commit index="118" hash="6ed1539" author="Alireza Sotoodeh" date="2026-06-03 17:00:09 +0330">
       <![CDATA[
       added wiring diagram for ESP
       ]]>
     </commit>
-    <commit index="102" hash="92d4cb3" author="Alireza Sotoodeh" date="2026-06-03 16:34:13 +0330">
+    <commit index="119" hash="92d4cb3" author="Alireza Sotoodeh" date="2026-06-03 16:34:13 +0330">
       <![CDATA[
       init_project(again)
       ]]>
     </commit>
-    <commit index="103" hash="d7407d4" author="Alireza Sotoodeh" date="2026-06-03 15:53:09 +0330">
+    <commit index="120" hash="d7407d4" author="Alireza Sotoodeh" date="2026-06-03 15:53:09 +0330">
       <![CDATA[
       Delete setup modules directory
       ]]>
     </commit>
-    <commit index="104" hash="863ff07" author="Alireza Sotoodeh" date="2026-06-03 15:52:57 +0330">
+    <commit index="121" hash="863ff07" author="Alireza Sotoodeh" date="2026-06-03 15:52:57 +0330">
       <![CDATA[
       Delete main code directory
       ]]>
     </commit>
-    <commit index="105" hash="196cec4" author="Alireza Sotoodeh" date="2026-06-03 15:52:38 +0330">
+    <commit index="122" hash="196cec4" author="Alireza Sotoodeh" date="2026-06-03 15:52:38 +0330">
       <![CDATA[
       Delete .metadata directory
       ]]>
     </commit>
-    <commit index="106" hash="3b96d1d" author="Alireza Sotoodeh" date="2025-08-09 11:17:13 +0330">
+    <commit index="123" hash="3b96d1d" author="Alireza Sotoodeh" date="2025-08-09 11:17:13 +0330">
       <![CDATA[
       Merge pull request #8 from Alireza-Sotoodeh/NodeMUC8266
       
       Node muc8266
       ]]>
     </commit>
-    <commit index="107" hash="3359107" author="Alireza Sotoodeh" date="2025-08-09 11:16:43 +0330">
+    <commit index="124" hash="3359107" author="Alireza Sotoodeh" date="2025-08-09 11:16:43 +0330">
       <![CDATA[
       cleaning repo-05/18-11:16PM
       ]]>
     </commit>
-    <commit index="108" hash="2bc2774" author="Alireza Sotoodeh" date="2025-08-08 16:57:22 +0330">
+    <commit index="125" hash="2bc2774" author="Alireza Sotoodeh" date="2025-08-08 16:57:22 +0330">
       <![CDATA[
       fixed the acceleration (linear acceleration)-05/17-4:57
       ]]>
     </commit>
-    <commit index="109" hash="b0166f0" author="Alireza Sotoodeh" date="2025-08-08 11:19:45 +0330">
+    <commit index="126" hash="b0166f0" author="Alireza Sotoodeh" date="2025-08-08 11:19:45 +0330">
       <![CDATA[
       oled display fixed-05/17-11:19PM
       ]]>
     </commit>
-    <commit index="110" hash="ff11272" author="Alireza Sotoodeh" date="2025-08-07 12:26:53 +0330">
+    <commit index="127" hash="ff11272" author="Alireza Sotoodeh" date="2025-08-07 12:26:53 +0330">
       <![CDATA[
       05/16-12:26PM
       
       fixed the MATLAB code (closing the serial on exit)
       ]]>
     </commit>
-    <commit index="111" hash="04cdf7e" author="Alireza Sotoodeh" date="2025-08-06 14:43:03 +0330">
+    <commit index="128" hash="04cdf7e" author="Alireza Sotoodeh" date="2025-08-06 14:43:03 +0330">
       <![CDATA[
       05/15-2:42PM
       
       display and acceleration added
       ]]>
     </commit>
-    <commit index="112" hash="9cbcf16" author="Alireza Sotoodeh" date="2025-08-06 14:17:22 +0330">
+    <commit index="129" hash="9cbcf16" author="Alireza Sotoodeh" date="2025-08-06 14:17:22 +0330">
       <![CDATA[
       05/15-2:17PM
       
       setup basic oled
       ]]>
     </commit>
-    <commit index="113" hash="d69f889" author="Alireza Sotoodeh" date="2025-08-05 20:33:51 +0330">
+    <commit index="130" hash="d69f889" author="Alireza Sotoodeh" date="2025-08-05 20:33:51 +0330">
       <![CDATA[
       05/14-8:33Pm
       
       now it can read from EEprom and save the callibration to it or load it
       ]]>
     </commit>
-    <commit index="114" hash="bd57081" author="Alireza Sotoodeh" date="2025-08-05 19:59:43 +0330">
+    <commit index="131" hash="bd57081" author="Alireza Sotoodeh" date="2025-08-05 19:59:43 +0330">
       <![CDATA[
       05/14-7:59PM
       
       fixd matlab code
       ]]>
     </commit>
-    <commit index="115" hash="a18b783" author="Alireza Sotoodeh" date="2025-08-05 19:45:52 +0330">
+    <commit index="132" hash="a18b783" author="Alireza Sotoodeh" date="2025-08-05 19:45:52 +0330">
       <![CDATA[
       Merge pull request #7 from Alireza-Sotoodeh/NodeMUC8266
       
       Node muc8266
       ]]>
     </commit>
-    <commit index="116" hash="f623caf" author="Alireza Sotoodeh" date="2025-08-05 19:44:23 +0330">
+    <commit index="133" hash="f623caf" author="Alireza Sotoodeh" date="2025-08-05 19:44:23 +0330">
       <![CDATA[
       05/14-7:43PM
       
       fixed MATLAB code (opening serial problem)
       ]]>
     </commit>
-    <commit index="117" hash="dac7043" author="Alireza Sotoodeh" date="2025-08-05 19:34:07 +0330">
+    <commit index="134" hash="dac7043" author="Alireza Sotoodeh" date="2025-08-05 19:34:07 +0330">
       <![CDATA[
       05/14_7:33PM
       
       fixed MPU9250 comments and settings
       ]]>
     </commit>
-    <commit index="118" hash="3e039ce" author="Alireza Sotoodeh" date="2025-08-05 17:19:11 +0330">
+    <commit index="135" hash="3e039ce" author="Alireza Sotoodeh" date="2025-08-05 17:19:11 +0330">
       <![CDATA[
       05/14-5:19PM
       
       added comments for understating
       ]]>
     </commit>
-    <commit index="119" hash="8a9c9e9" author="Alireza Sotoodeh" date="2025-08-05 15:57:33 +0330">
+    <commit index="136" hash="8a9c9e9" author="Alireza Sotoodeh" date="2025-08-05 15:57:33 +0330">
       <![CDATA[
       05/14
       
       start
       ]]>
     </commit>
-    <commit index="120" hash="1b1623d" author="Alireza Sotoodeh" date="2025-08-04 10:20:12 +0330">
+    <commit index="137" hash="1b1623d" author="Alireza Sotoodeh" date="2025-08-04 10:20:12 +0330">
       <![CDATA[
       05/13-10:20Pm
       
       codes working
       ]]>
     </commit>
-    <commit index="121" hash="5e9d19f" author="Alireza Sotoodeh" date="2025-08-04 09:02:54 +0330">
+    <commit index="138" hash="5e9d19f" author="Alireza Sotoodeh" date="2025-08-04 09:02:54 +0330">
       <![CDATA[
       start
       ]]>
     </commit>
-    <commit index="122" hash="31c9ae8" author="Alireza Sotoodeh" date="2025-08-04 09:01:25 +0330">
+    <commit index="139" hash="31c9ae8" author="Alireza Sotoodeh" date="2025-08-04 09:01:25 +0330">
       <![CDATA[
       save before start
       ]]>
     </commit>
-    <commit index="123" hash="9dc8987" author="Alireza Sotoodeh" date="2025-08-03 15:42:08 +0330">
+    <commit index="140" hash="9dc8987" author="Alireza Sotoodeh" date="2025-08-03 15:42:08 +0330">
       <![CDATA[
       removed the project
       ]]>
     </commit>
-    <commit index="124" hash="bba6109" author="Alireza Sotoodeh" date="2025-08-03 15:35:11 +0330">
+    <commit index="141" hash="bba6109" author="Alireza Sotoodeh" date="2025-08-03 15:35:11 +0330">
       <![CDATA[
       05/12-3:34PM
       
       test the MPU9250 and filter and 3d visualization by Arduino and MATLAB
       ]]>
     </commit>
-    <commit index="125" hash="d44cee1" author="Alireza Sotoodeh" date="2025-08-02 14:05:01 +0330">
+    <commit index="142" hash="d44cee1" author="Alireza Sotoodeh" date="2025-08-02 14:05:01 +0330">
       <![CDATA[
       05/11-2:04PM
       
       adding the MPU9250 lib
       ]]>
     </commit>
-    <commit index="126" hash="b578859" author="Alireza Sotoodeh" date="2025-08-02 14:02:40 +0330">
+    <commit index="143" hash="b578859" author="Alireza Sotoodeh" date="2025-08-02 14:02:40 +0330">
       <![CDATA[
       05/11-2:02PM
       
       remove unnecessary files
       ]]>
     </commit>
-    <commit index="127" hash="da3fe11" author="Alireza Sotoodeh" date="2025-07-25 16:48:20 +0330">
+    <commit index="144" hash="da3fe11" author="Alireza Sotoodeh" date="2025-07-25 16:48:20 +0330">
       <![CDATA[
       Update workbench.xmi
       ]]>
     </commit>
-    <commit index="128" hash="0e84527" author="Alireza Sotoodeh" date="2025-07-25 16:34:39 +0330">
+    <commit index="145" hash="0e84527" author="Alireza Sotoodeh" date="2025-07-25 16:34:39 +0330">
       <![CDATA[
       Add DMP.c for MPU_9250 and update workspace state
       
       Added the new DMP.c module for the MPU_9250 sensor in setup modules/DataSheets/MPU_9250/. Updated Eclipse workspace state to reflect recent file activity and editor state.
       ]]>
     </commit>
-    <commit index="129" hash="3cb9f77" author="Alireza Sotoodeh" date="2025-07-25 16:31:47 +0330">
+    <commit index="146" hash="3cb9f77" author="Alireza Sotoodeh" date="2025-07-25 16:31:47 +0330">
       <![CDATA[
       Revert "05/03-3:53PM"
       
       This reverts commit 35e3c884d70004a60c4bb66b258b43bdf60dd482.
       ]]>
     </commit>
-    <commit index="130" hash="35e3c88" author="Alireza Sotoodeh" date="2025-07-25 15:53:44 +0330">
+    <commit index="147" hash="35e3c88" author="Alireza Sotoodeh" date="2025-07-25 15:53:44 +0330">
       <![CDATA[
       05/03-3:53PM
       
       found the DMP
       ]]>
     </commit>
-    <commit index="131" hash="527e4d0" author="Alireza Sotoodeh" date="2025-07-25 15:04:37 +0330">
+    <commit index="148" hash="527e4d0" author="Alireza Sotoodeh" date="2025-07-25 15:04:37 +0330">
       <![CDATA[
       Merge branch 'MPU9250' of https://github.com/Alireza-Sotoodeh/Navigation-STM32 into MPU9250
       ]]>
     </commit>
-    <commit index="132" hash="8df6c0a" author="Alireza Sotoodeh" date="2025-07-25 15:04:30 +0330">
+    <commit index="149" hash="8df6c0a" author="Alireza Sotoodeh" date="2025-07-25 15:04:30 +0330">
       <![CDATA[
       Update MPU_9250.md
       ]]>
     </commit>
-    <commit index="133" hash="fccbc95" author="Alireza Sotoodeh" date="2025-07-25 15:02:46 +0330">
+    <commit index="150" hash="fccbc95" author="Alireza Sotoodeh" date="2025-07-25 15:02:46 +0330">
       <![CDATA[
       05/03-3:02PM
       
       want to start working on DMP farmwear
       ]]>
     </commit>
-    <commit index="134" hash="e1c129e" author="Alireza Sotoodeh" date="2025-07-25 12:17:52 +0330">
+    <commit index="151" hash="e1c129e" author="Alireza Sotoodeh" date="2025-07-25 12:17:52 +0330">
       <![CDATA[
       05/03-12:17PM
       
       Update MPU_9250.md
       ]]>
     </commit>
-    <commit index="135" hash="ac92d29" author="Alireza Sotoodeh" date="2025-07-25 12:17:27 +0330">
+    <commit index="152" hash="ac92d29" author="Alireza Sotoodeh" date="2025-07-25 12:17:27 +0330">
       <![CDATA[
       05/03-12:17PM
       
       Update MPU_9250.md
       ]]>
     </commit>
-    <commit index="136" hash="cfa9612" author="Alireza Sotoodeh" date="2025-07-25 12:13:08 +0330">
+    <commit index="153" hash="cfa9612" author="Alireza Sotoodeh" date="2025-07-25 12:13:08 +0330">
       <![CDATA[
       05/03-12:12PM
       
       fixed MPU9250.md
       ]]>
     </commit>
-    <commit index="137" hash="d7b0656" author="Alireza Sotoodeh" date="2025-07-25 12:11:14 +0330">
+    <commit index="154" hash="d7b0656" author="Alireza Sotoodeh" date="2025-07-25 12:11:14 +0330">
       <![CDATA[
       05/03-12:10PM
       
       adding datasheet MPU9250 and MPU9250.md
       ]]>
     </commit>
-    <commit index="138" hash="27d3701" author="Alireza Sotoodeh" date="2025-07-25 11:23:10 +0330">
+    <commit index="155" hash="27d3701" author="Alireza Sotoodeh" date="2025-07-25 11:23:10 +0330">
       <![CDATA[
       05/03-11:22AM (save before start)
       ]]>
     </commit>
-    <commit index="139" hash="b869740" author="Alireza Sotoodeh" date="2025-07-24 19:39:06 +0330">
+    <commit index="156" hash="b869740" author="Alireza Sotoodeh" date="2025-07-24 19:39:06 +0330">
       <![CDATA[
       05/02-7:38PM
       
       ready for test need to modify main.c
       ]]>
     </commit>
-    <commit index="140" hash="0a7b903" author="Alireza Sotoodeh" date="2025-07-24 19:31:16 +0330">
+    <commit index="157" hash="0a7b903" author="Alireza Sotoodeh" date="2025-07-24 19:31:16 +0330">
       <![CDATA[
       05/02-7:30PM
       
       start working but need saving first
       ]]>
     </commit>
-    <commit index="141" hash="04bcf97" author="Alireza Sotoodeh" date="2025-07-23 20:54:00 +0330">
+    <commit index="158" hash="04bcf97" author="Alireza Sotoodeh" date="2025-07-23 20:54:00 +0330">
       <![CDATA[
       05/01-8:53PM
       
@@ -6694,7 +6640,7 @@ The project started as a small IMU prototype and evolved into a multi-core embed
       need testing
       ]]>
     </commit>
-    <commit index="142" hash="3f6cd2f" author="Alireza Sotoodeh" date="2025-07-23 20:50:15 +0330">
+    <commit index="159" hash="3f6cd2f" author="Alireza Sotoodeh" date="2025-07-23 20:50:15 +0330">
       <![CDATA[
       05/01-8:49
       
@@ -6702,19 +6648,19 @@ The project started as a small IMU prototype and evolved into a multi-core embed
       needs improvments
       ]]>
     </commit>
-    <commit index="143" hash="5b426fa" author="Alireza Sotoodeh" date="2025-07-23 11:05:54 +0330">
+    <commit index="160" hash="5b426fa" author="Alireza Sotoodeh" date="2025-07-23 11:05:54 +0330">
       <![CDATA[
       Update README.md
       ]]>
     </commit>
-    <commit index="144" hash="0455e92" author="Alireza Sotoodeh" date="2025-07-20 21:44:39 +0330">
+    <commit index="161" hash="0455e92" author="Alireza Sotoodeh" date="2025-07-20 21:44:39 +0330">
       <![CDATA[
       04/29-9:44PM
       
       fixing ReadME
       ]]>
     </commit>
-    <commit index="145" hash="3b1b5ac" author="Alireza Sotoodeh" date="2025-07-18 20:16:29 +0330">
+    <commit index="162" hash="3b1b5ac" author="Alireza Sotoodeh" date="2025-07-18 20:16:29 +0330">
       <![CDATA[
       04/27- 8:15 PM
       
@@ -6722,7 +6668,7 @@ The project started as a small IMU prototype and evolved into a multi-core embed
       just Updated README.md
       ]]>
     </commit>
-    <commit index="146" hash="4305256" author="Alireza Sotoodeh" date="2025-07-18 18:04:53 +0330">
+    <commit index="163" hash="4305256" author="Alireza Sotoodeh" date="2025-07-18 18:04:53 +0330">
       <![CDATA[
       04/27-6:03 PM
       
@@ -6731,7 +6677,7 @@ The project started as a small IMU prototype and evolved into a multi-core embed
       - Increase sample rate to 200 Hz (and editing the driver_MPU6500_dmp.c)
       ]]>
     </commit>
-    <commit index="147" hash="701ae4b" author="Alireza Sotoodeh" date="2025-07-18 10:48:51 +0330">
+    <commit index="164" hash="701ae4b" author="Alireza Sotoodeh" date="2025-07-18 10:48:51 +0330">
       <![CDATA[
       04/27-10:48 AM
       
@@ -6751,22 +6697,22 @@ The project started as a small IMU prototype and evolved into a multi-core embed
       Fixes compilation errors, improves navigation accuracy, and prepares for future module integration (SD card, WiFi, Bluetooth).
       ]]>
     </commit>
-    <commit index="148" hash="62df236" author="Alireza Sotoodeh" date="2025-07-17 22:30:28 +0330">
+    <commit index="165" hash="62df236" author="Alireza Sotoodeh" date="2025-07-17 22:30:28 +0330">
       <![CDATA[
       04/26
       ]]>
     </commit>
-    <commit index="149" hash="768b21c" author="Alireza Sotoodeh" date="2025-07-16 08:01:08 +0330">
+    <commit index="166" hash="768b21c" author="Alireza Sotoodeh" date="2025-07-16 08:01:08 +0330">
       <![CDATA[
       now code has no error
       ]]>
     </commit>
-    <commit index="150" hash="ec842c7" author="Alireza Sotoodeh" date="2025-07-14 11:33:26 +0330">
+    <commit index="167" hash="ec842c7" author="Alireza Sotoodeh" date="2025-07-14 11:33:26 +0330">
       <![CDATA[
       04/23 saving before going for a break!
       ]]>
     </commit>
-    <commit index="151" hash="2327c58" author="Alireza Sotoodeh" date="2025-07-14 10:47:22 +0330">
+    <commit index="168" hash="2327c58" author="Alireza Sotoodeh" date="2025-07-14 10:47:22 +0330">
       <![CDATA[
       before testing the MPU6500 commands
       
@@ -6774,67 +6720,67 @@ The project started as a small IMU prototype and evolved into a multi-core embed
       file scr and interface are ready to go
       ]]>
     </commit>
-    <commit index="152" hash="e532bc4" author="Alireza Sotoodeh" date="2025-07-13 20:11:22 +0330">
+    <commit index="169" hash="e532bc4" author="Alireza Sotoodeh" date="2025-07-13 20:11:22 +0330">
       <![CDATA[
       added all necceasry files
       ]]>
     </commit>
-    <commit index="153" hash="8ac5a28" author="Alireza Sotoodeh" date="2025-07-13 15:01:44 +0330">
+    <commit index="170" hash="8ac5a28" author="Alireza Sotoodeh" date="2025-07-13 15:01:44 +0330">
       <![CDATA[
       save beffore going to my new brand branch
       ]]>
     </commit>
-    <commit index="154" hash="9b63d4f" author="Alireza Sotoodeh" date="2025-07-13 15:00:15 +0330">
+    <commit index="171" hash="9b63d4f" author="Alireza Sotoodeh" date="2025-07-13 15:00:15 +0330">
       <![CDATA[
       adding scr MPU6500
       
       driver and interface files has been added
       ]]>
     </commit>
-    <commit index="155" hash="d95b49d" author="Alireza Sotoodeh" date="2025-07-13 14:56:47 +0330">
+    <commit index="172" hash="d95b49d" author="Alireza Sotoodeh" date="2025-07-13 14:56:47 +0330">
       <![CDATA[
       setup CubeIDE
       
       now i have everything to get stated and working on MPU6500
       ]]>
     </commit>
-    <commit index="156" hash="4239272" author="Alireza Sotoodeh" date="2025-07-13 14:52:23 +0330">
+    <commit index="173" hash="4239272" author="Alireza Sotoodeh" date="2025-07-13 14:52:23 +0330">
       <![CDATA[
       added MPU6500 library
       ]]>
     </commit>
-    <commit index="157" hash="b31009d" author="Alireza Sotoodeh" date="2025-07-13 14:50:43 +0330">
+    <commit index="174" hash="b31009d" author="Alireza Sotoodeh" date="2025-07-13 14:50:43 +0330">
       <![CDATA[
       removing all file(from the top)
       ]]>
     </commit>
-    <commit index="158" hash="2f0ded6" author="Alireza Sotoodeh" date="2025-07-13 14:26:16 +0330">
+    <commit index="175" hash="2f0ded6" author="Alireza Sotoodeh" date="2025-07-13 14:26:16 +0330">
       <![CDATA[
       fixing readme file
       ]]>
     </commit>
-    <commit index="159" hash="adfc075" author="Alireza Sotoodeh" date="2025-07-13 14:24:16 +0330">
+    <commit index="176" hash="adfc075" author="Alireza Sotoodeh" date="2025-07-13 14:24:16 +0330">
       <![CDATA[
       initial MPU6500 and trying to test it
       
       trying to work with the library i found online
       ]]>
     </commit>
-    <commit index="160" hash="05d017f" author="Alireza Sotoodeh" date="2025-07-12 20:39:48 +0330">
+    <commit index="177" hash="05d017f" author="Alireza Sotoodeh" date="2025-07-12 20:39:48 +0330">
       <![CDATA[
       initial PJ
       
       1404/04/21
       ]]>
     </commit>
-    <commit index="161" hash="bed8a35" author="Alireza Sotoodeh" date="2025-07-12 19:01:00 +0330">
+    <commit index="178" hash="bed8a35" author="Alireza Sotoodeh" date="2025-07-12 19:01:00 +0330">
       <![CDATA[
       modified readme file
       
       trying to describe the path
       ]]>
     </commit>
-    <commit index="162" hash="d72b9ad" author="Alireza Sotoodeh" date="2025-07-12 18:41:59 +0330">
+    <commit index="179" hash="d72b9ad" author="Alireza Sotoodeh" date="2025-07-12 18:41:59 +0330">
       <![CDATA[
       Initial commit
       ]]>

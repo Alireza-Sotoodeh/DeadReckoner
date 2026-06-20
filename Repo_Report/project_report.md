@@ -1,6 +1,6 @@
 # Project Report: DeadReckoner
 
-> Generated: 2026-06-17 17:25:22  |  Format: LLM-optimized
+> Generated: 2026-06-19 21:26:59  |  Format: LLM-optimized
 
 ## 1. Project Identity
 
@@ -8,14 +8,14 @@
 | ---------------- | ------------ |
 | **Name**         | DeadReckoner |
 | **Language**     | MATLAB       |
-| **Total Files**  | 93           |
-| **Total Lines**  | 122810       |
+| **Total Files**  | 95           |
+| **Total Lines**  | 126278       |
 | **Dependencies** | 0            |
-| **Git Commits**  | 165          |
+| **Git Commits**  | 179          |
 
 ### Architecture Overview
 
-Project 'DeadReckoner' is a MATLAB project. Contains 2 source file(s) with 27 function(s) and 3 class(es). 2 file(s) have imports, referencing 14 external package(s). Repository has 93 total file(s) and ~122810 line(s) of code.
+Project 'DeadReckoner' is a MATLAB project. Contains 2 source file(s) with 27 function(s) and 3 class(es). 2 file(s) have imports, referencing 14 external package(s). Repository has 95 total file(s) and ~126278 line(s) of code.
 
 ### Description
 
@@ -204,7 +204,8 @@ DeadReckoner/
 ├── Repo_Report/
 │   ├── project_report.md
 │   ├── project_report.txt
-│   └── project_report.xml
+│   ├── project_report.xml
+│   └── project_report_1.md
 ├── Report/
 │   ├── Issues found by AI.md
 │   ├── Progress.md
@@ -213,6 +214,8 @@ DeadReckoner/
 ├── Test- Sanity Check/
 │   ├── Chip_Identification_ESP/
 │   │   └── Chip_Identification_ESP.ino
+│   ├── GY-GPS6Mv2/
+│   │   └── GY-GPS6Mv2.ino
 │   ├── MPU9250/
 │   │   └── MPU9250.ino
 │   ├── OLED/
@@ -250,178 +253,426 @@ DeadReckoner/
 
 ## 7. Git History
 
-- **Total Commits:** 165
+- **Total Commits:** 179
 
-| Hash      | Date                | Author           | Message                                                                                     |
-| --------- | ------------------- | ---------------- | ------------------------------------------------------------------------------------------- |
-| `fbb60a2` | 2026-06-15 17:34:45 | Alireza Sotoodeh | Merge Report.md (v1.0.0) into Report2.md (v2.0.0); promote v2.0.0 as main                   |
-| `74d602b` | 2026-06-15 17:28:21 | Alireza Sotoodeh | Create .gitignore                                                                           |
-| `649eda8` | 2026-06-15 17:22:56 | Alireza Sotoodeh | Add generated project report (MD/TXT/XML)                                                   |
-| `bc779b4` | 2026-06-15 15:13:39 | Alireza Sotoodeh | Clean up To Do list.md: remove completed items, keep pending only                           |
-| `d6fc8e6` | 2026-06-15 15:09:01 | Alireza Sotoodeh | Add project_summarizer interactive report tool                                              |
-| `b50fcc2` | 2026-06-15 13:32:42 | Alireza Sotoodeh | Update Progress.md with storage, recovery, UI                                               |
-| `71b59a6` | 2026-06-15 10:57:32 | Alireza Sotoodeh | Fix timing, SD math, and logging robustness                                                 |
-| `1d7378d` | 2026-06-15 10:45:39 | Alireza Sotoodeh | Relative timestamps, OLED reinit, buzzer beeps                                              |
-| `0a27909` | 2026-06-14 18:04:57 | Alireza Sotoodeh | Improve SD recovery and new log file creation                                               |
-| `19e696d` | 2026-06-14 17:25:58 | Alireza Sotoodeh | Expand SD menu to 8 items and fix actions                                                   |
-| `f734a62` | 2026-06-14 17:07:36 | Alireza Sotoodeh | Track dropped frames and fix SD menu/UI                                                     |
-| `c809e2f` | 2026-06-14 16:58:24 | Alireza Sotoodeh | Make frame sequence counter thread-safe                                                     |
-| `73cdf91` | 2026-06-14 15:35:43 | Alireza Sotoodeh | Expand data frame & add O(1) log naming                                                     |
-| `0a1eadd` | 2026-06-14 15:17:04 | Alireza Sotoodeh | Safely wipe logs: suspend sensor, purge SD                                                  |
-| `23ce3b7` | 2026-06-14 15:13:07 | Alireza Sotoodeh | Remove unused STATE_SUBMENU_MSG and handlers                                                |
-| `7385d3b` | 2026-06-14 14:59:50 | Alireza Sotoodeh | Support recovery logs and use vTaskDelay                                                    |
-| `b528985` | 2026-06-14 14:56:35 | Alireza Sotoodeh | Add configureMPUSettings helper                                                             |
-| `9cafc3e` | 2026-06-14 14:53:17 | Alireza Sotoodeh | Remove unused SD recovery timer variable                                                    |
-| `4cb4971` | 2026-06-14 14:51:20 | Alireza Sotoodeh | Validate log file after MPU recovery                                                        |
-| `baf3ece` | 2026-06-14 14:46:45 | Alireza Sotoodeh | Zero-initialize gap LogFrame before SD write                                                |
-| `b5937cf` | 2026-06-14 14:44:54 | Alireza Sotoodeh | Fix runtime display and EEPROM offset                                                       |
-| `1795018` | 2026-06-14 14:32:29 | Alireza Sotoodeh | Increment recovery ID after SD file open                                                    |
-| `23b0d02` | 2026-06-14 14:30:28 | Alireza Sotoodeh | Improve SD space calc and file counting                                                     |
-| `50661c2` | 2026-06-14 14:26:36 | Alireza Sotoodeh | Add timestamp to LogFrame and update frame size                                             |
-| `3dba014` | 2026-06-14 14:20:13 | Alireza Sotoodeh | Add EEPROM sentinel and robust calibration load/save                                        |
-| `986aa4c` | 2026-06-14 12:02:47 | Alireza Sotoodeh | Update Issues found by AI.md                                                                |
-| `96593bd` | 2026-06-14 12:02:43 | Alireza Sotoodeh | Initialize SD gap LogFrame before write                                                     |
-| `82eaf99` | 2026-06-14 12:00:35 | Alireza Sotoodeh | Add spinlocks for frame counter and tag events                                              |
-| `40f38a9` | 2026-06-14 11:54:38 | Alireza Sotoodeh | Add calibration prototypes and reorder globals                                              |
-| `e184656` | 2026-06-14 11:36:52 | Alireza Sotoodeh | Move OLED auto-off and trigger force UI update                                              |
-| `e9e168c` | 2026-06-14 11:34:07 | Alireza Sotoodeh | Add bandwidth metrics, PSRAM sizing & IMU temp                                              |
-| `39aaedf` | 2026-06-14 11:06:37 | Alireza Sotoodeh | Add AI-generated code review report                                                         |
-| `aaf1c56` | 2026-06-13 23:41:37 | Alireza Sotoodeh | Rewrite To Do list with structured sections                                                 |
-| `5d6f761` | 2026-06-13 23:29:43 | Alireza Sotoodeh | Purge dataQueue on log start and after wipe                                                 |
-| `d2947c3` | 2026-06-13 23:24:30 | Alireza Sotoodeh | Yield to watchdog during SD flush; clarify SD calc                                          |
-| `b898876` | 2026-06-13 22:51:50 | Alireza Sotoodeh | Adjust SD remaining-hours calculation                                                       |
-| `d18b758` | 2026-06-13 22:47:05 | Alireza Sotoodeh | Remove xQueueReset to avoid race condition                                                  |
-| `756fa36` | 2026-06-13 17:53:44 | Alireza Sotoodeh | Fix SD capacity overflow on large cards                                                     |
-| `18df5bb` | 2026-06-13 17:51:07 | Alireza Sotoodeh | Remove parent logs and nested recovery fragments                                            |
-| `7c4c10b` | 2026-06-13 17:48:29 | Alireza Sotoodeh | Use global frame counter and reset on log events                                            |
-| `c2042e5` | 2026-06-13 17:33:15 | Alireza Sotoodeh | Add safe long-press shutdown and SD flush                                                   |
-| `aae3057` | 2026-06-13 17:23:08 | Alireza Sotoodeh | Display elapsed time instead of frame seq                                                   |
-| `276a5f4` | 2026-06-13 17:12:42 | Alireza Sotoodeh | Improve SD runtime recovery and UI feedback                                                 |
-| `a2c7a71` | 2026-06-13 16:55:30 | Alireza Sotoodeh | Move BinReader tests, add V5, tighten jump filter                                           |
-| `49fc4a0` | 2026-06-13 16:54:36 | Alireza Sotoodeh | Add global log/recovery IDs and improved recovery naming                                    |
-| `a9abe2b` | 2026-06-13 16:53:58 | Alireza Sotoodeh | Update To Do list.md                                                                        |
-| `12969b5` | 2026-06-12 21:40:34 | Alireza Sotoodeh | Mark Queue Overflow and 100Hz write fix done                                                |
-| `72ea622` | 2026-06-12 20:45:04 | Alireza Sotoodeh | Report: update To Do list tasks and notes                                                   |
-| `2c07c5a` | 2026-06-12 20:44:48 | Alireza Sotoodeh | Optimize LogFrame, add PSRAM queue & SD recovery                                            |
-| `f8cf9f5` | 2026-06-12 20:44:24 | Alireza Sotoodeh | Move BinReader data to Tests and add v4                                                     |
-| `fba5d59` | 2026-06-12 20:40:06 | Alireza Sotoodeh | Add PSRAM recovery test data and v3 MATLAB reader                                           |
-| `d664e11` | 2026-06-12 19:39:13 | Alireza Sotoodeh | Reorganize MATLAB files and add BIN parser                                                  |
-| `f401a2b` | 2026-06-12 18:38:40 | Alireza Sotoodeh | SD runtime recovery and pin remap                                                           |
-| `5e9c419` | 2026-06-12 15:21:13 | Alireza Sotoodeh | Update To Do list with finding the final issues                                             |
-| `175ddba` | 2026-06-12 14:44:16 | Alireza Sotoodeh | Update README.md                                                                            |
-| `53ee269` | 2026-06-12 14:44:06 | Alireza Sotoodeh | Update To Do list.md                                                                        |
-| `ae8b760` | 2026-06-12 14:30:50 | Alireza Sotoodeh | Add comprehensive project reports and TODO                                                  |
-| `109b15d` | 2026-06-11 22:18:56 | Alireza Sotoodeh | DYNAMIC RECOVERY PROTOCOL for MPU reconnection                                              |
-| `fff0137` | 2026-06-11 22:01:44 | Alireza Sotoodeh | Update Progress & Architecture Report.md                                                    |
-| `61546f3` | 2026-06-11 21:09:23 | Alireza Sotoodeh | implement MPU9250 critical disconnect trap and boot-time SD scanning                        |
-| `1e77d9b` | 2026-06-11 20:34:19 | Alireza Sotoodeh | fix (Total: XX.X GB) in submenu SD card                                                     |
-| `cc09b6b` | 2026-06-11 20:26:26 | Alireza Sotoodeh | update menu - SD card sub menu                                                              |
-| `2441549` | 2026-06-11 17:26:05 | Alireza Sotoodeh | update menu - mute buzzer menu                                                              |
-| `82630a8` | 2026-06-11 17:16:46 | Alireza Sotoodeh | update menu - display mode                                                                  |
-| `34b6077` | 2026-06-11 16:49:15 | Alireza Sotoodeh | added buzzer and LED for Tag and SD card failure                                            |
-| `a19f32f` | 2026-06-10 22:22:11 | Alireza Sotoodeh | try to update oled-phase 4                                                                  |
-| `74f1cf1` | 2026-06-10 18:05:30 | Alireza Sotoodeh | try to update oled- phase 3                                                                 |
-| `a6f7e2a` | 2026-06-10 16:25:03 | Alireza Sotoodeh | try to update oled phase 2                                                                  |
-| `e0a9af6` | 2026-06-10 16:14:20 | Alireza Sotoodeh | try to update oled- phase 1                                                                 |
-| `20b4be7` | 2026-06-10 14:59:53 | Alireza Sotoodeh | Update Progress & Architecture Report.md                                                    |
-| `0b6d062` | 2026-06-09 15:46:21 | Alireza Sotoodeh | Create Lipo_VS_LIIon.png                                                                    |
-| `06d4af0` | 2026-06-09 15:46:19 | Alireza Sotoodeh | Create Li-ion-battery-discharge-voltage-curve.png                                           |
-| `3a02459` | 2026-06-09 13:36:22 | Alireza Sotoodeh | first version of a bin file reader (MATLAB code)                                            |
-| `62a3aa7` | 2026-06-09 12:33:17 | Alireza Sotoodeh | update for SD card logger                                                                   |
-| `2d598a3` | 2026-06-09 11:40:52 | Alireza Sotoodeh | speed test Sd card                                                                          |
-| `63c2d1f` | 2026-06-08 17:22:48 | Alireza Sotoodeh | added test analyzer for no SD card mode                                                     |
-| `b92c2d9` | 2026-06-08 16:57:49 | Alireza Sotoodeh | Update Progress & Architecture Report.md                                                    |
-| `ff103ec` | 2026-06-08 16:32:36 | Alireza Sotoodeh | Final SD card Test (success!)                                                               |
-| `f4be198` | 2026-06-08 16:32:09 | Alireza Sotoodeh | SD card Test                                                                                |
-| `56e2f99` | 2026-06-08 13:04:57 | Alireza Sotoodeh | Create Chip_Identification_ESP.ino                                                          |
-| `571117f` | 2026-06-08 12:31:36 | Alireza Sotoodeh | clean up and added some test for SD card                                                    |
-| `c64fab2` | 2026-06-08 11:04:07 | Alireza Sotoodeh | added SD card test (all methods has been failed)                                            |
-| `71b1203` | 2026-06-05 21:10:39 | Alireza Sotoodeh | added SD card Diagram                                                                       |
-| `38a5df4` | 2026-06-05 20:15:23 | Alireza Sotoodeh | diagram SD card adaptors                                                                    |
-| `d61bf42` | 2026-06-05 20:14:00 | Alireza Sotoodeh | Standalone Sanity Check for SPI SD Card Module                                              |
-| `95b4553` | 2026-06-05 03:57:14 | Alireza Sotoodeh | Sanity Check for SPI SD Card Module                                                         |
-| `4770619` | 2026-06-04 22:18:46 | Alireza Sotoodeh | Hardware & Filter Validation (Test Results)                                                 |
-| `49a098e` | 2026-06-04 22:18:32 | Alireza Sotoodeh | Vibration Rejection test result                                                             |
-| `490ca10` | 2026-06-04 21:09:55 | Alireza Sotoodeh | Clean up and add a second test (Dynamic Return-to-Zero)                                     |
-| `3ff7a07` | 2026-06-04 16:28:32 | Alireza Sotoodeh | Drift Test Visualizer                                                                       |
-| `4fe7d7c` | 2026-06-04 16:28:10 | Alireza Sotoodeh | Update Progress & Architecture Report.md                                                    |
-| `6db47c8` | 2026-06-04 15:41:16 | Alireza Sotoodeh | fix OLED                                                                                    |
-| `e5a2f29` | 2026-06-04 15:33:59 | Alireza Sotoodeh | ix issues before test                                                                       |
-| `5fe3bf7` | 2026-06-04 15:31:49 | Alireza Sotoodeh | Firmware Flashing Configuration (ESP32-S3 N16R8)                                            |
-| `6b28855` | 2026-06-04 15:03:10 | Alireza Sotoodeh | Update Progress & Architecture Report.md                                                    |
-| `66e7771` | 2026-06-04 14:59:02 | Alireza Sotoodeh | Sanity Check for OLED 0.91                                                                  |
-| `8a65805` | 2026-06-04 14:46:46 | Alireza Sotoodeh | Basic I2C sanity check MPU9250                                                              |
-| `5b4c454` | 2026-06-04 13:05:46 | Alireza Sotoodeh | Updated wiring diagram                                                                      |
-| `b099dad` | 2026-06-04 13:05:08 | Alireza Sotoodeh | Update Progress & Architecture Report.md                                                    |
-| `08459b3` | 2026-06-03 19:32:06 | Alireza Sotoodeh | dual core with Free Atreus                                                                  |
-| `0ee83a3` | 2026-06-03 19:09:52 | Alireza Sotoodeh | Update Progress & Architecture Report.md                                                    |
-| `ef89423` | 2026-06-03 18:43:14 | Alireza Sotoodeh | Create ESP32_S3.ino                                                                         |
-| `d77ccbc` | 2026-06-03 18:42:35 | Alireza Sotoodeh | Create Progress & Architecture Report.md                                                    |
-| `6ed1539` | 2026-06-03 17:00:09 | Alireza Sotoodeh | added wiring diagram for ESP                                                                |
-| `92d4cb3` | 2026-06-03 16:34:13 | Alireza Sotoodeh | init_project(again)                                                                         |
-| `d7407d4` | 2026-06-03 15:53:09 | Alireza Sotoodeh | Delete setup modules directory                                                              |
-| `863ff07` | 2026-06-03 15:52:57 | Alireza Sotoodeh | Delete main code directory                                                                  |
-| `196cec4` | 2026-06-03 15:52:38 | Alireza Sotoodeh | Delete .metadata directory                                                                  |
-| `3b96d1d` | 2025-08-09 11:17:13 | Alireza Sotoodeh | Merge pull request #8 from Alireza-Sotoodeh/NodeMUC8266                                     |
-| `3359107` | 2025-08-09 11:16:43 | Alireza Sotoodeh | cleaning repo-05/18-11:16PM                                                                 |
-| `2bc2774` | 2025-08-08 16:57:22 | Alireza Sotoodeh | fixed the acceleration (linear acceleration)-05/17-4:57                                     |
-| `b0166f0` | 2025-08-08 11:19:45 | Alireza Sotoodeh | oled display fixed-05/17-11:19PM                                                            |
-| `ff11272` | 2025-08-07 12:26:53 | Alireza Sotoodeh | 05/16-12:26PM                                                                               |
-| `04cdf7e` | 2025-08-06 14:43:03 | Alireza Sotoodeh | 05/15-2:42PM                                                                                |
-| `9cbcf16` | 2025-08-06 14:17:22 | Alireza Sotoodeh | 05/15-2:17PM                                                                                |
-| `d69f889` | 2025-08-05 20:33:51 | Alireza Sotoodeh | 05/14-8:33Pm                                                                                |
-| `bd57081` | 2025-08-05 19:59:43 | Alireza Sotoodeh | 05/14-7:59PM                                                                                |
-| `a18b783` | 2025-08-05 19:45:52 | Alireza Sotoodeh | Merge pull request #7 from Alireza-Sotoodeh/NodeMUC8266                                     |
-| `f623caf` | 2025-08-05 19:44:23 | Alireza Sotoodeh | 05/14-7:43PM                                                                                |
-| `dac7043` | 2025-08-05 19:34:07 | Alireza Sotoodeh | 05/14_7:33PM                                                                                |
-| `3e039ce` | 2025-08-05 17:19:11 | Alireza Sotoodeh | 05/14-5:19PM                                                                                |
-| `8a9c9e9` | 2025-08-05 15:57:33 | Alireza Sotoodeh | 05/14                                                                                       |
-| `1b1623d` | 2025-08-04 10:20:12 | Alireza Sotoodeh | 05/13-10:20Pm                                                                               |
-| `5e9d19f` | 2025-08-04 09:02:54 | Alireza Sotoodeh | start                                                                                       |
-| `31c9ae8` | 2025-08-04 09:01:25 | Alireza Sotoodeh | save before start                                                                           |
-| `9dc8987` | 2025-08-03 15:42:08 | Alireza Sotoodeh | removed the project                                                                         |
-| `bba6109` | 2025-08-03 15:35:11 | Alireza Sotoodeh | 05/12-3:34PM                                                                                |
-| `d44cee1` | 2025-08-02 14:05:01 | Alireza Sotoodeh | 05/11-2:04PM                                                                                |
-| `b578859` | 2025-08-02 14:02:40 | Alireza Sotoodeh | 05/11-2:02PM                                                                                |
-| `da3fe11` | 2025-07-25 16:48:20 | Alireza Sotoodeh | Update workbench.xmi                                                                        |
-| `0e84527` | 2025-07-25 16:34:39 | Alireza Sotoodeh | Add DMP.c for MPU_9250 and update workspace state                                           |
-| `3cb9f77` | 2025-07-25 16:31:47 | Alireza Sotoodeh | Revert "05/03-3:53PM"                                                                       |
-| `35e3c88` | 2025-07-25 15:53:44 | Alireza Sotoodeh | 05/03-3:53PM                                                                                |
-| `527e4d0` | 2025-07-25 15:04:37 | Alireza Sotoodeh | Merge branch 'MPU9250' of https://github.com/Alireza-Sotoodeh/Navigation-STM32 into MPU9250 |
-| `8df6c0a` | 2025-07-25 15:04:30 | Alireza Sotoodeh | Update MPU_9250.md                                                                          |
-| `fccbc95` | 2025-07-25 15:02:46 | Alireza Sotoodeh | 05/03-3:02PM                                                                                |
-| `e1c129e` | 2025-07-25 12:17:52 | Alireza Sotoodeh | 05/03-12:17PM                                                                               |
-| `ac92d29` | 2025-07-25 12:17:27 | Alireza Sotoodeh | 05/03-12:17PM                                                                               |
-| `cfa9612` | 2025-07-25 12:13:08 | Alireza Sotoodeh | 05/03-12:12PM                                                                               |
-| `d7b0656` | 2025-07-25 12:11:14 | Alireza Sotoodeh | 05/03-12:10PM                                                                               |
-| `27d3701` | 2025-07-25 11:23:10 | Alireza Sotoodeh | 05/03-11:22AM (save before start)                                                           |
-| `b869740` | 2025-07-24 19:39:06 | Alireza Sotoodeh | 05/02-7:38PM                                                                                |
-| `0a7b903` | 2025-07-24 19:31:16 | Alireza Sotoodeh | 05/02-7:30PM                                                                                |
-| `04bcf97` | 2025-07-23 20:54:00 | Alireza Sotoodeh | 05/01-8:53PM                                                                                |
-| `3f6cd2f` | 2025-07-23 20:50:15 | Alireza Sotoodeh | 05/01-8:49                                                                                  |
-| `5b426fa` | 2025-07-23 11:05:54 | Alireza Sotoodeh | Update README.md                                                                            |
-| `0455e92` | 2025-07-20 21:44:39 | Alireza Sotoodeh | 04/29-9:44PM                                                                                |
-| `3b1b5ac` | 2025-07-18 20:16:29 | Alireza Sotoodeh | 04/27- 8:15 PM                                                                              |
-| `4305256` | 2025-07-18 18:04:53 | Alireza Sotoodeh | 04/27-6:03 PM                                                                               |
-| `701ae4b` | 2025-07-18 10:48:51 | Alireza Sotoodeh | 04/27-10:48 AM                                                                              |
-| `62df236` | 2025-07-17 22:30:28 | Alireza Sotoodeh | 04/26                                                                                       |
-| `768b21c` | 2025-07-16 08:01:08 | Alireza Sotoodeh | now code has no error                                                                       |
-| `ec842c7` | 2025-07-14 11:33:26 | Alireza Sotoodeh | 04/23 saving before going for a break!                                                      |
-| `2327c58` | 2025-07-14 10:47:22 | Alireza Sotoodeh | before testing the MPU6500 commands                                                         |
-| `e532bc4` | 2025-07-13 20:11:22 | Alireza Sotoodeh | added all necceasry files                                                                   |
-| `8ac5a28` | 2025-07-13 15:01:44 | Alireza Sotoodeh | save beffore going to my new brand branch                                                   |
-| `9b63d4f` | 2025-07-13 15:00:15 | Alireza Sotoodeh | adding scr MPU6500                                                                          |
-| `d95b49d` | 2025-07-13 14:56:47 | Alireza Sotoodeh | setup CubeIDE                                                                               |
-| `4239272` | 2025-07-13 14:52:23 | Alireza Sotoodeh | added MPU6500 library                                                                       |
-| `b31009d` | 2025-07-13 14:50:43 | Alireza Sotoodeh | removing all file(from the top)                                                             |
-| `2f0ded6` | 2025-07-13 14:26:16 | Alireza Sotoodeh | fixing readme file                                                                          |
-| `adfc075` | 2025-07-13 14:24:16 | Alireza Sotoodeh | initial MPU6500 and trying to test it                                                       |
-| `05d017f` | 2025-07-12 20:39:48 | Alireza Sotoodeh | initial PJ                                                                                  |
-| `bed8a35` | 2025-07-12 19:01:00 | Alireza Sotoodeh | modified readme file                                                                        |
-| `d72b9ad` | 2025-07-12 18:41:59 | Alireza Sotoodeh | Initial commit                                                                              |
+| Hash      | Date                | Author           | Message                                                                                                                |
+| --------- | ------------------- | ---------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| `455a760` | 2026-06-19 19:18:15 | Alireza Sotoodeh | fix comments                                                                                                           |
+| `a5cafd0` | 2026-06-19 19:12:50 | Alireza Sotoodeh | fix 7: Add short delay after SPI.end before reinit                                                                     |
+| `5945ffb` | 2026-06-19 19:11:48 | Alireza Sotoodeh | fix 6-1: Notify on invalid calibration with LED and buzzer                                                             |
+| `b68edd0` | 2026-06-19 19:09:09 | Alireza Sotoodeh | fix 6: Add CRC check for EEPROM calibration data                                                                       |
+| `8cd705e` | 2026-06-19 19:05:29 | Alireza Sotoodeh | fix 5: Increase WDT yields in loggingTask (WDT risk during Format)                                                     |
+| `61ef3b9` | 2026-06-19 19:03:41 | Alireza Sotoodeh | fix 4: Increase SensorTask stack size to 8KB                                                                           |
+| `a87b935` | 2026-06-19 19:02:44 | Alireza Sotoodeh | fix 3: Don't reset last_interaction_millis on UP/DOWN if SELECT is being held                                          |
+| `66f43b8` | 2026-06-19 19:01:00 | Alireza Sotoodeh | fix 100Hz sensor loop and Gap frame timestamp                                                                          |
+| `989d69f` | 2026-06-19 18:57:48 | Alireza Sotoodeh | Report: add CRC-16 frames & offline PDR pipeline                                                                       |
+| `69e900e` | 2026-06-19 18:56:34 | Alireza Sotoodeh | Add CRC to log frames and use RTOS delays                                                                              |
+| `626fed7` | 2026-06-19 18:22:13 | Alireza Sotoodeh | Report: mark delay and CRC issues fixed                                                                                |
+| `32d1c99` | 2026-06-19 17:45:41 | Alireza Sotoodeh | Mark resolved issues and add notes in reports                                                                          |
+| `bc05eb8` | 2026-06-17 23:04:53 | Alireza Sotoodeh | Add NEO-6M GPS diagnostic Arduino sketch                                                                               |
+| `cbe8efa` | 2026-06-17 17:30:27 | Alireza Sotoodeh | Update Report.md from project_report.md: add project_summarizer.py to Phase 9, expand timeline with 16 missing entries |
+| `fbb60a2` | 2026-06-15 17:34:45 | Alireza Sotoodeh | Merge Report.md (v1.0.0) into Report2.md (v2.0.0); promote v2.0.0 as main                                              |
+| `74d602b` | 2026-06-15 17:28:21 | Alireza Sotoodeh | Create .gitignore                                                                                                      |
+| `649eda8` | 2026-06-15 17:22:56 | Alireza Sotoodeh | Add generated project report (MD/TXT/XML)                                                                              |
+| `bc779b4` | 2026-06-15 15:13:39 | Alireza Sotoodeh | Clean up To Do list.md: remove completed items, keep pending only                                                      |
+| `d6fc8e6` | 2026-06-15 15:09:01 | Alireza Sotoodeh | Add project_summarizer interactive report tool                                                                         |
+| `b50fcc2` | 2026-06-15 13:32:42 | Alireza Sotoodeh | Update Progress.md with storage, recovery, UI                                                                          |
+| `71b59a6` | 2026-06-15 10:57:32 | Alireza Sotoodeh | Fix timing, SD math, and logging robustness                                                                            |
+| `1d7378d` | 2026-06-15 10:45:39 | Alireza Sotoodeh | Relative timestamps, OLED reinit, buzzer beeps                                                                         |
+| `0a27909` | 2026-06-14 18:04:57 | Alireza Sotoodeh | Improve SD recovery and new log file creation                                                                          |
+| `19e696d` | 2026-06-14 17:25:58 | Alireza Sotoodeh | Expand SD menu to 8 items and fix actions                                                                              |
+| `f734a62` | 2026-06-14 17:07:36 | Alireza Sotoodeh | Track dropped frames and fix SD menu/UI                                                                                |
+| `c809e2f` | 2026-06-14 16:58:24 | Alireza Sotoodeh | Make frame sequence counter thread-safe                                                                                |
+| `73cdf91` | 2026-06-14 15:35:43 | Alireza Sotoodeh | Expand data frame & add O(1) log naming                                                                                |
+| `0a1eadd` | 2026-06-14 15:17:04 | Alireza Sotoodeh | Safely wipe logs: suspend sensor, purge SD                                                                             |
+| `23ce3b7` | 2026-06-14 15:13:07 | Alireza Sotoodeh | Remove unused STATE_SUBMENU_MSG and handlers                                                                           |
+| `7385d3b` | 2026-06-14 14:59:50 | Alireza Sotoodeh | Support recovery logs and use vTaskDelay                                                                               |
+| `b528985` | 2026-06-14 14:56:35 | Alireza Sotoodeh | Add configureMPUSettings helper                                                                                        |
+| `9cafc3e` | 2026-06-14 14:53:17 | Alireza Sotoodeh | Remove unused SD recovery timer variable                                                                               |
+| `4cb4971` | 2026-06-14 14:51:20 | Alireza Sotoodeh | Validate log file after MPU recovery                                                                                   |
+| `baf3ece` | 2026-06-14 14:46:45 | Alireza Sotoodeh | Zero-initialize gap LogFrame before SD write                                                                           |
+| `b5937cf` | 2026-06-14 14:44:54 | Alireza Sotoodeh | Fix runtime display and EEPROM offset                                                                                  |
+| `1795018` | 2026-06-14 14:32:29 | Alireza Sotoodeh | Increment recovery ID after SD file open                                                                               |
+| `23b0d02` | 2026-06-14 14:30:28 | Alireza Sotoodeh | Improve SD space calc and file counting                                                                                |
+| `50661c2` | 2026-06-14 14:26:36 | Alireza Sotoodeh | Add timestamp to LogFrame and update frame size                                                                        |
+| `3dba014` | 2026-06-14 14:20:13 | Alireza Sotoodeh | Add EEPROM sentinel and robust calibration load/save                                                                   |
+| `986aa4c` | 2026-06-14 12:02:47 | Alireza Sotoodeh | Update Issues found by AI.md                                                                                           |
+| `96593bd` | 2026-06-14 12:02:43 | Alireza Sotoodeh | Initialize SD gap LogFrame before write                                                                                |
+| `82eaf99` | 2026-06-14 12:00:35 | Alireza Sotoodeh | Add spinlocks for frame counter and tag events                                                                         |
+| `40f38a9` | 2026-06-14 11:54:38 | Alireza Sotoodeh | Add calibration prototypes and reorder globals                                                                         |
+| `e184656` | 2026-06-14 11:36:52 | Alireza Sotoodeh | Move OLED auto-off and trigger force UI update                                                                         |
+| `e9e168c` | 2026-06-14 11:34:07 | Alireza Sotoodeh | Add bandwidth metrics, PSRAM sizing & IMU temp                                                                         |
+| `39aaedf` | 2026-06-14 11:06:37 | Alireza Sotoodeh | Add AI-generated code review report                                                                                    |
+| `aaf1c56` | 2026-06-13 23:41:37 | Alireza Sotoodeh | Rewrite To Do list with structured sections                                                                            |
+| `5d6f761` | 2026-06-13 23:29:43 | Alireza Sotoodeh | Purge dataQueue on log start and after wipe                                                                            |
+| `d2947c3` | 2026-06-13 23:24:30 | Alireza Sotoodeh | Yield to watchdog during SD flush; clarify SD calc                                                                     |
+| `b898876` | 2026-06-13 22:51:50 | Alireza Sotoodeh | Adjust SD remaining-hours calculation                                                                                  |
+| `d18b758` | 2026-06-13 22:47:05 | Alireza Sotoodeh | Remove xQueueReset to avoid race condition                                                                             |
+| `756fa36` | 2026-06-13 17:53:44 | Alireza Sotoodeh | Fix SD capacity overflow on large cards                                                                                |
+| `18df5bb` | 2026-06-13 17:51:07 | Alireza Sotoodeh | Remove parent logs and nested recovery fragments                                                                       |
+| `7c4c10b` | 2026-06-13 17:48:29 | Alireza Sotoodeh | Use global frame counter and reset on log events                                                                       |
+| `c2042e5` | 2026-06-13 17:33:15 | Alireza Sotoodeh | Add safe long-press shutdown and SD flush                                                                              |
+| `aae3057` | 2026-06-13 17:23:08 | Alireza Sotoodeh | Display elapsed time instead of frame seq                                                                              |
+| `276a5f4` | 2026-06-13 17:12:42 | Alireza Sotoodeh | Improve SD runtime recovery and UI feedback                                                                            |
+| `a2c7a71` | 2026-06-13 16:55:30 | Alireza Sotoodeh | Move BinReader tests, add V5, tighten jump filter                                                                      |
+| `49fc4a0` | 2026-06-13 16:54:36 | Alireza Sotoodeh | Add global log/recovery IDs and improved recovery naming                                                               |
+| `a9abe2b` | 2026-06-13 16:53:58 | Alireza Sotoodeh | Update To Do list.md                                                                                                   |
+| `12969b5` | 2026-06-12 21:40:34 | Alireza Sotoodeh | Mark Queue Overflow and 100Hz write fix done                                                                           |
+| `72ea622` | 2026-06-12 20:45:04 | Alireza Sotoodeh | Report: update To Do list tasks and notes                                                                              |
+| `2c07c5a` | 2026-06-12 20:44:48 | Alireza Sotoodeh | Optimize LogFrame, add PSRAM queue & SD recovery                                                                       |
+| `f8cf9f5` | 2026-06-12 20:44:24 | Alireza Sotoodeh | Move BinReader data to Tests and add v4                                                                                |
+| `fba5d59` | 2026-06-12 20:40:06 | Alireza Sotoodeh | Add PSRAM recovery test data and v3 MATLAB reader                                                                      |
+| `d664e11` | 2026-06-12 19:39:13 | Alireza Sotoodeh | Reorganize MATLAB files and add BIN parser                                                                             |
+| `f401a2b` | 2026-06-12 18:38:40 | Alireza Sotoodeh | SD runtime recovery and pin remap                                                                                      |
+| `5e9c419` | 2026-06-12 15:21:13 | Alireza Sotoodeh | Update To Do list with finding the final issues                                                                        |
+| `175ddba` | 2026-06-12 14:44:16 | Alireza Sotoodeh | Update README.md                                                                                                       |
+| `53ee269` | 2026-06-12 14:44:06 | Alireza Sotoodeh | Update To Do list.md                                                                                                   |
+| `ae8b760` | 2026-06-12 14:30:50 | Alireza Sotoodeh | Add comprehensive project reports and TODO                                                                             |
+| `109b15d` | 2026-06-11 22:18:56 | Alireza Sotoodeh | DYNAMIC RECOVERY PROTOCOL for MPU reconnection                                                                         |
+| `fff0137` | 2026-06-11 22:01:44 | Alireza Sotoodeh | Update Progress & Architecture Report.md                                                                               |
+| `61546f3` | 2026-06-11 21:09:23 | Alireza Sotoodeh | implement MPU9250 critical disconnect trap and boot-time SD scanning                                                   |
+| `1e77d9b` | 2026-06-11 20:34:19 | Alireza Sotoodeh | fix (Total: XX.X GB) in submenu SD card                                                                                |
+| `cc09b6b` | 2026-06-11 20:26:26 | Alireza Sotoodeh | update menu - SD card sub menu                                                                                         |
+| `2441549` | 2026-06-11 17:26:05 | Alireza Sotoodeh | update menu - mute buzzer menu                                                                                         |
+| `82630a8` | 2026-06-11 17:16:46 | Alireza Sotoodeh | update menu - display mode                                                                                             |
+| `34b6077` | 2026-06-11 16:49:15 | Alireza Sotoodeh | added buzzer and LED for Tag and SD card failure                                                                       |
+| `a19f32f` | 2026-06-10 22:22:11 | Alireza Sotoodeh | try to update oled-phase 4                                                                                             |
+| `74f1cf1` | 2026-06-10 18:05:30 | Alireza Sotoodeh | try to update oled- phase 3                                                                                            |
+| `a6f7e2a` | 2026-06-10 16:25:03 | Alireza Sotoodeh | try to update oled phase 2                                                                                             |
+| `e0a9af6` | 2026-06-10 16:14:20 | Alireza Sotoodeh | try to update oled- phase 1                                                                                            |
+| `20b4be7` | 2026-06-10 14:59:53 | Alireza Sotoodeh | Update Progress & Architecture Report.md                                                                               |
+| `0b6d062` | 2026-06-09 15:46:21 | Alireza Sotoodeh | Create Lipo_VS_LIIon.png                                                                                               |
+| `06d4af0` | 2026-06-09 15:46:19 | Alireza Sotoodeh | Create Li-ion-battery-discharge-voltage-curve.png                                                                      |
+| `3a02459` | 2026-06-09 13:36:22 | Alireza Sotoodeh | first version of a bin file reader (MATLAB code)                                                                       |
+| `62a3aa7` | 2026-06-09 12:33:17 | Alireza Sotoodeh | update for SD card logger                                                                                              |
+| `2d598a3` | 2026-06-09 11:40:52 | Alireza Sotoodeh | speed test Sd card                                                                                                     |
+| `63c2d1f` | 2026-06-08 17:22:48 | Alireza Sotoodeh | added test analyzer for no SD card mode                                                                                |
+| `b92c2d9` | 2026-06-08 16:57:49 | Alireza Sotoodeh | Update Progress & Architecture Report.md                                                                               |
+| `ff103ec` | 2026-06-08 16:32:36 | Alireza Sotoodeh | Final SD card Test (success!)                                                                                          |
+| `f4be198` | 2026-06-08 16:32:09 | Alireza Sotoodeh | SD card Test                                                                                                           |
+| `56e2f99` | 2026-06-08 13:04:57 | Alireza Sotoodeh | Create Chip_Identification_ESP.ino                                                                                     |
+| `571117f` | 2026-06-08 12:31:36 | Alireza Sotoodeh | clean up and added some test for SD card                                                                               |
+| `c64fab2` | 2026-06-08 11:04:07 | Alireza Sotoodeh | added SD card test (all methods has been failed)                                                                       |
+| `71b1203` | 2026-06-05 21:10:39 | Alireza Sotoodeh | added SD card Diagram                                                                                                  |
+| `38a5df4` | 2026-06-05 20:15:23 | Alireza Sotoodeh | diagram SD card adaptors                                                                                               |
+| `d61bf42` | 2026-06-05 20:14:00 | Alireza Sotoodeh | Standalone Sanity Check for SPI SD Card Module                                                                         |
+| `95b4553` | 2026-06-05 03:57:14 | Alireza Sotoodeh | Sanity Check for SPI SD Card Module                                                                                    |
+| `4770619` | 2026-06-04 22:18:46 | Alireza Sotoodeh | Hardware & Filter Validation (Test Results)                                                                            |
+| `49a098e` | 2026-06-04 22:18:32 | Alireza Sotoodeh | Vibration Rejection test result                                                                                        |
+| `490ca10` | 2026-06-04 21:09:55 | Alireza Sotoodeh | Clean up and add a second test (Dynamic Return-to-Zero)                                                                |
+| `3ff7a07` | 2026-06-04 16:28:32 | Alireza Sotoodeh | Drift Test Visualizer                                                                                                  |
+| `4fe7d7c` | 2026-06-04 16:28:10 | Alireza Sotoodeh | Update Progress & Architecture Report.md                                                                               |
+| `6db47c8` | 2026-06-04 15:41:16 | Alireza Sotoodeh | fix OLED                                                                                                               |
+| `e5a2f29` | 2026-06-04 15:33:59 | Alireza Sotoodeh | ix issues before test                                                                                                  |
+| `5fe3bf7` | 2026-06-04 15:31:49 | Alireza Sotoodeh | Firmware Flashing Configuration (ESP32-S3 N16R8)                                                                       |
+| `6b28855` | 2026-06-04 15:03:10 | Alireza Sotoodeh | Update Progress & Architecture Report.md                                                                               |
+| `66e7771` | 2026-06-04 14:59:02 | Alireza Sotoodeh | Sanity Check for OLED 0.91                                                                                             |
+| `8a65805` | 2026-06-04 14:46:46 | Alireza Sotoodeh | Basic I2C sanity check MPU9250                                                                                         |
+| `5b4c454` | 2026-06-04 13:05:46 | Alireza Sotoodeh | Updated wiring diagram                                                                                                 |
+| `b099dad` | 2026-06-04 13:05:08 | Alireza Sotoodeh | Update Progress & Architecture Report.md                                                                               |
+| `08459b3` | 2026-06-03 19:32:06 | Alireza Sotoodeh | dual core with Free Atreus                                                                                             |
+| `0ee83a3` | 2026-06-03 19:09:52 | Alireza Sotoodeh | Update Progress & Architecture Report.md                                                                               |
+| `ef89423` | 2026-06-03 18:43:14 | Alireza Sotoodeh | Create ESP32_S3.ino                                                                                                    |
+| `d77ccbc` | 2026-06-03 18:42:35 | Alireza Sotoodeh | Create Progress & Architecture Report.md                                                                               |
+| `6ed1539` | 2026-06-03 17:00:09 | Alireza Sotoodeh | added wiring diagram for ESP                                                                                           |
+| `92d4cb3` | 2026-06-03 16:34:13 | Alireza Sotoodeh | init_project(again)                                                                                                    |
+| `d7407d4` | 2026-06-03 15:53:09 | Alireza Sotoodeh | Delete setup modules directory                                                                                         |
+| `863ff07` | 2026-06-03 15:52:57 | Alireza Sotoodeh | Delete main code directory                                                                                             |
+| `196cec4` | 2026-06-03 15:52:38 | Alireza Sotoodeh | Delete .metadata directory                                                                                             |
+| `3b96d1d` | 2025-08-09 11:17:13 | Alireza Sotoodeh | Merge pull request #8 from Alireza-Sotoodeh/NodeMUC8266                                                                |
+| `3359107` | 2025-08-09 11:16:43 | Alireza Sotoodeh | cleaning repo-05/18-11:16PM                                                                                            |
+| `2bc2774` | 2025-08-08 16:57:22 | Alireza Sotoodeh | fixed the acceleration (linear acceleration)-05/17-4:57                                                                |
+| `b0166f0` | 2025-08-08 11:19:45 | Alireza Sotoodeh | oled display fixed-05/17-11:19PM                                                                                       |
+| `ff11272` | 2025-08-07 12:26:53 | Alireza Sotoodeh | 05/16-12:26PM                                                                                                          |
+| `04cdf7e` | 2025-08-06 14:43:03 | Alireza Sotoodeh | 05/15-2:42PM                                                                                                           |
+| `9cbcf16` | 2025-08-06 14:17:22 | Alireza Sotoodeh | 05/15-2:17PM                                                                                                           |
+| `d69f889` | 2025-08-05 20:33:51 | Alireza Sotoodeh | 05/14-8:33Pm                                                                                                           |
+| `bd57081` | 2025-08-05 19:59:43 | Alireza Sotoodeh | 05/14-7:59PM                                                                                                           |
+| `a18b783` | 2025-08-05 19:45:52 | Alireza Sotoodeh | Merge pull request #7 from Alireza-Sotoodeh/NodeMUC8266                                                                |
+| `f623caf` | 2025-08-05 19:44:23 | Alireza Sotoodeh | 05/14-7:43PM                                                                                                           |
+| `dac7043` | 2025-08-05 19:34:07 | Alireza Sotoodeh | 05/14_7:33PM                                                                                                           |
+| `3e039ce` | 2025-08-05 17:19:11 | Alireza Sotoodeh | 05/14-5:19PM                                                                                                           |
+| `8a9c9e9` | 2025-08-05 15:57:33 | Alireza Sotoodeh | 05/14                                                                                                                  |
+| `1b1623d` | 2025-08-04 10:20:12 | Alireza Sotoodeh | 05/13-10:20Pm                                                                                                          |
+| `5e9d19f` | 2025-08-04 09:02:54 | Alireza Sotoodeh | start                                                                                                                  |
+| `31c9ae8` | 2025-08-04 09:01:25 | Alireza Sotoodeh | save before start                                                                                                      |
+| `9dc8987` | 2025-08-03 15:42:08 | Alireza Sotoodeh | removed the project                                                                                                    |
+| `bba6109` | 2025-08-03 15:35:11 | Alireza Sotoodeh | 05/12-3:34PM                                                                                                           |
+| `d44cee1` | 2025-08-02 14:05:01 | Alireza Sotoodeh | 05/11-2:04PM                                                                                                           |
+| `b578859` | 2025-08-02 14:02:40 | Alireza Sotoodeh | 05/11-2:02PM                                                                                                           |
+| `da3fe11` | 2025-07-25 16:48:20 | Alireza Sotoodeh | Update workbench.xmi                                                                                                   |
+| `0e84527` | 2025-07-25 16:34:39 | Alireza Sotoodeh | Add DMP.c for MPU_9250 and update workspace state                                                                      |
+| `3cb9f77` | 2025-07-25 16:31:47 | Alireza Sotoodeh | Revert "05/03-3:53PM"                                                                                                  |
+| `35e3c88` | 2025-07-25 15:53:44 | Alireza Sotoodeh | 05/03-3:53PM                                                                                                           |
+| `527e4d0` | 2025-07-25 15:04:37 | Alireza Sotoodeh | Merge branch 'MPU9250' of https://github.com/Alireza-Sotoodeh/Navigation-STM32 into MPU9250                            |
+| `8df6c0a` | 2025-07-25 15:04:30 | Alireza Sotoodeh | Update MPU_9250.md                                                                                                     |
+| `fccbc95` | 2025-07-25 15:02:46 | Alireza Sotoodeh | 05/03-3:02PM                                                                                                           |
+| `e1c129e` | 2025-07-25 12:17:52 | Alireza Sotoodeh | 05/03-12:17PM                                                                                                          |
+| `ac92d29` | 2025-07-25 12:17:27 | Alireza Sotoodeh | 05/03-12:17PM                                                                                                          |
+| `cfa9612` | 2025-07-25 12:13:08 | Alireza Sotoodeh | 05/03-12:12PM                                                                                                          |
+| `d7b0656` | 2025-07-25 12:11:14 | Alireza Sotoodeh | 05/03-12:10PM                                                                                                          |
+| `27d3701` | 2025-07-25 11:23:10 | Alireza Sotoodeh | 05/03-11:22AM (save before start)                                                                                      |
+| `b869740` | 2025-07-24 19:39:06 | Alireza Sotoodeh | 05/02-7:38PM                                                                                                           |
+| `0a7b903` | 2025-07-24 19:31:16 | Alireza Sotoodeh | 05/02-7:30PM                                                                                                           |
+| `04bcf97` | 2025-07-23 20:54:00 | Alireza Sotoodeh | 05/01-8:53PM                                                                                                           |
+| `3f6cd2f` | 2025-07-23 20:50:15 | Alireza Sotoodeh | 05/01-8:49                                                                                                             |
+| `5b426fa` | 2025-07-23 11:05:54 | Alireza Sotoodeh | Update README.md                                                                                                       |
+| `0455e92` | 2025-07-20 21:44:39 | Alireza Sotoodeh | 04/29-9:44PM                                                                                                           |
+| `3b1b5ac` | 2025-07-18 20:16:29 | Alireza Sotoodeh | 04/27- 8:15 PM                                                                                                         |
+| `4305256` | 2025-07-18 18:04:53 | Alireza Sotoodeh | 04/27-6:03 PM                                                                                                          |
+| `701ae4b` | 2025-07-18 10:48:51 | Alireza Sotoodeh | 04/27-10:48 AM                                                                                                         |
+| `62df236` | 2025-07-17 22:30:28 | Alireza Sotoodeh | 04/26                                                                                                                  |
+| `768b21c` | 2025-07-16 08:01:08 | Alireza Sotoodeh | now code has no error                                                                                                  |
+| `ec842c7` | 2025-07-14 11:33:26 | Alireza Sotoodeh | 04/23 saving before going for a break!                                                                                 |
+| `2327c58` | 2025-07-14 10:47:22 | Alireza Sotoodeh | before testing the MPU6500 commands                                                                                    |
+| `e532bc4` | 2025-07-13 20:11:22 | Alireza Sotoodeh | added all necceasry files                                                                                              |
+| `8ac5a28` | 2025-07-13 15:01:44 | Alireza Sotoodeh | save beffore going to my new brand branch                                                                              |
+| `9b63d4f` | 2025-07-13 15:00:15 | Alireza Sotoodeh | adding scr MPU6500                                                                                                     |
+| `d95b49d` | 2025-07-13 14:56:47 | Alireza Sotoodeh | setup CubeIDE                                                                                                          |
+| `4239272` | 2025-07-13 14:52:23 | Alireza Sotoodeh | added MPU6500 library                                                                                                  |
+| `b31009d` | 2025-07-13 14:50:43 | Alireza Sotoodeh | removing all file(from the top)                                                                                        |
+| `2f0ded6` | 2025-07-13 14:26:16 | Alireza Sotoodeh | fixing readme file                                                                                                     |
+| `adfc075` | 2025-07-13 14:24:16 | Alireza Sotoodeh | initial MPU6500 and trying to test it                                                                                  |
+| `05d017f` | 2025-07-12 20:39:48 | Alireza Sotoodeh | initial PJ                                                                                                             |
+| `bed8a35` | 2025-07-12 19:01:00 | Alireza Sotoodeh | modified readme file                                                                                                   |
+| `d72b9ad` | 2025-07-12 18:41:59 | Alireza Sotoodeh | Initial commit                                                                                                         |
 
 <details>
-<summary><b>Commit 1:</b> <code>fbb60a2</code> — Merge Report.md (v1.0.0) into Report2.md (v2.0.0); promote v2.0.0 as main</summary>
+<summary><b>Commit 1:</b> <code>455a760</code> — fix comments</summary>
+
+```
+Hash:   455a760
+Date:   2026-06-19 19:18:15 +0330
+Author: Alireza Sotoodeh
+
+fix comments
+```
+
+</details>
+
+<details>
+<summary><b>Commit 2:</b> <code>a5cafd0</code> — fix 7: Add short delay after SPI.end before reinit</summary>
+
+```
+Hash:   a5cafd0
+Date:   2026-06-19 19:12:50 +0330
+Author: Alireza Sotoodeh
+
+fix 7: Add short delay after SPI.end before reinit
+
+In attemptSDRecovery(), insert a 10 ms vTaskDelay after SPI.end() to allow the SPI hardware to power-cycle before calling SPI.begin()/sd.begin(). This reduces race conditions when reinitializing the SD SPI interface after closing the log file.
+```
+
+</details>
+
+<details>
+<summary><b>Commit 3:</b> <code>5945ffb</code> — fix 6-1: Notify on invalid calibration with LED and buzzer</summary>
+
+```
+Hash:   5945ffb
+Date:   2026-06-19 19:11:48 +0330
+Author: Alireza Sotoodeh
+
+fix 6-1: Notify on invalid calibration with LED and buzzer
+
+Add visual and audible alerts when calibration data is missing or CRC-check fails. The code now displays a brief message on the u8g2 OLED, pulses LED_RED_PIN and emits two buzzer beeps (using ALARM_BEEP_MS) before falling back to factory bias defaults. This improves user feedback for EEPROM calibration errors while preserving existing fallback behavior.
+```
+
+</details>
+
+<details>
+<summary><b>Commit 4:</b> <code>b68edd0</code> — fix 6: Add CRC check for EEPROM calibration data</summary>
+
+```
+Hash:   b68edd0
+Date:   2026-06-19 19:09:09 +0330
+Author: Alireza Sotoodeh
+
+fix 6: Add CRC check for EEPROM calibration data
+
+Compute and store a 16-bit CRC when saving calibration values and verify it when loading. The saver computes CRC over the first 46 bytes (magic + calibration floats) and writes the uint16_t CRC at EEPROM offset 46 before committing. The loader reads the stored CRC, recomputes the CRC over the same 46 bytes, and if it doesn't match logs a warning, resets sensor biases/scales to safe defaults and aborts loading to protect the Madgwick filter from corrupt floats. Uses calcCRC16 to perform the checksum.
+```
+
+</details>
+
+<details>
+<summary><b>Commit 5:</b> <code>8cd705e</code> — fix 5: Increase WDT yields in loggingTask (WDT risk during Format)</summary>
+
+```
+Hash:   8cd705e
+Date:   2026-06-19 19:05:29 +0330
+Author: Alireza Sotoodeh
+
+fix 5: Increase WDT yields in loggingTask (WDT risk during Format)
+
+Adjust vTaskDelay timings in loggingTask to better feed the watchdog during long operations. The inner recovery-file-delete yield was increased from 1ms to 2ms and the parent-iteration baseline yield was increased from 1ms to 3ms; accompanying comments were updated to reflect the intent to yield for WDT servicing.
+```
+
+</details>
+
+<details>
+<summary><b>Commit 6:</b> <code>61ef3b9</code> — fix 4: Increase SensorTask stack size to 8KB</summary>
+
+```
+Hash:   61ef3b9
+Date:   2026-06-19 19:03:41 +0330
+Author: Alireza Sotoodeh
+
+fix 4: Increase SensorTask stack size to 8KB
+
+Raise the sensorTask stack allocation from 4096 to 8192 bytes to provide more headroom for larger local data or deeper call stacks and reduce risk of stack overflows. Task remains pinned to core 0 with the same priority and handle usage unchanged.
+```
+
+</details>
+
+<details>
+<summary><b>Commit 7:</b> <code>a87b935</code> — fix 3: Don't reset last_interaction_millis on UP/DOWN if SELECT is being held</summary>
+
+```
+Hash:   a87b935
+Date:   2026-06-19 19:02:44 +0330
+Author: Alireza Sotoodeh
+
+fix 3: Don't reset last_interaction_millis on UP/DOWN if SELECT is being held
+
+Prevent the inactivity timestamp from being reset while the select button is held. The change conditions the update of last_interaction_millis on !selectWasPressed in the tag, up, and down button handlers in Code_deadreckoner/ESP32_S3/ESP32_S3.ino so holding select won't mask other interactions or continually reset the inactivity timer.
+```
+
+</details>
+
+<details>
+<summary><b>Commit 8:</b> <code>66f43b8</code> — fix 100Hz sensor loop and Gap frame timestamp</summary>
+
+```
+Hash:   66f43b8
+Date:   2026-06-19 19:01:00 +0330
+Author: Alireza Sotoodeh
+
+fix 100Hz sensor loop and Gap frame timestamp
+
+Use vTaskDelayUntil in sensorTask with a 10ms period (initialize xLastWakeTime) to enforce a stable 100Hz sampling loop and remove the ad-hoc vTaskDelay yield. In loggingTask, capture log_time_base inside the critical section alongside the frame sequence, and make gapFrame.timestamp relative to that time base (esp_timer_get_time() - local_time_base) so gap/frame timestamps are consistent with IMU frames. These changes improve timing determinism and timestamp alignment between sensor and logging code.
+```
+
+</details>
+
+<details>
+<summary><b>Commit 9:</b> <code>989d69f</code> — Report: add CRC-16 frames & offline PDR pipeline</summary>
+
+```
+Hash:   989d69f
+Date:   2026-06-19 18:57:48 +0330
+Author: Alireza Sotoodeh
+
+Report: add CRC-16 frames & offline PDR pipeline
+
+Update project report and TODOs to document per-frame CRC and a shift to an offline Pedestrian Dead Reckoning (PDR) pipeline. Bumped version/date and renamed report header; LogFrame expanded from 45â†’47 bytes to include a 2-byte CRC-16-IBM (poly 0xA001) computed before queue send and SD writes. Phase 10 was rewritten into a Python-based PDR pipeline (binary parsing + CRC verification, world-frame rotation, step detection, Weinberg step length, heading from quaternions, ZUPT/RTS smoothing, visualization). Timeline and status tables updated (perfboard assembly, CRC addition, vTaskDelay conversion), and the To Do list now enumerates the PDR implementation phases.
+```
+
+</details>
+
+<details>
+<summary><b>Commit 10:</b> <code>69e900e</code> — Add CRC to log frames and use RTOS delays</summary>
+
+```
+Hash:   69e900e
+Date:   2026-06-19 18:56:34 +0330
+Author: Alireza Sotoodeh
+
+Add CRC to log frames and use RTOS delays
+
+Introduce a 16-bit CRC into LogFrame for on-disk/frame integrity and update DATA_FRAME_SIZE accordingly (45 -> 47). Add calcCRC16() implementation and compute/set CRC when frames are produced (sensorTask) and when writing gap markers (loggingTask). Replace blocking delay() calls with vTaskDelay(pdMS_TO_TICKS()) for proper FreeRTOS behavior during calibration and status display. Minor struct/comment cleanup to reflect the new frame layout.
+```
+
+</details>
+
+<details>
+<summary><b>Commit 11:</b> <code>626fed7</code> — Report: mark delay and CRC issues fixed</summary>
+
+```
+Hash:   626fed7
+Date:   2026-06-19 18:22:13 +0330
+Author: Alireza Sotoodeh
+
+Report: mark delay and CRC issues fixed
+
+Update Report/Issues found by AI.md to reflect implemented fixes: mark `delay()` usage as partially addressed (calibration `delay()` calls replaced with `vTaskDelay()` at lines 1348, 1354, 1393; setup delays remain pre-RTOS) and mark CRC/checksum per frame as added. Notes that a CRC-16-IBM (poly 0xA001) `uint16_t crc` field was added to `LogFrame`, computed before each `xQueueSend` in `sensorTask` and for gap-frame SD writes in `loggingTask`, and `DATA_FRAME_SIZE` was updated from 45 to 47.
+```
+
+</details>
+
+<details>
+<summary><b>Commit 12:</b> <code>32d1c99</code> — Mark resolved issues and add notes in reports</summary>
+
+```
+Hash:   32d1c99
+Date:   2026-06-19 17:45:41 +0330
+Author: Alireza Sotoodeh
+
+Mark resolved issues and add notes in reports
+
+Update Report/Issues found by AI.md and Report/To Do list.md: mark MPU temperature read and recovery file naming items as resolved and add explanatory notes (FIXED / INTENTIONAL). Update the legend to indicate `[x]` = resolved in ESP32_S3.ino v1.9. Mark SD card inrush capacitor item as resolved in the To Do list and perform minor formatting/whitespace cleanup.
+```
+
+</details>
+
+<details>
+<summary><b>Commit 13:</b> <code>bc05eb8</code> — Add NEO-6M GPS diagnostic Arduino sketch</summary>
+
+```
+Hash:   bc05eb8
+Date:   2026-06-17 23:04:53 +0330
+Author: Alireza Sotoodeh
+
+Add NEO-6M GPS diagnostic Arduino sketch
+
+Add GY-GPS6Mv2.ino: an Arduino Uno (ATmega328P) diagnostic/validation sketch for NEO-6M (GY-GPS6Mv2) using SoftwareSerial and TinyGPSPlus. Initializes Serial at 115200 and SoftwareSerial on pins 2(RX)/3(TX) at 9600 baud, streams live GPS data, and prints satellite count, latitude, longitude, altitude, speed, and time. Includes wiring notes, cold-start/antenna reminders, and a hardware timeout that alerts if no GPS data is received within ~5s (charsProcessed < 10).
+```
+
+</details>
+
+<details>
+<summary><b>Commit 14:</b> <code>cbe8efa</code> — Update Report.md from project_report.md: add project_summarizer.py to Phase 9, expand timeline with 16 missing entries</summary>
+
+```
+Hash:   cbe8efa
+Date:   2026-06-17 17:30:27 +0330
+Author: Alireza Sotoodeh
+
+Update Report.md from project_report.md: add project_summarizer.py to Phase 9, expand timeline with 16 missing entries
+
+Based on Repo_Report/project_report.md (auto-generated project analysis):
+
+Phase 9 additions:
+- Added Project Documentation Generator entry for project_summarizer.py
+  (1216 lines, 26 functions, outputs MD/TXT/XML reports with full git
+  history, directory tree, and source signature analysis)
+
+Timeline expansion (16 new entries):
+- 2026-06-12: AI code review report (Issues found by AI.md)
+- 2026-06-14: Expand data frame & O(1) naming (45-byte LogFrame, max_log_id)
+- 2026-06-14: Thread-safe frame counter (portMUX_TYPE critical sections)
+- 2026-06-14: Dropped frame tracking (red LED on queue overflow)
+- 2026-06-14: Expand SD menu to 8 items (Drops entry, fixed navigation)
+- 2026-06-14: Safe log wipe protocol (suspend sensor, purge parents+fragments)
+- 2026-06-14: Recovery log & vTaskDelay support
+- 2026-06-14: Remove dead STATE_SUBMENU_MSG code
+- 2026-06-14: MPU settings helper (configureMPUSettings)
+- 2026-06-14: Log file validation post-MPU-recovery
+- 2026-06-14: Gap frame zero-initialization fix
+- 2026-06-14: Recovery ID increment order fix
+- 2026-06-15: Timing & SD math robustness (64-bit torn reads, >32GB overflow)
+- 2026-06-15: Relative timestamps & OLED reinit (log_time_base)
+- 2026-06-15: Project summarizer tool (project_summarizer.py)
+- 2026-06-15: Generated project report (MD/TXT/XML)
+- 2026-06-15: .gitignore configuration (Repo_Report exclusion)
+- 2026-06-15: To Do list cleanup (remove completed items)
+- 2026-06-15: Progress.md update (storage, recovery, UI, memory phases)
+```
+
+</details>
+
+<details>
+<summary><b>Commit 15:</b> <code>fbb60a2</code> — Merge Report.md (v1.0.0) into Report2.md (v2.0.0); promote v2.0.0 as main</summary>
 
 ```
 Hash:   fbb60a2
@@ -447,7 +698,7 @@ Merge Report.md (v1.0.0) into Report2.md (v2.0.0); promote v2.0.0 as main
 </details>
 
 <details>
-<summary><b>Commit 2:</b> <code>74d602b</code> — Create .gitignore</summary>
+<summary><b>Commit 16:</b> <code>74d602b</code> — Create .gitignore</summary>
 
 ```
 Hash:   74d602b
@@ -460,7 +711,7 @@ Create .gitignore
 </details>
 
 <details>
-<summary><b>Commit 3:</b> <code>649eda8</code> — Add generated project report (MD/TXT/XML)</summary>
+<summary><b>Commit 17:</b> <code>649eda8</code> — Add generated project report (MD/TXT/XML)</summary>
 
 ```
 Hash:   649eda8
@@ -475,7 +726,7 @@ Add LLM-optimized project report in three formats: Repo_Report/project_report.md
 </details>
 
 <details>
-<summary><b>Commit 4:</b> <code>bc779b4</code> — Clean up To Do list.md: remove completed items, keep pending only</summary>
+<summary><b>Commit 18:</b> <code>bc779b4</code> — Clean up To Do list.md: remove completed items, keep pending only</summary>
 
 ```
 Hash:   bc779b4
@@ -488,7 +739,7 @@ Clean up To Do list.md: remove completed items, keep pending only
 </details>
 
 <details>
-<summary><b>Commit 5:</b> <code>d6fc8e6</code> — Add project_summarizer interactive report tool</summary>
+<summary><b>Commit 19:</b> <code>d6fc8e6</code> — Add project_summarizer interactive report tool</summary>
 
 ```
 Hash:   d6fc8e6
@@ -503,7 +754,7 @@ Introduce project_summarizer.py â€” an interactive CLI tool to generate pro
 </details>
 
 <details>
-<summary><b>Commit 6:</b> <code>b50fcc2</code> — Update Progress.md with storage, recovery, UI</summary>
+<summary><b>Commit 20:</b> <code>b50fcc2</code> — Update Progress.md with storage, recovery, UI</summary>
 
 ```
 Hash:   b50fcc2
@@ -518,7 +769,7 @@ Expand the project progress report to document extensive storage, logging, recov
 </details>
 
 <details>
-<summary><b>Commit 7:</b> <code>71b59a6</code> — Fix timing, SD math, and logging robustness</summary>
+<summary><b>Commit 21:</b> <code>71b59a6</code> — Fix timing, SD math, and logging robustness</summary>
 
 ```
 Hash:   71b59a6
@@ -544,7 +795,7 @@ These changes improve multi-core timestamp correctness, SD capacity math reliabi
 </details>
 
 <details>
-<summary><b>Commit 8:</b> <code>1d7378d</code> — Relative timestamps, OLED reinit, buzzer beeps</summary>
+<summary><b>Commit 22:</b> <code>1d7378d</code> — Relative timestamps, OLED reinit, buzzer beeps</summary>
 
 ```
 Hash:   1d7378d
@@ -559,7 +810,7 @@ Introduce log_time_base (uint64_t) and record frame.timestamp as esp_timer_get_t
 </details>
 
 <details>
-<summary><b>Commit 9:</b> <code>0a27909</code> — Improve SD recovery and new log file creation</summary>
+<summary><b>Commit 23:</b> <code>0a27909</code> — Improve SD recovery and new log file creation</summary>
 
 ```
 Hash:   0a27909
@@ -574,7 +825,7 @@ Disable hardware alarms (LED/buzzer) before calling blocking SD recovery to prev
 </details>
 
 <details>
-<summary><b>Commit 10:</b> <code>19e696d</code> — Expand SD menu to 8 items and fix actions</summary>
+<summary><b>Commit 24:</b> <code>19e696d</code> — Expand SD menu to 8 items and fix actions</summary>
 
 ```
 Hash:   19e696d
@@ -589,7 +840,7 @@ Add an 8th item to the SD submenu and correct navigation and action mappings to 
 </details>
 
 <details>
-<summary><b>Commit 11:</b> <code>f734a62</code> — Track dropped frames and fix SD menu/UI</summary>
+<summary><b>Commit 25:</b> <code>f734a62</code> — Track dropped frames and fix SD menu/UI</summary>
 
 ```
 Hash:   f734a62
@@ -604,7 +855,7 @@ Add dropped_frames_count to global state and increment it when xQueueSend fails,
 </details>
 
 <details>
-<summary><b>Commit 12:</b> <code>c809e2f</code> — Make frame sequence counter thread-safe</summary>
+<summary><b>Commit 26:</b> <code>c809e2f</code> — Make frame sequence counter thread-safe</summary>
 
 ```
 Hash:   c809e2f
@@ -619,7 +870,7 @@ Clear the LogFrame structure and protect capture/increment of global_frame_count
 </details>
 
 <details>
-<summary><b>Commit 13:</b> <code>73cdf91</code> — Expand data frame & add O(1) log naming</summary>
+<summary><b>Commit 27:</b> <code>73cdf91</code> — Expand data frame & add O(1) log naming</summary>
 
 ```
 Hash:   73cdf91
@@ -634,7 +885,7 @@ Increase DATA_FRAME_SIZE from 41 to 45 and change frame timestamp from uint32_t 
 </details>
 
 <details>
-<summary><b>Commit 14:</b> <code>0a1eadd</code> — Safely wipe logs: suspend sensor, purge SD</summary>
+<summary><b>Commit 28:</b> <code>0a1eadd</code> — Safely wipe logs: suspend sensor, purge SD</summary>
 
 ```
 Hash:   0a1eadd
@@ -649,7 +900,7 @@ During SD wipe confirmation the sensor task is now suspended/resumed to avoid co
 </details>
 
 <details>
-<summary><b>Commit 15:</b> <code>23ce3b7</code> — Remove unused STATE_SUBMENU_MSG and handlers</summary>
+<summary><b>Commit 29:</b> <code>23ce3b7</code> — Remove unused STATE_SUBMENU_MSG and handlers</summary>
 
 ```
 Hash:   23ce3b7
@@ -664,7 +915,7 @@ Delete the deprecated STATE_SUBMENU_MSG enum value and remove its navigation and
 </details>
 
 <details>
-<summary><b>Commit 16:</b> <code>7385d3b</code> — Support recovery logs and use vTaskDelay</summary>
+<summary><b>Commit 30:</b> <code>7385d3b</code> — Support recovery logs and use vTaskDelay</summary>
 
 ```
 Hash:   7385d3b
@@ -679,7 +930,7 @@ Detect recovery-style .BIN files (exactly 10 chars with first 6 digits) in addit
 </details>
 
 <details>
-<summary><b>Commit 17:</b> <code>b528985</code> — Add configureMPUSettings helper</summary>
+<summary><b>Commit 31:</b> <code>b528985</code> — Add configureMPUSettings helper</summary>
 
 ```
 Hash:   b528985
@@ -694,7 +945,7 @@ Introduce configureMPUSettings(MPU9250Setting&) to centralize MPU9250 setting as
 </details>
 
 <details>
-<summary><b>Commit 18:</b> <code>9cafc3e</code> — Remove unused SD recovery timer variable</summary>
+<summary><b>Commit 32:</b> <code>9cafc3e</code> — Remove unused SD recovery timer variable</summary>
 
 ```
 Hash:   9cafc3e
@@ -709,7 +960,7 @@ Delete the unused `last_sd_recovery_attempt` variable from sensorTask in ESP32_S
 </details>
 
 <details>
-<summary><b>Commit 19:</b> <code>4cb4971</code> — Validate log file after MPU recovery</summary>
+<summary><b>Commit 33:</b> <code>4cb4971</code> — Validate log file after MPU recovery</summary>
 
 ```
 Hash:   4cb4971
@@ -724,7 +975,7 @@ After recovering the MPU, validate the reopened log file and set sd_critical_err
 </details>
 
 <details>
-<summary><b>Commit 20:</b> <code>baf3ece</code> — Zero-initialize gap LogFrame before SD write</summary>
+<summary><b>Commit 34:</b> <code>baf3ece</code> — Zero-initialize gap LogFrame before SD write</summary>
 
 ```
 Hash:   baf3ece
@@ -739,7 +990,7 @@ When recovering the SD card, fully clear the LogFrame used as a gap marker to el
 </details>
 
 <details>
-<summary><b>Commit 21:</b> <code>b5937cf</code> — Fix runtime display and EEPROM offset</summary>
+<summary><b>Commit 35:</b> <code>b5937cf</code> — Fix runtime display and EEPROM offset</summary>
 
 ```
 Hash:   b5937cf
@@ -754,7 +1005,7 @@ Compute displayed runtime from receivedFrame.timestamp (microseconds) instead of
 </details>
 
 <details>
-<summary><b>Commit 22:</b> <code>1795018</code> — Increment recovery ID after SD file open</summary>
+<summary><b>Commit 36:</b> <code>1795018</code> — Increment recovery ID after SD file open</summary>
 
 ```
 Hash:   1795018
@@ -769,7 +1020,7 @@ Fixes Issue #9: generate the recovery filename from the current validated indice
 </details>
 
 <details>
-<summary><b>Commit 23:</b> <code>23b0d02</code> — Improve SD space calc and file counting</summary>
+<summary><b>Commit 37:</b> <code>23b0d02</code> — Improve SD space calc and file counting</summary>
 
 ```
 Hash:   23b0d02
@@ -784,7 +1035,7 @@ Prevent arithmetic overflow for large SD cards by casting cluster calculations t
 </details>
 
 <details>
-<summary><b>Commit 24:</b> <code>50661c2</code> — Add timestamp to LogFrame and update frame size</summary>
+<summary><b>Commit 38:</b> <code>50661c2</code> — Add timestamp to LogFrame and update frame size</summary>
 
 ```
 Hash:   50661c2
@@ -799,7 +1050,7 @@ Increase DATA_FRAME_SIZE to 41 and add a uint32_t timestamp to the packed LogFra
 </details>
 
 <details>
-<summary><b>Commit 25:</b> <code>3dba014</code> — Add EEPROM sentinel and robust calibration load/save</summary>
+<summary><b>Commit 39:</b> <code>3dba014</code> — Add EEPROM sentinel and robust calibration load/save</summary>
 
 ```
 Hash:   3dba014
@@ -814,7 +1065,7 @@ Introduce an EEPROM magic sentinel (EEPROM_MAGIC_NUMBER / EEPROM_MAGIC_ADDR) and
 </details>
 
 <details>
-<summary><b>Commit 26:</b> <code>986aa4c</code> — Update Issues found by AI.md</summary>
+<summary><b>Commit 40:</b> <code>986aa4c</code> — Update Issues found by AI.md</summary>
 
 ```
 Hash:   986aa4c
@@ -827,7 +1078,7 @@ Update Issues found by AI.md
 </details>
 
 <details>
-<summary><b>Commit 27:</b> <code>96593bd</code> — Initialize SD gap LogFrame before write</summary>
+<summary><b>Commit 41:</b> <code>96593bd</code> — Initialize SD gap LogFrame before write</summary>
 
 ```
 Hash:   96593bd
@@ -842,7 +1093,7 @@ Fix SD recovery gap frame initialization to avoid writing garbage bytes. Previou
 </details>
 
 <details>
-<summary><b>Commit 28:</b> <code>82eaf99</code> — Add spinlocks for frame counter and tag events</summary>
+<summary><b>Commit 42:</b> <code>82eaf99</code> — Add spinlocks for frame counter and tag events</summary>
 
 ```
 Hash:   82eaf99
@@ -857,7 +1108,7 @@ Introduce two portMUX_TYPE spinlocks (frameCounterMux, tagEventMux) and use port
 </details>
 
 <details>
-<summary><b>Commit 29:</b> <code>40f38a9</code> — Add calibration prototypes and reorder globals</summary>
+<summary><b>Commit 43:</b> <code>40f38a9</code> — Add calibration prototypes and reorder globals</summary>
 
 ```
 Hash:   40f38a9
@@ -872,7 +1123,7 @@ Move and consolidate several preprocessor defines and global declarations for cl
 </details>
 
 <details>
-<summary><b>Commit 30:</b> <code>e184656</code> — Move OLED auto-off and trigger force UI update</summary>
+<summary><b>Commit 44:</b> <code>e184656</code> — Move OLED auto-off and trigger force UI update</summary>
 
 ```
 Hash:   e184656
@@ -887,7 +1138,7 @@ Relocates the OLED auto-off power management check in loggingTask from before th
 </details>
 
 <details>
-<summary><b>Commit 31:</b> <code>e9e168c</code> — Add bandwidth metrics, PSRAM sizing & IMU temp</summary>
+<summary><b>Commit 45:</b> <code>e9e168c</code> — Add bandwidth metrics, PSRAM sizing & IMU temp</summary>
 
 ```
 Hash:   e9e168c
@@ -902,7 +1153,7 @@ Introduce a parametric bandwidth/memory engine (DATA_FRAME_SIZE, SAMPLING_RATE_H
 </details>
 
 <details>
-<summary><b>Commit 32:</b> <code>39aaedf</code> — Add AI-generated code review report</summary>
+<summary><b>Commit 46:</b> <code>39aaedf</code> — Add AI-generated code review report</summary>
 
 ```
 Hash:   39aaedf
@@ -917,7 +1168,7 @@ Add Report/Issues found by AI.md containing a comprehensive AI review of the ESP
 </details>
 
 <details>
-<summary><b>Commit 33:</b> <code>aaf1c56</code> — Rewrite To Do list with structured sections</summary>
+<summary><b>Commit 47:</b> <code>aaf1c56</code> — Rewrite To Do list with structured sections</summary>
 
 ```
 Hash:   aaf1c56
@@ -932,7 +1183,7 @@ Rework the DeadReckoner To Do list: cleaned up formatting, reorganized and conso
 </details>
 
 <details>
-<summary><b>Commit 34:</b> <code>5d6f761</code> — Purge dataQueue on log start and after wipe</summary>
+<summary><b>Commit 48:</b> <code>5d6f761</code> — Purge dataQueue on log start and after wipe</summary>
 
 ```
 Hash:   5d6f761
@@ -947,7 +1198,7 @@ Call xQueueReset(dataQueue) in loggingTask when creating a new log file and afte
 </details>
 
 <details>
-<summary><b>Commit 35:</b> <code>d2947c3</code> — Yield to watchdog during SD flush; clarify SD calc</summary>
+<summary><b>Commit 49:</b> <code>d2947c3</code> — Yield to watchdog during SD flush; clarify SD calc</summary>
 
 ```
 Hash:   d2947c3
@@ -962,7 +1213,7 @@ Remove unused lastPrintMillis variable. Add a flushCount and periodic vTaskDelay
 </details>
 
 <details>
-<summary><b>Commit 36:</b> <code>b898876</code> — Adjust SD remaining-hours calculation</summary>
+<summary><b>Commit 50:</b> <code>b898876</code> — Adjust SD remaining-hours calculation</summary>
 
 ```
 Hash:   b898876
@@ -977,7 +1228,7 @@ Update the remaining-hours estimate to reflect the new data rate/format by chang
 </details>
 
 <details>
-<summary><b>Commit 37:</b> <code>d18b758</code> — Remove xQueueReset to avoid race condition</summary>
+<summary><b>Commit 51:</b> <code>d18b758</code> — Remove xQueueReset to avoid race condition</summary>
 
 ```
 Hash:   d18b758
@@ -992,7 +1243,7 @@ Delete the call to xQueueReset(dataQueue) in loggingTask and add a comment expla
 </details>
 
 <details>
-<summary><b>Commit 38:</b> <code>756fa36</code> — Fix SD capacity overflow on large cards</summary>
+<summary><b>Commit 52:</b> <code>756fa36</code> — Fix SD capacity overflow on large cards</summary>
 
 ```
 Hash:   756fa36
@@ -1007,7 +1258,7 @@ Cast cluster*sector multiplication to 64-bit to avoid 32-bit overflow on large S
 </details>
 
 <details>
-<summary><b>Commit 39:</b> <code>18df5bb</code> — Remove parent logs and nested recovery fragments</summary>
+<summary><b>Commit 53:</b> <code>18df5bb</code> — Remove parent logs and nested recovery fragments</summary>
 
 ```
 Hash:   18df5bb
@@ -1022,7 +1273,7 @@ Enhance log-sweeping routine to delete both parent log files (DR_LOG_%03d.BIN) a
 </details>
 
 <details>
-<summary><b>Commit 40:</b> <code>7c4c10b</code> — Use global frame counter and reset on log events</summary>
+<summary><b>Commit 54:</b> <code>7c4c10b</code> — Use global frame counter and reset on log events</summary>
 
 ```
 Hash:   7c4c10b
@@ -1037,7 +1288,7 @@ Introduce a volatile global_frame_counter and remove the local shadowed variable
 </details>
 
 <details>
-<summary><b>Commit 41:</b> <code>c2042e5</code> — Add safe long-press shutdown and SD flush</summary>
+<summary><b>Commit 55:</b> <code>c2042e5</code> — Add safe long-press shutdown and SD flush</summary>
 
 ```
 Hash:   c2042e5
@@ -1052,7 +1303,7 @@ Introduce a safe shutdown sequence triggered by a long press of the SELECT butto
 </details>
 
 <details>
-<summary><b>Commit 42:</b> <code>aae3057</code> — Display elapsed time instead of frame seq</summary>
+<summary><b>Commit 56:</b> <code>aae3057</code> — Display elapsed time instead of frame seq</summary>
 
 ```
 Hash:   aae3057
@@ -1067,7 +1318,7 @@ Replace the raw frame sequence number with a human-readable elapsed time compute
 </details>
 
 <details>
-<summary><b>Commit 43:</b> <code>276a5f4</code> — Improve SD runtime recovery and UI feedback</summary>
+<summary><b>Commit 57:</b> <code>276a5f4</code> — Improve SD runtime recovery and UI feedback</summary>
 
 ```
 Hash:   276a5f4
@@ -1082,7 +1333,7 @@ Add a small SD_recoverd_signal_MS macro and rework the runtime SD-card recovery 
 </details>
 
 <details>
-<summary><b>Commit 44:</b> <code>a2c7a71</code> — Move BinReader tests, add V5, tighten jump filter</summary>
+<summary><b>Commit 58:</b> <code>a2c7a71</code> — Move BinReader tests, add V5, tighten jump filter</summary>
 
 ```
 Hash:   a2c7a71
@@ -1097,7 +1348,7 @@ Reorganize BinReader test assets into Code_deadreckoner/Matlab/3-BinReader/Tests
 </details>
 
 <details>
-<summary><b>Commit 45:</b> <code>49fc4a0</code> — Add global log/recovery IDs and improved recovery naming</summary>
+<summary><b>Commit 59:</b> <code>49fc4a0</code> — Add global log/recovery IDs and improved recovery naming</summary>
 
 ```
 Hash:   49fc4a0
@@ -1114,7 +1365,7 @@ Other changes: update SD root scan to use global_log_id, count both main and rec
 </details>
 
 <details>
-<summary><b>Commit 46:</b> <code>a9abe2b</code> — Update To Do list.md</summary>
+<summary><b>Commit 60:</b> <code>a9abe2b</code> — Update To Do list.md</summary>
 
 ```
 Hash:   a9abe2b
@@ -1127,7 +1378,7 @@ Update To Do list.md
 </details>
 
 <details>
-<summary><b>Commit 47:</b> <code>12969b5</code> — Mark Queue Overflow and 100Hz write fix done</summary>
+<summary><b>Commit 61:</b> <code>12969b5</code> — Mark Queue Overflow and 100Hz write fix done</summary>
 
 ```
 Hash:   12969b5
@@ -1142,7 +1393,7 @@ Update Report/To Do list.md to mark the 'Queue Overflow' task and the 'remove 10
 </details>
 
 <details>
-<summary><b>Commit 48:</b> <code>72ea622</code> — Report: update To Do list tasks and notes</summary>
+<summary><b>Commit 62:</b> <code>72ea622</code> — Report: update To Do list tasks and notes</summary>
 
 ```
 Hash:   72ea622
@@ -1157,7 +1408,7 @@ Mark several checklist items as done and add MPU9250 recovery details. SD card r
 </details>
 
 <details>
-<summary><b>Commit 49:</b> <code>2c07c5a</code> — Optimize LogFrame, add PSRAM queue & SD recovery</summary>
+<summary><b>Commit 63:</b> <code>2c07c5a</code> — Optimize LogFrame, add PSRAM queue & SD recovery</summary>
 
 ```
 Hash:   2c07c5a
@@ -1172,7 +1423,7 @@ Reduce LogFrame size by introducing a packed union payload to overlap IMU and GP
 </details>
 
 <details>
-<summary><b>Commit 50:</b> <code>f8cf9f5</code> — Move BinReader data to Tests and add v4</summary>
+<summary><b>Commit 64:</b> <code>f8cf9f5</code> — Move BinReader data to Tests and add v4</summary>
 
 ```
 Hash:   f8cf9f5
@@ -1189,7 +1440,7 @@ v4.m implements an improved merge-and-decoding flow: replaces strict sequence ma
 </details>
 
 <details>
-<summary><b>Commit 51:</b> <code>fba5d59</code> — Add PSRAM recovery test data and v3 MATLAB reader</summary>
+<summary><b>Commit 65:</b> <code>fba5d59</code> — Add PSRAM recovery test data and v3 MATLAB reader</summary>
 
 ```
 Hash:   fba5d59
@@ -1204,7 +1455,7 @@ Add test dataset and a new MATLAB reader for PSRAM recovery testing. Files added
 </details>
 
 <details>
-<summary><b>Commit 52:</b> <code>d664e11</code> — Reorganize MATLAB files and add BIN parser</summary>
+<summary><b>Commit 66:</b> <code>d664e11</code> — Reorganize MATLAB files and add BIN parser</summary>
 
 ```
 Hash:   d664e11
@@ -1226,7 +1477,7 @@ This change cleans up folder organization and introduces a dedicated binary-log 
 </details>
 
 <details>
-<summary><b>Commit 53:</b> <code>f401a2b</code> — SD runtime recovery and pin remap</summary>
+<summary><b>Commit 67:</b> <code>f401a2b</code> — SD runtime recovery and pin remap</summary>
 
 ```
 Hash:   f401a2b
@@ -1241,7 +1492,7 @@ Implement dynamic SD-card runtime recovery and remap a few unsafe pins. Adds att
 </details>
 
 <details>
-<summary><b>Commit 54:</b> <code>5e9c419</code> — Update To Do list with finding the final issues</summary>
+<summary><b>Commit 68:</b> <code>5e9c419</code> — Update To Do list with finding the final issues</summary>
 
 ```
 Hash:   5e9c419
@@ -1256,7 +1507,7 @@ Expand the project To Do list with runtime recovery items and hardware considera
 </details>
 
 <details>
-<summary><b>Commit 55:</b> <code>175ddba</code> — Update README.md</summary>
+<summary><b>Commit 69:</b> <code>175ddba</code> — Update README.md</summary>
 
 ```
 Hash:   175ddba
@@ -1269,7 +1520,7 @@ Update README.md
 </details>
 
 <details>
-<summary><b>Commit 56:</b> <code>53ee269</code> — Update To Do list.md</summary>
+<summary><b>Commit 70:</b> <code>53ee269</code> — Update To Do list.md</summary>
 
 ```
 Hash:   53ee269
@@ -1282,7 +1533,7 @@ Update To Do list.md
 </details>
 
 <details>
-<summary><b>Commit 57:</b> <code>ae8b760</code> — Add comprehensive project reports and TODO</summary>
+<summary><b>Commit 71:</b> <code>ae8b760</code> — Add comprehensive project reports and TODO</summary>
 
 ```
 Hash:   ae8b760
@@ -1297,7 +1548,7 @@ Add detailed documentation for the DeadReckoner project: new Progress.md (develo
 </details>
 
 <details>
-<summary><b>Commit 58:</b> <code>109b15d</code> — DYNAMIC RECOVERY PROTOCOL for MPU reconnection</summary>
+<summary><b>Commit 72:</b> <code>109b15d</code> — DYNAMIC RECOVERY PROTOCOL for MPU reconnection</summary>
 
 ```
 Hash:   109b15d
@@ -1310,7 +1561,7 @@ DYNAMIC RECOVERY PROTOCOL for MPU reconnection
 </details>
 
 <details>
-<summary><b>Commit 59:</b> <code>fff0137</code> — Update Progress & Architecture Report.md</summary>
+<summary><b>Commit 73:</b> <code>fff0137</code> — Update Progress & Architecture Report.md</summary>
 
 ```
 Hash:   fff0137
@@ -1323,7 +1574,7 @@ Update Progress & Architecture Report.md
 </details>
 
 <details>
-<summary><b>Commit 60:</b> <code>61546f3</code> — implement MPU9250 critical disconnect trap and boot-time SD scanning</summary>
+<summary><b>Commit 74:</b> <code>61546f3</code> — implement MPU9250 critical disconnect trap and boot-time SD scanning</summary>
 
 ```
 Hash:   61546f3
@@ -1338,7 +1589,7 @@ Implemented a robust critical error handling mechanism for the MPU9250 sensor. T
 </details>
 
 <details>
-<summary><b>Commit 61:</b> <code>1e77d9b</code> — fix (Total: XX.X GB) in submenu SD card</summary>
+<summary><b>Commit 75:</b> <code>1e77d9b</code> — fix (Total: XX.X GB) in submenu SD card</summary>
 
 ```
 Hash:   1e77d9b
@@ -1351,7 +1602,7 @@ fix (Total: XX.X GB) in submenu SD card
 </details>
 
 <details>
-<summary><b>Commit 62:</b> <code>cc09b6b</code> — update menu - SD card sub menu</summary>
+<summary><b>Commit 76:</b> <code>cc09b6b</code> — update menu - SD card sub menu</summary>
 
 ```
 Hash:   cc09b6b
@@ -1373,7 +1624,7 @@ i should fix (Total: XX.X GB)
 </details>
 
 <details>
-<summary><b>Commit 63:</b> <code>2441549</code> — update menu - mute buzzer menu</summary>
+<summary><b>Commit 77:</b> <code>2441549</code> — update menu - mute buzzer menu</summary>
 
 ```
 Hash:   2441549
@@ -1386,7 +1637,7 @@ update menu - mute buzzer menu
 </details>
 
 <details>
-<summary><b>Commit 64:</b> <code>82630a8</code> — update menu - display mode</summary>
+<summary><b>Commit 78:</b> <code>82630a8</code> — update menu - display mode</summary>
 
 ```
 Hash:   82630a8
@@ -1399,7 +1650,7 @@ update menu - display mode
 </details>
 
 <details>
-<summary><b>Commit 65:</b> <code>34b6077</code> — added buzzer and LED for Tag and SD card failure</summary>
+<summary><b>Commit 79:</b> <code>34b6077</code> — added buzzer and LED for Tag and SD card failure</summary>
 
 ```
 Hash:   34b6077
@@ -1412,7 +1663,7 @@ added buzzer and LED for Tag and SD card failure
 </details>
 
 <details>
-<summary><b>Commit 66:</b> <code>a19f32f</code> — try to update oled-phase 4</summary>
+<summary><b>Commit 80:</b> <code>a19f32f</code> — try to update oled-phase 4</summary>
 
 ```
 Hash:   a19f32f
@@ -1428,7 +1679,7 @@ try to update oled-phase 4
 </details>
 
 <details>
-<summary><b>Commit 67:</b> <code>74f1cf1</code> — try to update oled- phase 3</summary>
+<summary><b>Commit 81:</b> <code>74f1cf1</code> — try to update oled- phase 3</summary>
 
 ```
 Hash:   74f1cf1
@@ -1443,7 +1694,7 @@ added Sd card calculation sub menu
 </details>
 
 <details>
-<summary><b>Commit 68:</b> <code>a6f7e2a</code> — try to update oled phase 2</summary>
+<summary><b>Commit 82:</b> <code>a6f7e2a</code> — try to update oled phase 2</summary>
 
 ```
 Hash:   a6f7e2a
@@ -1456,7 +1707,7 @@ try to update oled phase 2
 </details>
 
 <details>
-<summary><b>Commit 69:</b> <code>e0a9af6</code> — try to update oled- phase 1</summary>
+<summary><b>Commit 83:</b> <code>e0a9af6</code> — try to update oled- phase 1</summary>
 
 ```
 Hash:   e0a9af6
@@ -1469,7 +1720,7 @@ try to update oled- phase 1
 </details>
 
 <details>
-<summary><b>Commit 70:</b> <code>20b4be7</code> — Update Progress & Architecture Report.md</summary>
+<summary><b>Commit 84:</b> <code>20b4be7</code> — Update Progress & Architecture Report.md</summary>
 
 ```
 Hash:   20b4be7
@@ -1482,7 +1733,7 @@ Update Progress & Architecture Report.md
 </details>
 
 <details>
-<summary><b>Commit 71:</b> <code>0b6d062</code> — Create Lipo_VS_LIIon.png</summary>
+<summary><b>Commit 85:</b> <code>0b6d062</code> — Create Lipo_VS_LIIon.png</summary>
 
 ```
 Hash:   0b6d062
@@ -1495,7 +1746,7 @@ Create Lipo_VS_LIIon.png
 </details>
 
 <details>
-<summary><b>Commit 72:</b> <code>06d4af0</code> — Create Li-ion-battery-discharge-voltage-curve.png</summary>
+<summary><b>Commit 86:</b> <code>06d4af0</code> — Create Li-ion-battery-discharge-voltage-curve.png</summary>
 
 ```
 Hash:   06d4af0
@@ -1508,7 +1759,7 @@ Create Li-ion-battery-discharge-voltage-curve.png
 </details>
 
 <details>
-<summary><b>Commit 73:</b> <code>3a02459</code> — first version of a bin file reader (MATLAB code)</summary>
+<summary><b>Commit 87:</b> <code>3a02459</code> — first version of a bin file reader (MATLAB code)</summary>
 
 ```
 Hash:   3a02459
@@ -1521,7 +1772,7 @@ first version of a bin file reader (MATLAB code)
 </details>
 
 <details>
-<summary><b>Commit 74:</b> <code>62a3aa7</code> — update for SD card logger</summary>
+<summary><b>Commit 88:</b> <code>62a3aa7</code> — update for SD card logger</summary>
 
 ```
 Hash:   62a3aa7
@@ -1534,7 +1785,7 @@ update for SD card logger
 </details>
 
 <details>
-<summary><b>Commit 75:</b> <code>2d598a3</code> — speed test Sd card</summary>
+<summary><b>Commit 89:</b> <code>2d598a3</code> — speed test Sd card</summary>
 
 ```
 Hash:   2d598a3
@@ -1547,7 +1798,7 @@ speed test Sd card
 </details>
 
 <details>
-<summary><b>Commit 76:</b> <code>63c2d1f</code> — added test analyzer for no SD card mode</summary>
+<summary><b>Commit 90:</b> <code>63c2d1f</code> — added test analyzer for no SD card mode</summary>
 
 ```
 Hash:   63c2d1f
@@ -1560,7 +1811,7 @@ added test analyzer for no SD card mode
 </details>
 
 <details>
-<summary><b>Commit 77:</b> <code>b92c2d9</code> — Update Progress & Architecture Report.md</summary>
+<summary><b>Commit 91:</b> <code>b92c2d9</code> — Update Progress & Architecture Report.md</summary>
 
 ```
 Hash:   b92c2d9
@@ -1573,7 +1824,7 @@ Update Progress & Architecture Report.md
 </details>
 
 <details>
-<summary><b>Commit 78:</b> <code>ff103ec</code> — Final SD card Test (success!)</summary>
+<summary><b>Commit 92:</b> <code>ff103ec</code> — Final SD card Test (success!)</summary>
 
 ```
 Hash:   ff103ec
@@ -1586,7 +1837,7 @@ Final SD card Test (success!)
 </details>
 
 <details>
-<summary><b>Commit 79:</b> <code>f4be198</code> — SD card Test</summary>
+<summary><b>Commit 93:</b> <code>f4be198</code> — SD card Test</summary>
 
 ```
 Hash:   f4be198
@@ -1599,7 +1850,7 @@ SD card Test
 </details>
 
 <details>
-<summary><b>Commit 80:</b> <code>56e2f99</code> — Create Chip_Identification_ESP.ino</summary>
+<summary><b>Commit 94:</b> <code>56e2f99</code> — Create Chip_Identification_ESP.ino</summary>
 
 ```
 Hash:   56e2f99
@@ -1612,7 +1863,7 @@ Create Chip_Identification_ESP.ino
 </details>
 
 <details>
-<summary><b>Commit 81:</b> <code>571117f</code> — clean up and added some test for SD card</summary>
+<summary><b>Commit 95:</b> <code>571117f</code> — clean up and added some test for SD card</summary>
 
 ```
 Hash:   571117f
@@ -1625,7 +1876,7 @@ clean up and added some test for SD card
 </details>
 
 <details>
-<summary><b>Commit 82:</b> <code>c64fab2</code> — added SD card test (all methods has been failed)</summary>
+<summary><b>Commit 96:</b> <code>c64fab2</code> — added SD card test (all methods has been failed)</summary>
 
 ```
 Hash:   c64fab2
@@ -1638,7 +1889,7 @@ added SD card test (all methods has been failed)
 </details>
 
 <details>
-<summary><b>Commit 83:</b> <code>71b1203</code> — added SD card Diagram</summary>
+<summary><b>Commit 97:</b> <code>71b1203</code> — added SD card Diagram</summary>
 
 ```
 Hash:   71b1203
@@ -1651,7 +1902,7 @@ added SD card Diagram
 </details>
 
 <details>
-<summary><b>Commit 84:</b> <code>38a5df4</code> — diagram SD card adaptors</summary>
+<summary><b>Commit 98:</b> <code>38a5df4</code> — diagram SD card adaptors</summary>
 
 ```
 Hash:   38a5df4
@@ -1664,7 +1915,7 @@ diagram SD card adaptors
 </details>
 
 <details>
-<summary><b>Commit 85:</b> <code>d61bf42</code> — Standalone Sanity Check for SPI SD Card Module</summary>
+<summary><b>Commit 99:</b> <code>d61bf42</code> — Standalone Sanity Check for SPI SD Card Module</summary>
 
 ```
 Hash:   d61bf42
@@ -1677,7 +1928,7 @@ Standalone Sanity Check for SPI SD Card Module
 </details>
 
 <details>
-<summary><b>Commit 86:</b> <code>95b4553</code> — Sanity Check for SPI SD Card Module</summary>
+<summary><b>Commit 100:</b> <code>95b4553</code> — Sanity Check for SPI SD Card Module</summary>
 
 ```
 Hash:   95b4553
@@ -1690,7 +1941,7 @@ Sanity Check for SPI SD Card Module
 </details>
 
 <details>
-<summary><b>Commit 87:</b> <code>4770619</code> — Hardware & Filter Validation (Test Results)</summary>
+<summary><b>Commit 101:</b> <code>4770619</code> — Hardware & Filter Validation (Test Results)</summary>
 
 ```
 Hash:   4770619
@@ -1703,7 +1954,7 @@ Hardware & Filter Validation (Test Results)
 </details>
 
 <details>
-<summary><b>Commit 88:</b> <code>49a098e</code> — Vibration Rejection test result</summary>
+<summary><b>Commit 102:</b> <code>49a098e</code> — Vibration Rejection test result</summary>
 
 ```
 Hash:   49a098e
@@ -1716,7 +1967,7 @@ Vibration Rejection test result
 </details>
 
 <details>
-<summary><b>Commit 89:</b> <code>490ca10</code> — Clean up and add a second test (Dynamic Return-to-Zero)</summary>
+<summary><b>Commit 103:</b> <code>490ca10</code> — Clean up and add a second test (Dynamic Return-to-Zero)</summary>
 
 ```
 Hash:   490ca10
@@ -1729,7 +1980,7 @@ Clean up and add a second test (Dynamic Return-to-Zero)
 </details>
 
 <details>
-<summary><b>Commit 90:</b> <code>3ff7a07</code> — Drift Test Visualizer</summary>
+<summary><b>Commit 104:</b> <code>3ff7a07</code> — Drift Test Visualizer</summary>
 
 ```
 Hash:   3ff7a07
@@ -1742,7 +1993,7 @@ Drift Test Visualizer
 </details>
 
 <details>
-<summary><b>Commit 91:</b> <code>4fe7d7c</code> — Update Progress & Architecture Report.md</summary>
+<summary><b>Commit 105:</b> <code>4fe7d7c</code> — Update Progress & Architecture Report.md</summary>
 
 ```
 Hash:   4fe7d7c
@@ -1755,7 +2006,7 @@ Update Progress & Architecture Report.md
 </details>
 
 <details>
-<summary><b>Commit 92:</b> <code>6db47c8</code> — fix OLED</summary>
+<summary><b>Commit 106:</b> <code>6db47c8</code> — fix OLED</summary>
 
 ```
 Hash:   6db47c8
@@ -1768,7 +2019,7 @@ fix OLED
 </details>
 
 <details>
-<summary><b>Commit 93:</b> <code>e5a2f29</code> — ix issues before test</summary>
+<summary><b>Commit 107:</b> <code>e5a2f29</code> — ix issues before test</summary>
 
 ```
 Hash:   e5a2f29
@@ -1783,7 +2034,7 @@ Fixed EEPROM load bug (added setters) and migrated OLED to Hardware I2C (Wire1).
 </details>
 
 <details>
-<summary><b>Commit 94:</b> <code>5fe3bf7</code> — Firmware Flashing Configuration (ESP32-S3 N16R8)</summary>
+<summary><b>Commit 108:</b> <code>5fe3bf7</code> — Firmware Flashing Configuration (ESP32-S3 N16R8)</summary>
 
 ```
 Hash:   5fe3bf7
@@ -1796,7 +2047,7 @@ Firmware Flashing Configuration (ESP32-S3 N16R8)
 </details>
 
 <details>
-<summary><b>Commit 95:</b> <code>6b28855</code> — Update Progress & Architecture Report.md</summary>
+<summary><b>Commit 109:</b> <code>6b28855</code> — Update Progress & Architecture Report.md</summary>
 
 ```
 Hash:   6b28855
@@ -1809,7 +2060,7 @@ Update Progress & Architecture Report.md
 </details>
 
 <details>
-<summary><b>Commit 96:</b> <code>66e7771</code> — Sanity Check for OLED 0.91</summary>
+<summary><b>Commit 110:</b> <code>66e7771</code> — Sanity Check for OLED 0.91</summary>
 
 ```
 Hash:   66e7771
@@ -1822,7 +2073,7 @@ Sanity Check for OLED 0.91
 </details>
 
 <details>
-<summary><b>Commit 97:</b> <code>8a65805</code> — Basic I2C sanity check MPU9250</summary>
+<summary><b>Commit 111:</b> <code>8a65805</code> — Basic I2C sanity check MPU9250</summary>
 
 ```
 Hash:   8a65805
@@ -1835,7 +2086,7 @@ Basic I2C sanity check MPU9250
 </details>
 
 <details>
-<summary><b>Commit 98:</b> <code>5b4c454</code> — Updated wiring diagram</summary>
+<summary><b>Commit 112:</b> <code>5b4c454</code> — Updated wiring diagram</summary>
 
 ```
 Hash:   5b4c454
@@ -1848,7 +2099,7 @@ Updated wiring diagram
 </details>
 
 <details>
-<summary><b>Commit 99:</b> <code>b099dad</code> — Update Progress & Architecture Report.md</summary>
+<summary><b>Commit 113:</b> <code>b099dad</code> — Update Progress & Architecture Report.md</summary>
 
 ```
 Hash:   b099dad
@@ -1861,7 +2112,7 @@ Update Progress & Architecture Report.md
 </details>
 
 <details>
-<summary><b>Commit 100:</b> <code>08459b3</code> — dual core with Free Atreus</summary>
+<summary><b>Commit 114:</b> <code>08459b3</code> — dual core with Free Atreus</summary>
 
 ```
 Hash:   08459b3
@@ -1874,7 +2125,7 @@ dual core with Free Atreus
 </details>
 
 <details>
-<summary><b>Commit 101:</b> <code>0ee83a3</code> — Update Progress & Architecture Report.md</summary>
+<summary><b>Commit 115:</b> <code>0ee83a3</code> — Update Progress & Architecture Report.md</summary>
 
 ```
 Hash:   0ee83a3
@@ -1887,7 +2138,7 @@ Update Progress & Architecture Report.md
 </details>
 
 <details>
-<summary><b>Commit 102:</b> <code>ef89423</code> — Create ESP32_S3.ino</summary>
+<summary><b>Commit 116:</b> <code>ef89423</code> — Create ESP32_S3.ino</summary>
 
 ```
 Hash:   ef89423
@@ -1900,7 +2151,7 @@ Create ESP32_S3.ino
 </details>
 
 <details>
-<summary><b>Commit 103:</b> <code>d77ccbc</code> — Create Progress & Architecture Report.md</summary>
+<summary><b>Commit 117:</b> <code>d77ccbc</code> — Create Progress & Architecture Report.md</summary>
 
 ```
 Hash:   d77ccbc
@@ -1913,7 +2164,7 @@ Create Progress & Architecture Report.md
 </details>
 
 <details>
-<summary><b>Commit 104:</b> <code>6ed1539</code> — added wiring diagram for ESP</summary>
+<summary><b>Commit 118:</b> <code>6ed1539</code> — added wiring diagram for ESP</summary>
 
 ```
 Hash:   6ed1539
@@ -1926,7 +2177,7 @@ added wiring diagram for ESP
 </details>
 
 <details>
-<summary><b>Commit 105:</b> <code>92d4cb3</code> — init_project(again)</summary>
+<summary><b>Commit 119:</b> <code>92d4cb3</code> — init_project(again)</summary>
 
 ```
 Hash:   92d4cb3
@@ -1939,7 +2190,7 @@ init_project(again)
 </details>
 
 <details>
-<summary><b>Commit 106:</b> <code>d7407d4</code> — Delete setup modules directory</summary>
+<summary><b>Commit 120:</b> <code>d7407d4</code> — Delete setup modules directory</summary>
 
 ```
 Hash:   d7407d4
@@ -1952,7 +2203,7 @@ Delete setup modules directory
 </details>
 
 <details>
-<summary><b>Commit 107:</b> <code>863ff07</code> — Delete main code directory</summary>
+<summary><b>Commit 121:</b> <code>863ff07</code> — Delete main code directory</summary>
 
 ```
 Hash:   863ff07
@@ -1965,7 +2216,7 @@ Delete main code directory
 </details>
 
 <details>
-<summary><b>Commit 108:</b> <code>196cec4</code> — Delete .metadata directory</summary>
+<summary><b>Commit 122:</b> <code>196cec4</code> — Delete .metadata directory</summary>
 
 ```
 Hash:   196cec4
@@ -1978,7 +2229,7 @@ Delete .metadata directory
 </details>
 
 <details>
-<summary><b>Commit 109:</b> <code>3b96d1d</code> — Merge pull request #8 from Alireza-Sotoodeh/NodeMUC8266</summary>
+<summary><b>Commit 123:</b> <code>3b96d1d</code> — Merge pull request #8 from Alireza-Sotoodeh/NodeMUC8266</summary>
 
 ```
 Hash:   3b96d1d
@@ -1993,7 +2244,7 @@ Node muc8266
 </details>
 
 <details>
-<summary><b>Commit 110:</b> <code>3359107</code> — cleaning repo-05/18-11:16PM</summary>
+<summary><b>Commit 124:</b> <code>3359107</code> — cleaning repo-05/18-11:16PM</summary>
 
 ```
 Hash:   3359107
@@ -2006,7 +2257,7 @@ cleaning repo-05/18-11:16PM
 </details>
 
 <details>
-<summary><b>Commit 111:</b> <code>2bc2774</code> — fixed the acceleration (linear acceleration)-05/17-4:57</summary>
+<summary><b>Commit 125:</b> <code>2bc2774</code> — fixed the acceleration (linear acceleration)-05/17-4:57</summary>
 
 ```
 Hash:   2bc2774
@@ -2019,7 +2270,7 @@ fixed the acceleration (linear acceleration)-05/17-4:57
 </details>
 
 <details>
-<summary><b>Commit 112:</b> <code>b0166f0</code> — oled display fixed-05/17-11:19PM</summary>
+<summary><b>Commit 126:</b> <code>b0166f0</code> — oled display fixed-05/17-11:19PM</summary>
 
 ```
 Hash:   b0166f0
@@ -2032,7 +2283,7 @@ oled display fixed-05/17-11:19PM
 </details>
 
 <details>
-<summary><b>Commit 113:</b> <code>ff11272</code> — 05/16-12:26PM</summary>
+<summary><b>Commit 127:</b> <code>ff11272</code> — 05/16-12:26PM</summary>
 
 ```
 Hash:   ff11272
@@ -2047,7 +2298,7 @@ fixed the MATLAB code (closing the serial on exit)
 </details>
 
 <details>
-<summary><b>Commit 114:</b> <code>04cdf7e</code> — 05/15-2:42PM</summary>
+<summary><b>Commit 128:</b> <code>04cdf7e</code> — 05/15-2:42PM</summary>
 
 ```
 Hash:   04cdf7e
@@ -2062,7 +2313,7 @@ display and acceleration added
 </details>
 
 <details>
-<summary><b>Commit 115:</b> <code>9cbcf16</code> — 05/15-2:17PM</summary>
+<summary><b>Commit 129:</b> <code>9cbcf16</code> — 05/15-2:17PM</summary>
 
 ```
 Hash:   9cbcf16
@@ -2077,7 +2328,7 @@ setup basic oled
 </details>
 
 <details>
-<summary><b>Commit 116:</b> <code>d69f889</code> — 05/14-8:33Pm</summary>
+<summary><b>Commit 130:</b> <code>d69f889</code> — 05/14-8:33Pm</summary>
 
 ```
 Hash:   d69f889
@@ -2092,7 +2343,7 @@ now it can read from EEprom and save the callibration to it or load it
 </details>
 
 <details>
-<summary><b>Commit 117:</b> <code>bd57081</code> — 05/14-7:59PM</summary>
+<summary><b>Commit 131:</b> <code>bd57081</code> — 05/14-7:59PM</summary>
 
 ```
 Hash:   bd57081
@@ -2107,7 +2358,7 @@ fixd matlab code
 </details>
 
 <details>
-<summary><b>Commit 118:</b> <code>a18b783</code> — Merge pull request #7 from Alireza-Sotoodeh/NodeMUC8266</summary>
+<summary><b>Commit 132:</b> <code>a18b783</code> — Merge pull request #7 from Alireza-Sotoodeh/NodeMUC8266</summary>
 
 ```
 Hash:   a18b783
@@ -2122,7 +2373,7 @@ Node muc8266
 </details>
 
 <details>
-<summary><b>Commit 119:</b> <code>f623caf</code> — 05/14-7:43PM</summary>
+<summary><b>Commit 133:</b> <code>f623caf</code> — 05/14-7:43PM</summary>
 
 ```
 Hash:   f623caf
@@ -2137,7 +2388,7 @@ fixed MATLAB code (opening serial problem)
 </details>
 
 <details>
-<summary><b>Commit 120:</b> <code>dac7043</code> — 05/14_7:33PM</summary>
+<summary><b>Commit 134:</b> <code>dac7043</code> — 05/14_7:33PM</summary>
 
 ```
 Hash:   dac7043
@@ -2152,7 +2403,7 @@ fixed MPU9250 comments and settings
 </details>
 
 <details>
-<summary><b>Commit 121:</b> <code>3e039ce</code> — 05/14-5:19PM</summary>
+<summary><b>Commit 135:</b> <code>3e039ce</code> — 05/14-5:19PM</summary>
 
 ```
 Hash:   3e039ce
@@ -2167,7 +2418,7 @@ added comments for understating
 </details>
 
 <details>
-<summary><b>Commit 122:</b> <code>8a9c9e9</code> — 05/14</summary>
+<summary><b>Commit 136:</b> <code>8a9c9e9</code> — 05/14</summary>
 
 ```
 Hash:   8a9c9e9
@@ -2182,7 +2433,7 @@ start
 </details>
 
 <details>
-<summary><b>Commit 123:</b> <code>1b1623d</code> — 05/13-10:20Pm</summary>
+<summary><b>Commit 137:</b> <code>1b1623d</code> — 05/13-10:20Pm</summary>
 
 ```
 Hash:   1b1623d
@@ -2197,7 +2448,7 @@ codes working
 </details>
 
 <details>
-<summary><b>Commit 124:</b> <code>5e9d19f</code> — start</summary>
+<summary><b>Commit 138:</b> <code>5e9d19f</code> — start</summary>
 
 ```
 Hash:   5e9d19f
@@ -2210,7 +2461,7 @@ start
 </details>
 
 <details>
-<summary><b>Commit 125:</b> <code>31c9ae8</code> — save before start</summary>
+<summary><b>Commit 139:</b> <code>31c9ae8</code> — save before start</summary>
 
 ```
 Hash:   31c9ae8
@@ -2223,7 +2474,7 @@ save before start
 </details>
 
 <details>
-<summary><b>Commit 126:</b> <code>9dc8987</code> — removed the project</summary>
+<summary><b>Commit 140:</b> <code>9dc8987</code> — removed the project</summary>
 
 ```
 Hash:   9dc8987
@@ -2236,7 +2487,7 @@ removed the project
 </details>
 
 <details>
-<summary><b>Commit 127:</b> <code>bba6109</code> — 05/12-3:34PM</summary>
+<summary><b>Commit 141:</b> <code>bba6109</code> — 05/12-3:34PM</summary>
 
 ```
 Hash:   bba6109
@@ -2251,7 +2502,7 @@ test the MPU9250 and filter and 3d visualization by Arduino and MATLAB
 </details>
 
 <details>
-<summary><b>Commit 128:</b> <code>d44cee1</code> — 05/11-2:04PM</summary>
+<summary><b>Commit 142:</b> <code>d44cee1</code> — 05/11-2:04PM</summary>
 
 ```
 Hash:   d44cee1
@@ -2266,7 +2517,7 @@ adding the MPU9250 lib
 </details>
 
 <details>
-<summary><b>Commit 129:</b> <code>b578859</code> — 05/11-2:02PM</summary>
+<summary><b>Commit 143:</b> <code>b578859</code> — 05/11-2:02PM</summary>
 
 ```
 Hash:   b578859
@@ -2281,7 +2532,7 @@ remove unnecessary files
 </details>
 
 <details>
-<summary><b>Commit 130:</b> <code>da3fe11</code> — Update workbench.xmi</summary>
+<summary><b>Commit 144:</b> <code>da3fe11</code> — Update workbench.xmi</summary>
 
 ```
 Hash:   da3fe11
@@ -2294,7 +2545,7 @@ Update workbench.xmi
 </details>
 
 <details>
-<summary><b>Commit 131:</b> <code>0e84527</code> — Add DMP.c for MPU_9250 and update workspace state</summary>
+<summary><b>Commit 145:</b> <code>0e84527</code> — Add DMP.c for MPU_9250 and update workspace state</summary>
 
 ```
 Hash:   0e84527
@@ -2309,7 +2560,7 @@ Added the new DMP.c module for the MPU_9250 sensor in setup modules/DataSheets/M
 </details>
 
 <details>
-<summary><b>Commit 132:</b> <code>3cb9f77</code> — Revert "05/03-3:53PM"</summary>
+<summary><b>Commit 146:</b> <code>3cb9f77</code> — Revert "05/03-3:53PM"</summary>
 
 ```
 Hash:   3cb9f77
@@ -2324,7 +2575,7 @@ This reverts commit 35e3c884d70004a60c4bb66b258b43bdf60dd482.
 </details>
 
 <details>
-<summary><b>Commit 133:</b> <code>35e3c88</code> — 05/03-3:53PM</summary>
+<summary><b>Commit 147:</b> <code>35e3c88</code> — 05/03-3:53PM</summary>
 
 ```
 Hash:   35e3c88
@@ -2339,7 +2590,7 @@ found the DMP
 </details>
 
 <details>
-<summary><b>Commit 134:</b> <code>527e4d0</code> — Merge branch 'MPU9250' of https://github.com/Alireza-Sotoodeh/Navigation-STM32 into MPU9250</summary>
+<summary><b>Commit 148:</b> <code>527e4d0</code> — Merge branch 'MPU9250' of https://github.com/Alireza-Sotoodeh/Navigation-STM32 into MPU9250</summary>
 
 ```
 Hash:   527e4d0
@@ -2352,7 +2603,7 @@ Merge branch 'MPU9250' of https://github.com/Alireza-Sotoodeh/Navigation-STM32 i
 </details>
 
 <details>
-<summary><b>Commit 135:</b> <code>8df6c0a</code> — Update MPU_9250.md</summary>
+<summary><b>Commit 149:</b> <code>8df6c0a</code> — Update MPU_9250.md</summary>
 
 ```
 Hash:   8df6c0a
@@ -2365,7 +2616,7 @@ Update MPU_9250.md
 </details>
 
 <details>
-<summary><b>Commit 136:</b> <code>fccbc95</code> — 05/03-3:02PM</summary>
+<summary><b>Commit 150:</b> <code>fccbc95</code> — 05/03-3:02PM</summary>
 
 ```
 Hash:   fccbc95
@@ -2380,7 +2631,7 @@ want to start working on DMP farmwear
 </details>
 
 <details>
-<summary><b>Commit 137:</b> <code>e1c129e</code> — 05/03-12:17PM</summary>
+<summary><b>Commit 151:</b> <code>e1c129e</code> — 05/03-12:17PM</summary>
 
 ```
 Hash:   e1c129e
@@ -2395,7 +2646,7 @@ Update MPU_9250.md
 </details>
 
 <details>
-<summary><b>Commit 138:</b> <code>ac92d29</code> — 05/03-12:17PM</summary>
+<summary><b>Commit 152:</b> <code>ac92d29</code> — 05/03-12:17PM</summary>
 
 ```
 Hash:   ac92d29
@@ -2410,7 +2661,7 @@ Update MPU_9250.md
 </details>
 
 <details>
-<summary><b>Commit 139:</b> <code>cfa9612</code> — 05/03-12:12PM</summary>
+<summary><b>Commit 153:</b> <code>cfa9612</code> — 05/03-12:12PM</summary>
 
 ```
 Hash:   cfa9612
@@ -2425,7 +2676,7 @@ fixed MPU9250.md
 </details>
 
 <details>
-<summary><b>Commit 140:</b> <code>d7b0656</code> — 05/03-12:10PM</summary>
+<summary><b>Commit 154:</b> <code>d7b0656</code> — 05/03-12:10PM</summary>
 
 ```
 Hash:   d7b0656
@@ -2440,7 +2691,7 @@ adding datasheet MPU9250 and MPU9250.md
 </details>
 
 <details>
-<summary><b>Commit 141:</b> <code>27d3701</code> — 05/03-11:22AM (save before start)</summary>
+<summary><b>Commit 155:</b> <code>27d3701</code> — 05/03-11:22AM (save before start)</summary>
 
 ```
 Hash:   27d3701
@@ -2453,7 +2704,7 @@ Author: Alireza Sotoodeh
 </details>
 
 <details>
-<summary><b>Commit 142:</b> <code>b869740</code> — 05/02-7:38PM</summary>
+<summary><b>Commit 156:</b> <code>b869740</code> — 05/02-7:38PM</summary>
 
 ```
 Hash:   b869740
@@ -2468,7 +2719,7 @@ ready for test need to modify main.c
 </details>
 
 <details>
-<summary><b>Commit 143:</b> <code>0a7b903</code> — 05/02-7:30PM</summary>
+<summary><b>Commit 157:</b> <code>0a7b903</code> — 05/02-7:30PM</summary>
 
 ```
 Hash:   0a7b903
@@ -2483,7 +2734,7 @@ start working but need saving first
 </details>
 
 <details>
-<summary><b>Commit 144:</b> <code>04bcf97</code> — 05/01-8:53PM</summary>
+<summary><b>Commit 158:</b> <code>04bcf97</code> — 05/01-8:53PM</summary>
 
 ```
 Hash:   04bcf97
@@ -2501,7 +2752,7 @@ need testing
 </details>
 
 <details>
-<summary><b>Commit 145:</b> <code>3f6cd2f</code> — 05/01-8:49</summary>
+<summary><b>Commit 159:</b> <code>3f6cd2f</code> — 05/01-8:49</summary>
 
 ```
 Hash:   3f6cd2f
@@ -2517,7 +2768,7 @@ needs improvments
 </details>
 
 <details>
-<summary><b>Commit 146:</b> <code>5b426fa</code> — Update README.md</summary>
+<summary><b>Commit 160:</b> <code>5b426fa</code> — Update README.md</summary>
 
 ```
 Hash:   5b426fa
@@ -2530,7 +2781,7 @@ Update README.md
 </details>
 
 <details>
-<summary><b>Commit 147:</b> <code>0455e92</code> — 04/29-9:44PM</summary>
+<summary><b>Commit 161:</b> <code>0455e92</code> — 04/29-9:44PM</summary>
 
 ```
 Hash:   0455e92
@@ -2545,7 +2796,7 @@ fixing ReadME
 </details>
 
 <details>
-<summary><b>Commit 148:</b> <code>3b1b5ac</code> — 04/27- 8:15 PM</summary>
+<summary><b>Commit 162:</b> <code>3b1b5ac</code> — 04/27- 8:15 PM</summary>
 
 ```
 Hash:   3b1b5ac
@@ -2561,7 +2812,7 @@ just Updated README.md
 </details>
 
 <details>
-<summary><b>Commit 149:</b> <code>4305256</code> — 04/27-6:03 PM</summary>
+<summary><b>Commit 163:</b> <code>4305256</code> — 04/27-6:03 PM</summary>
 
 ```
 Hash:   4305256
@@ -2578,7 +2829,7 @@ Author: Alireza Sotoodeh
 </details>
 
 <details>
-<summary><b>Commit 150:</b> <code>701ae4b</code> — 04/27-10:48 AM</summary>
+<summary><b>Commit 164:</b> <code>701ae4b</code> — 04/27-10:48 AM</summary>
 
 ```
 Hash:   701ae4b
@@ -2606,7 +2857,7 @@ Fixes compilation errors, improves navigation accuracy, and prepares for future 
 </details>
 
 <details>
-<summary><b>Commit 151:</b> <code>62df236</code> — 04/26</summary>
+<summary><b>Commit 165:</b> <code>62df236</code> — 04/26</summary>
 
 ```
 Hash:   62df236
@@ -2619,7 +2870,7 @@ Author: Alireza Sotoodeh
 </details>
 
 <details>
-<summary><b>Commit 152:</b> <code>768b21c</code> — now code has no error</summary>
+<summary><b>Commit 166:</b> <code>768b21c</code> — now code has no error</summary>
 
 ```
 Hash:   768b21c
@@ -2632,7 +2883,7 @@ now code has no error
 </details>
 
 <details>
-<summary><b>Commit 153:</b> <code>ec842c7</code> — 04/23 saving before going for a break!</summary>
+<summary><b>Commit 167:</b> <code>ec842c7</code> — 04/23 saving before going for a break!</summary>
 
 ```
 Hash:   ec842c7
@@ -2645,7 +2896,7 @@ Author: Alireza Sotoodeh
 </details>
 
 <details>
-<summary><b>Commit 154:</b> <code>2327c58</code> — before testing the MPU6500 commands</summary>
+<summary><b>Commit 168:</b> <code>2327c58</code> — before testing the MPU6500 commands</summary>
 
 ```
 Hash:   2327c58
@@ -2661,7 +2912,7 @@ file scr and interface are ready to go
 </details>
 
 <details>
-<summary><b>Commit 155:</b> <code>e532bc4</code> — added all necceasry files</summary>
+<summary><b>Commit 169:</b> <code>e532bc4</code> — added all necceasry files</summary>
 
 ```
 Hash:   e532bc4
@@ -2674,7 +2925,7 @@ added all necceasry files
 </details>
 
 <details>
-<summary><b>Commit 156:</b> <code>8ac5a28</code> — save beffore going to my new brand branch</summary>
+<summary><b>Commit 170:</b> <code>8ac5a28</code> — save beffore going to my new brand branch</summary>
 
 ```
 Hash:   8ac5a28
@@ -2687,7 +2938,7 @@ save beffore going to my new brand branch
 </details>
 
 <details>
-<summary><b>Commit 157:</b> <code>9b63d4f</code> — adding scr MPU6500</summary>
+<summary><b>Commit 171:</b> <code>9b63d4f</code> — adding scr MPU6500</summary>
 
 ```
 Hash:   9b63d4f
@@ -2702,7 +2953,7 @@ driver and interface files has been added
 </details>
 
 <details>
-<summary><b>Commit 158:</b> <code>d95b49d</code> — setup CubeIDE</summary>
+<summary><b>Commit 172:</b> <code>d95b49d</code> — setup CubeIDE</summary>
 
 ```
 Hash:   d95b49d
@@ -2717,7 +2968,7 @@ now i have everything to get stated and working on MPU6500
 </details>
 
 <details>
-<summary><b>Commit 159:</b> <code>4239272</code> — added MPU6500 library</summary>
+<summary><b>Commit 173:</b> <code>4239272</code> — added MPU6500 library</summary>
 
 ```
 Hash:   4239272
@@ -2730,7 +2981,7 @@ added MPU6500 library
 </details>
 
 <details>
-<summary><b>Commit 160:</b> <code>b31009d</code> — removing all file(from the top)</summary>
+<summary><b>Commit 174:</b> <code>b31009d</code> — removing all file(from the top)</summary>
 
 ```
 Hash:   b31009d
@@ -2743,7 +2994,7 @@ removing all file(from the top)
 </details>
 
 <details>
-<summary><b>Commit 161:</b> <code>2f0ded6</code> — fixing readme file</summary>
+<summary><b>Commit 175:</b> <code>2f0ded6</code> — fixing readme file</summary>
 
 ```
 Hash:   2f0ded6
@@ -2756,7 +3007,7 @@ fixing readme file
 </details>
 
 <details>
-<summary><b>Commit 162:</b> <code>adfc075</code> — initial MPU6500 and trying to test it</summary>
+<summary><b>Commit 176:</b> <code>adfc075</code> — initial MPU6500 and trying to test it</summary>
 
 ```
 Hash:   adfc075
@@ -2771,7 +3022,7 @@ trying to work with the library i found online
 </details>
 
 <details>
-<summary><b>Commit 163:</b> <code>05d017f</code> — initial PJ</summary>
+<summary><b>Commit 177:</b> <code>05d017f</code> — initial PJ</summary>
 
 ```
 Hash:   05d017f
@@ -2786,7 +3037,7 @@ initial PJ
 </details>
 
 <details>
-<summary><b>Commit 164:</b> <code>bed8a35</code> — modified readme file</summary>
+<summary><b>Commit 178:</b> <code>bed8a35</code> — modified readme file</summary>
 
 ```
 Hash:   bed8a35
@@ -2801,7 +3052,7 @@ trying to describe the path
 </details>
 
 <details>
-<summary><b>Commit 165:</b> <code>d72b9ad</code> — Initial commit</summary>
+<summary><b>Commit 179:</b> <code>d72b9ad</code> — Initial commit</summary>
 
 ```
 Hash:   d72b9ad
@@ -2815,4 +3066,4 @@ Initial commit
 
 ---
 
-*Report generated by `project_summarizer.py` on 2026-06-17 17:25:22*
+*Report generated by `project_summarizer.py` on 2026-06-19 21:26:59*
