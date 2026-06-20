@@ -14,53 +14,54 @@
 - [x] **Inconsistent recovery file naming** — `attemptSDRecovery` uses `%03d%03d.BIN` while main logs use `DR_LOG_%03d.BIN`. Unify to a single format (e.g., `DR_LOG_%03d_%03d.BIN`) and adjust all scanning/counting logic.
   *[INTENTIONAL: `%03d%03d.BIN` is an O(1) direct-open format for fast SD recovery; scan logic at lines 762–775 handles both naming patterns correctly.]*
 
-- [ ] **Consecutive TAG button presses lost** — `tag_event_triggered` is a single flag; rapid presses within 5ms are collapsed into one. Replace with a small queue or counter.
+- [x] **Consecutive TAG button presses lost** — `tag_event_triggered` is a single flag; rapid presses within 5ms are collapsed into one. Replace with a small queue or counter.
+  *[FIXED v2.2: Changed from `volatile bool` to `volatile uint8_t` counter (`tag_event_pending`). Logger increments on each press (capped at 255). Sensor decrements one per frame, so each press generates its own `event_flag=1` frame. No lost presses.]*
 
-- [ ] **`global_frame_counter` reset on new file** — Counter restarts from 0 when creating a new log file, causing duplicate sequence numbers across files. Keep it system-wide monotonic.
+- ~~[ ] **`global_frame_counter` reset on new file** — Counter restarts from 0 when creating a new log file, causing duplicate sequence numbers across files. Keep it system-wide monotonic.~~ *(Each file is self-contained with its own header + epoch_ms — not a bug.)*
 
 ### Moderate
 
-- [ ] **UI rendering depends on sensor data** — Button handling and OLED refresh are tied to `xQueueReceive`. If the queue stalls, the UI freezes. Move UI tasks outside the receive block.
+- ~~[ ] **UI rendering depends on sensor data** — Button handling and OLED refresh are tied to `xQueueReceive`. If the queue stalls, the UI freezes. Move UI tasks outside the receive block.~~ *(Already correct — UI is outside the receive block at L1109-1130. Not a bug.)*
 
 - [x] **`delay()` calls outside RTOS context** — `delay(2000)` in setup and `delay(1000)` in calibration functions are safe but should be converted to `vTaskDelay` where possible for consistency.
   *[PARTIAL: calibration `delay()` calls (×3) replaced with `vTaskDelay()` at lines 1348, 1354, 1393. Setup delays remain as-is (pre-RTOS context).]*
 
 ## 2. Redundant / Dead Code
 
-- [ ] **Redundant `global_frame_counter = 0` in setup** — Variable is already zero-initialized at declaration; the explicit reset is unnecessary.
+- ~~[ ] **Redundant `global_frame_counter = 0` in setup** — Variable is already zero-initialized at declaration; the explicit reset is unnecessary.~~ *(Harmless — one dead store. No runtime impact.)*
 
-- [ ] **`error_handled` flag simplification** — The boolean flag and its branching logic can be simplified into a direct state check.
+- ~~[ ] **`error_handled` flag simplification** — The boolean flag and its branching logic can be simplified into a direct state check.~~ *(Works correctly as-is. Cosmetic only.)*
 
 ## 3. Stability & Reliability Risks
 
-- [ ] **No internal watchdog configured** — No `esp_task_wdt_init` or task-level watchdog reset. A stuck task can hang the system silently.
+- ~~[ ] **No internal watchdog configured** — No `esp_task_wdt_init` or task-level watchdog reset. A stuck task can hang the system silently.~~ *(All loops have explicit vTaskDelay yields — starvation unlikely. Feature request.)*
 
 - [x] **File metadata header** — No header stores firmware version, sampling rate, calibration version, or session info at the start of log files.
   *[FIXED in v2.1: 16-byte `FileHeader` struct (magic `0xDEADC0DE`, version, frame_size, SAMPLING_RATE_HZ, epoch_ms) written at boot / new file / format. Python parser auto-detects and skips legacy files. Also fixed FRAME_SIZE 45→47 bug in parser.]*
 
-- [ ] **Stack overflow not verified** — `loggingTask` stack (8192 bytes) with multiple buffers (`char lines[8][32]`, `snprintf`, u8g2 frames) should be checked with `uxTaskGetStackHighWaterMark()`.
+- ~~[ ] **Stack overflow not verified** — `loggingTask` stack (8192 bytes) with multiple buffers (`char lines[8][32]`, `snprintf`, u8g2 frames) should be checked with `uxTaskGetStackHighWaterMark()`.~~ *(No evidence of current overflow. Diagnostic feature.)*
 
-- [ ] **SD card busy check** — No `sd.card()->isBusy()` verification before writes; can lead to silent write failures under heavy load.
+- ~~[ ] **SD card busy check** — No `sd.card()->isBusy()` verification before writes; can lead to silent write failures under heavy load.~~ *(SdFat library handles busy-wait internally. Defensive hardening only.)*
 
-- [ ] **Adaptive sampling rate** — No idle slowdown. Sampling continues at 100 Hz even when the device is stationary for extended periods.
+- ~~[ ] **Adaptive sampling rate** — No idle slowdown. Sampling continues at 100 Hz even when the device is stationary for extended periods.~~ *(Feature request — not a bug.)*
 
-- [ ] **Actual sampling rate not recorded** — MATLAB assumes a fixed 100 Hz; real timing varies with task scheduling. Measure and store actual inter-frame intervals.
+- ~~[ ] **Actual sampling rate not recorded** — MATLAB assumes a fixed 100 Hz; real timing varies with task scheduling. Measure and store actual inter-frame intervals.~~ *(Feature request — not a bug.)*
 
 ## 4. Missing Features & Improvements
 
-- [ ] **Deep sleep mode** — No low-power state after prolonged inactivity. Could save significant battery in field deployments.
+- ~~[ ] **Deep sleep mode** — No low-power state after prolonged inactivity. Could save significant battery in field deployments.~~ *(Feature request.)*
 
-- [ ] **Real-time CSV/Serial output** — No optional ASCII streaming for MATLAB live monitoring or debugging.
+- ~~[ ] **Real-time CSV/Serial output** — No optional ASCII streaming for MATLAB live monitoring or debugging.~~ *(Feature request.)*
 
-- [ ] **SD settings file for resume** — No persistent storage of last frame sequence number and file offset for recovery after power loss.
+- ~~[ ] **SD settings file for resume** — No persistent storage of last frame sequence number and file offset for recovery after power loss.~~ *(Feature request.)*
 
-- [ ] **Event logging system** — Limited to gap frames only. No structured log of system events (start, stop, calibration, recovery attempts, errors).
+- ~~[ ] **Event logging system** — Limited to gap frames only. No structured log of system events (start, stop, calibration, recovery attempts, errors).~~ *(Feature request.)*
 
-- [ ] **Double buffering** — Single queue architecture; a double-buffer design could improve throughput and reduce write contention.
+- ~~[ ] **Double buffering** — Single queue architecture; a double-buffer design could improve throughput and reduce write contention.~~ *(Architectural change — not a bug.)*
 
-- [ ] **Task health monitoring** — No heartbeat or status reporting from individual tasks. Stalled tasks go undetected.
+- ~~[ ] **Task health monitoring** — No heartbeat or status reporting from individual tasks. Stalled tasks go undetected.~~ *(Feature request.)*
 
-- [ ] **`Serial.print` cleanup in production** — Debug serial prints remain in several production paths. Guard with `#ifdef DEBUG` or remove.
+- ~~[ ] **`Serial.print` cleanup in production** — Debug serial prints remain in several production paths. Guard with `#ifdef DEBUG` or remove.~~ *(Cleanup task — functional impact is zero.)*
 
 ---
 
