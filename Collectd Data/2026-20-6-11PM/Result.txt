@@ -1,0 +1,48 @@
+File size: 547,190 bytes
+Header: 16 bytes, Frame: 47 bytes
+
+=== FILE HEADER ===
+Magic:        0xDEADC0DE (OK)
+Version:      1
+Frame size:   47 bytes (matches)
+Sample rate:  100 Hz
+Epoch:        2390 ms (1970-01-01 00:00:02.390000+00:00)
+
+Data bytes:   547,174
+Frame count:  11,642
+Remainder:    0 bytes (OK)
+
+
+RAW GPS frame [7790]: event=0xBB offset=365723
+  Payload hex: 0000006072743d40000000606ad64b400000000057f2366a0000000000000000
+  lat=29.454870223999023 lon=55.67512130737305 alt=0.0 epoch=1781985879
+
+RAW GPS frame [11641]: event=0xCC offset=547143
+  Payload hex: 0000004065743d40000000606bd64b4000000000eef2366a0000000000000000
+  lat=29.454669952392578 lon=55.67515182495117 alt=0.0 epoch=1781986030
+=== EVENT BREAKDOWN ===
+  0x00 (IMU): 11,640 frames
+  0xBB (GPS_START): 1 frames
+  0xCC (GPS_END): 1 frames
+
+Duration: 196.7s (3.3 min)
+IMU frames: 11,640
+Actual rate: 59.2 Hz (expected 100 Hz)
+
+=== GPS FRAMES (2) ===
+  [ 7790] +83.9s  START:  lat=29.454870, lon=55.675121  alt=0m  epoch=1781985879 (2026-06-20 20:04:39+00:00)
+  [11641] +202.7s  END:  lat=29.454670, lon=55.675152  alt=0m  epoch=1781986030 (2026-06-20 20:07:10+00:00)
+
+=== FIRST 3 IMU FRAMES ===
+  [    0] +6.0s  Q(1.0000,0.0000,0.0000,0.0000)  A(-0.03,0.02,0.02)  T=41.8�C
+  [    1] +6.0s  Q(1.0000,-0.0038,-0.0025,-0.0045)  A(-0.04,0.02,0.02)  T=41.7�C
+  [    2] +6.0s  Q(0.9999,-0.0073,-0.0049,-0.0090)  A(-0.05,0.03,0.02)  T=41.6�C
+
+=== LAST 3 IMU FRAMES ===
+  [11640] +122.4s  Q(0.9031,-0.0005,-0.0191,-0.4290)  A(-0.02,0.05,0.02)  T=47.8�C
+  [11639] +122.3s  Q(0.9032,-0.0003,-0.0190,-0.4287)  A(-0.02,0.05,0.02)  T=47.8�C
+  [11638] +122.3s  Q(0.9031,-0.0002,-0.0188,-0.4290)  A(-0.02,0.05,0.02)  T=47.9�C
+
+=== INTEGRITY ===
+Sequence gaps: 3
+Total frames: 11,642
