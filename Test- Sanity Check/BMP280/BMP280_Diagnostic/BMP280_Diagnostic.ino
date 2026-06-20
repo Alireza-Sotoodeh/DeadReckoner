@@ -252,6 +252,7 @@ void setup() {
   // -----------------------------------------------------------------
   Serial.println(F("TEST 8: Measuring noise floor (100 samples)..."));
   const int N = 100;
+#define P_OFFSET 800.0f
   float tSum = 0, pSum = 0;
   float tSumSq = 0, pSumSq = 0;
   float tMin = 9999, tMax = -9999;
@@ -260,8 +261,8 @@ void setup() {
   for (int i = 0; i < N; i++) {
     float t = bmp.readTemperature();
     float p = bmp.readPressure() / 100.0F;
-    tSum += t;   pSum += p;
-    tSumSq += t * t;  pSumSq += p * p;
+    tSum += t;   float pOff = p - P_OFFSET; pSum += pOff;
+    tSumSq += t * t;  pSumSq += pOff * pOff;
     if (t < tMin) tMin = t;
     if (t > tMax) tMax = t;
     if (p < pMin) pMin = p;
@@ -269,9 +270,12 @@ void setup() {
     delay(20);
   }
   float tMean = tSum / N;
-  float pMean = pSum / N;
-  float tSigma = sqrt(tSumSq / N - tMean * tMean);
-  float pSigma = sqrt(pSumSq / N - pMean * pMean);
+  float pMeanOff = pSum / N;
+  float pMean = P_OFFSET + pMeanOff;
+  float tVar = tSumSq / N - tMean * tMean;
+  float pVar = pSumSq / N - pMeanOff * pMeanOff;
+  float tSigma = sqrt(tVar < 0 ? 0.0f : tVar);
+  float pSigma = sqrt(pVar < 0 ? 0.0f : pVar);
 
   Serial.print(F("  Temperature:  mean = "));
   Serial.print(tMean, 2);
