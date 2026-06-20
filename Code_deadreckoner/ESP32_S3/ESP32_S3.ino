@@ -1,12 +1,14 @@
-// Last Edit: 2026-06-19
-// Reason for Last Edit: CRC-16 per frame, EEPROM CRC, 100 Hz rate limiter, gap timestamp fix, vTaskDelay conversion, WDT-safe format yields, SPI recovery delay, EEPROM user notification, comment cleanup.
+// Last Edit: 2026-06-20
+// Reason for Last Edit: xQueueReset on new file, SAMPLING_RATE_HZ wired to task timing, LogFrame zero-init, PSRAM-SD conflict note, OLED hot-plug comments, device header
 // Author: Alireza Sotoodeh
 
 /*
  * =========================================================================
  * PROJECT: DeadReckoner
- * VERSION: 2.0 (CRC-16, EEPROM CRC, 100 Hz rate limit, gap timestamp fix, WDT-safe format)
- * * WIRING DIAGRAM
+ * VERSION: 2.1 (QueueReset, parametric task rate, zero-init frames, OLED hot-plug docs)
+ * DEVICE: ESP32-S3 N16R3 (16MB Flash + 8MB Octal PSRAM)
+ * =========================================================================
+ * WIRING DIAGRAM
  * -------------------------------------------------------------------------
  * Component Pin | MCU Pin       | Note / Hardware Reasoning
  * -------------------------------------------------------------------------
@@ -694,7 +696,8 @@ void loggingTask(void *pvParameters) {
         // WAKE UP SEQUENCE
         is_oled_sleeping = false;
         
-        // Full hardware re-initialization to recover from hot-plug or power loss
+        // Full hardware re-initialization to recover from hot-plug or power loss.
+        // Required because OLED is not soldered — a physical reconnect invalidates the I2C device state.
         u8g2.begin();
         u8g2.setFont(font_8_pixel);
         u8g2.setPowerSave(0);
@@ -711,7 +714,9 @@ void loggingTask(void *pvParameters) {
     // === PHASE 2: UI State Machine ===
     if (currentState == STATE_LIVE_VIEW) {
       if (selectTriggered) {
-        // Re-initialize OLED hardware on entering menu to recover lost connection instantly
+        // Re-initialize OLED hardware on entering menu to recover lost connection instantly.
+        // This handles hot-plug: if the OLED (non-soldered) was disconnected and reattached,
+        // begin() re-discovers it via I2C init. setPowerSave(0) alone won't recover a lost device.
         u8g2.begin();
         u8g2.setFont(font_8_pixel);
         u8g2.setPowerSave(0);
