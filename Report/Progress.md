@@ -318,8 +318,11 @@ This phase will develop the Python-based Pedestrian Dead Reckoning pipeline to r
 Hardware diagnostic and validation tool set for the GY-GPS6Mv2 (NEO-6M) GPS module on Arduino Uno. Three sketches developed and tested at `Test- Sanity Check/GY-GPS6Mv2/`.
 
 - [x] **GY-GPS6Mv2.ino — Live Diagnostic Monitor:** Real-time display of fix quality (2D/3D), satellite count, HDOP, position, altitude, speed, UTC time. Includes: time-to-first-fix measurement, 10-second heartbeat when no fix, 5-minute summary statistics (min/avg/max HDOP and satellites, fix uptime %). Non-blocking error detection — prints wiring error once then continues reading. All `F()` macros for Uno SRAM.
+  *Results: cold start TTFF 778 s (indoor at 3.3V under roof — worst case). Hot start 4 s. HDOP 18–81, satellites avg 6.9, fix uptime 60–95%.*
 - [x] **GPS_ColdStart.ino — Start Timing & Fix Reliability:** Three-phase test: (1) Cold start TTFF measurement from power-on to first 3D fix. (2) 2-minute stabilisation log at 1 Hz with lat/lon/alt/HDOP/sats. (3) Re-acquisition test (user power-cycles GPS) with separate TTFF. Prints final summary with position scatter (lat/lon σ in metres), HDOP/satellite stats, uptime %.
+  *Results: hot start 4 s (BBR cached from prior run), 100% fix uptime over 2 min, position scatter ±1.84 m lat / ±2.96 m lon, altitude 1741.2 m (matches city reference ±6.5 m range), HDOP 16–24 indoors at 3.3V. Tests performed indoors under roof at 3.3V — harsh conditions confirm module functional. Expected outdoor performance: cold start 30–60 s, HDOP 1.0–2.5, position σ ±1 m.*
 - [x] **GPS_StaticPrecision.ino — 1-Hour Static Precision:** Logs at 1 Hz for 3600 s. Reports lat/lon position scatter in metres (σ), altitude min/max/mean/σ, HDOP and satellite statistics, fix uptime %, and CEP (Circular Error Probable). Uses offset-from-reference technique for float precision. CSV output for external post-processing.
+  *Status: sketch created, tested indoors briefly — pending full 1-hour outdoor run.*
 
 ---
 

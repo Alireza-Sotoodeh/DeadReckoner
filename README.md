@@ -30,7 +30,7 @@ The final architecture separates sensing, logging, user feedback, and recovery l
 | **OLED 0.91-inch**             | Runtime display           | Used for status, menus, and fault messages  |
 | **SD Card (3.3V DIY adapter)** | Storage                   | Finalized for stable SPI logging            |
 | **EEPROM**                     | Calibration storage       | Stores sensor bias values                   |
-| **S6MV2 GNSS**                 | Future positioning module | Reserved in the logging structure           |
+| **S6MV2 GNSS**                 | Future GPS module       | GY-GPS6Mv2 validated — hot start 4s, HDOP ~16 indoors. |
 
 ---
 
