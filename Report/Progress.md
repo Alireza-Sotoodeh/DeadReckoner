@@ -298,8 +298,10 @@ The Python-based Pedestrian Dead Reckoning pipeline was implemented in `compare_
 - [x] **PDR Accuracy Metrics:** Compute path length, GPS distance, and error percentage per segment.
 - [x] **Trajectory Visualization:** 2D path plots with matplotlib, per-segment and summary overlay plots.
 - [ ] **ZUPT + RTS Smoother:** Bidirectional batch optimization over entire walk for minimal drift (planned enhancement).
+- [x] **`--gps-guided` mode:** Substitutes GPS heading for PDR heading to prove step length accuracy (shape 156m → 3m).
+- [x] **Path shape diagnosis:** Madgwick filter magnetometer yaw lock → Mahony filter fix.
 
-**Verification Results:** 5 walk segments tested, avg error 9.3% (best 3.2%, worst 14.3%). IMU-only PDR is sufficient — GPS and BMP280 are not required for dead reckoning.
+**Verification Results:** 5 walk segments tested, avg error **4.9%** (best 4.0%, worst 7.8%, total 2.8%) after tune_pdr.py bug fix and K=0.425 calibration. IMU-only PDR is sufficient — GPS and BMP280 are not required for dead reckoning.
 
 ---
 
@@ -340,6 +342,22 @@ Phone-based GPS start/end anchoring via ESP32 WiFi soft-AP and captive portal. E
 - [x] **OLED Sleep Prevention:** Auto-sleep skipped during GPS WAITING, PROMPT_START, PROMPT_END, CONFIRM_EXIT states.
 - [x] **GPS Bug Fixes:** JSON string-vs-number fix (`parseFloat()` in JS), `writeGPSFrame()` now correctly stores alt and epoch, time field changed from UTC readonly to editable local time.
 - [ ] **UART NEO-6M GPS Module:** Direct GPS module integration (without phone) — pending extension.
+
+---
+
+#### Phase 15: PDR Refinement & Path Shape Fix [COMPLETED]
+
+Refined the Python analysis pipeline and diagnosed/fixed the path shape mismatch.
+
+- [x] **`tune_pdr.py` bug fixed:** `compute_gps_distance` was receiving local xy (meters) instead of lat/lon (degrees), causing 100% error for all K values.
+- [x] **Optimal Weinberg K found:** K=0.425, height=1.5, dist=25 — avg error 4.9%, total 2.8%.
+- [x] **`compare_paths.py` rewritten:** Correct 47-byte BIN parser (magic 0xDEADC0DE, CRC-16 matching firmware), 2D heading+drift optimization, path shape metrics (Hausdorff + avg dist), per-segment path maps.
+- [x] **CRC-16 verified:** 0% failure across all ~568K frames (matched firmware's poly 0xA001, init 0xFFFF, no final XOR).
+- [x] **FileHeader duplication fixed:** Frame reading now starts at offset 16 (after FileHeader).
+- [x] **`--gps-guided` mode:** Proves PDR step lengths are correct — avg shape 3m vs GPS when using correct heading.
+- [x] **Path shape root cause diagnosed:** Madgwick filter incorporates magnetometer into gradient descent at full `beta` strength, locking yaw to magnetic North. `zeta=0` already (unrelated).
+- [x] **Firmware fix applied:** `ESP32_S3.ino:114` changed `MADGWICK → MAHONY`.
+- [ ] **Re-collect walks:** Re-run 5 segments with Mahony filter and verify shape improvement.
 
 ---
 

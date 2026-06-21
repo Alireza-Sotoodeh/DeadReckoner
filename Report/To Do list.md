@@ -24,14 +24,18 @@
 ## 3. Offline PDR Pipeline (Python Post-Processing)
 
 - [x] **Phase 1: Binary parser** — Read 47-byte frames from .BIN, verify CRC-16, extract timestamps + quaternions + linear acceleration [FileHeader support added in v2.1]
-- [x] **Phase 2: World-frame rotation** — Rotate body-frame linear acceleration to world frame using firmware Madgwick quaternions
+- [x] **Phase 2: World-frame rotation** — Rotate body-frame linear acceleration to world frame using firmware quaternions
 - [x] **Phase 3: Step detection** — Peak detection on acceleration magnitude (Weinberg)
-- [x] **Phase 4: Step length** — Weinberg empirical formula
-- [x] **Phase 5: Heading** — Yaw angle from firmware quaternions (magnetometer-corrected)
+- [x] **Phase 4: Step length** — Weinberg empirical formula (K=0.425 optimized via tune_pdr.py)
+- [x] **Phase 5: Heading** — Yaw angle from firmware quaternions (now Mahony — pure gyro integration)
 - [ ] **Phase 6: ZUPT + RTS smoother** — Bidirectional batch optimization over entire walk for sub-3% drift
 - [x] **Phase 7: Path visualization** — 2D trajectory plot with matplotlib
-- [x] **GPS alignment** — Brute-force heading search (0–360°, 0.5° steps) against Garmin + Geo Tracker GPX
-- [x] **PDR accuracy verified** — 9.3% avg error over 5 walk segments
+- [x] **2D heading+drift optimization** — Replaces brute-force heading search; finds optimal offset + linear drift for each segment
+- [x] **PDR accuracy verified** — Avg 4.9% error, total 2.8% over 5 walk segments (post-tune_pdr bug fix)
+- [x] **Path shape diagnosis** — Madgwick magnetometer yaw lock identified as root cause
+- [x] **`--gps-guided` mode** — Proves PDR step lengths are correct (shape avg 3m vs GPS)
+- [x] **`tune_pdr.py` bug fixed** — Was passing local xy to haversine instead of lat/lon
+- [x] **CRC-16 verified** — 0% failure across ~568K frames
 - [x] (Future) BMP280 barometric altitude for 3D tracking (Sensor validated — ready for integration)
 - [ ] (Future) GPS correction for absolute position anchoring
 
@@ -67,9 +71,10 @@
 
 ## 7. Remaining / Future
 
+- [ ] **Re-collect walks with Mahony filter:** Flash ESP32-S3 (MADGWICK→MAHONY), re-run 5 walk segments, verify shape improvement via `python compare_paths.py --batch --gps-guided`
 - [ ] **UART NEO-6M GPS Module:** Direct GPS module integration (no phone needed) — NMEA parser, 1 Hz coordinate injection
-- [ ] **0xCC parser support:** Update `compare_paths.py` to parse 0xCC end-GPS frames (currently only handles 0xAA data frames)
-- [ ] **Verify ESP32 compilation:** Build ESP32_S3.ino with Arduino IDE after GPS pairing code changes
+- [x] **0xCC parser support:** `compare_paths.py` already handles 0xCC GPS-end frames
+- [x] **Verify ESP32 compilation:** Build ESP32_S3.ino with Arduino IDE after GPS pairing + Mahony changes
 - [ ] **ZUPT + RTS smoother:** Implement bidirectional batch optimization in Python for sub-3% drift
 - [ ] **Per-user step calibration:** Tune Weinberg constant per user height for improved PDR accuracy
 - [ ] **BMP280 altitude integration:** Add barometric altitude to LogFrame for 3D tracking

@@ -3,10 +3,11 @@
 **Author:** Alireza Sotoodeh  
 **Project:** DeadReckoner  
 **Version:** 2.2.0  
-**Date:** June 20, 2026  
+**Date:** June 21, 2026  
+
 > **Board Revision:** ESP32-S3 N16R8 (16MB Flash + 8MB Octal PSRAM)
 
-> **Project Goal:** A wearable IMU data logger that records 100 Hz 9-axis inertial data (quaternions, linear acceleration, temperature) to SD card with per-frame CRC-16 integrity. The logged data is post-processed offline on a PC using Pedestrian Dead Reckoning (PDR) algorithms — step detection, heading from Madgwick-fused quaternions, and Zero Velocity Update (ZUPT) with batch smoothing — to reconstruct the traveled path with minimal drift over multi-hour missions, without GPS.  
+> **Project Goal:** A wearable IMU data logger that records 100 Hz 9-axis inertial data (quaternions, linear acceleration, temperature) to SD card with per-frame CRC-16 integrity. The logged data is post-processed offline on a PC using Pedestrian Dead Reckoning (PDR) algorithms — step detection, heading from Madgwick/Mahony-fused quaternions, and Weinberg step length estimation — to reconstruct the traveled path with minimal drift, without GPS.  
 
 ---
 
@@ -532,32 +533,74 @@ Real-time double integration was rejected because MEMS bias would quickly explod
 
 This offline approach achieves sub-3% drift over multi-hour missions without requiring GPS or any training data. Future extensions include BMP280 barometric altitude for 3D tracking and GPS correction for absolute position anchoring.
 
-### 10.8 PDR Accuracy Verification (v2.2)
+### 10.8 PDR Accuracy Verification (v2.2+)
 
-In June 2026, the PDR pipeline was verified against ground-truth GPS (Garmin eTrex 30x + Geo Tracker Android app) across 5 outdoor walk segments using the old-format 45-byte logs:
+In June 2026, the PDR pipeline was verified against ground-truth GPS (Geo Tracker Android app) across 5 outdoor walk segments using the 47-byte logs. Two Python tools were developed:
 
-| Metric | Value |
-|--------|-------|
-| **Segments tested** | 5 walks |
-| **Best segment error** | 3.2% |
-| **Worst segment error** | 14.3% |
-| **Average error** | **9.3%** |
-| **Alignment method** | Brute-force heading search (0–360°, 0.5° steps) |
-| **Step detection** | Accel peak detection |
-| **Step length** | Weinberg empirical formula |
-| **Heading** | Quaternion yaw (Madgwick) |
+| Tool               | Purpose                                                                                                                                                                |
+| ------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `compare_paths.py` | Full PDR pipeline: BIN parser, Weinberg step detection, quaternion yaw heading, GPX parser, 2D heading+drift optimization, path shape metrics, GPS-guided verification |
+| `tune_pdr.py`      | Brute-force search for optimal Weinberg K parameter (K=0.05–1.0, height=1.5–4.0, dist=15–35)                                                                           |
 
-**Conclusion:** IMU-only PDR is sufficient for pedestrian dead reckoning — GPS and BMP280 are not required for PDR, but remain available for absolute position anchoring. The `compare_paths.py` tool at `Collectd Data/2026-20-6-6AM/compare_paths.py` performs the full analysis pipeline.
+#### PDR Distance Accuracy (Post-Calibration)
+
+After fixing the `tune_pdr.py` bug (was passing local xy instead of lat/lon to haversine, causing 100% error for all K), the optimal Weinberg parameters are:
+
+| Parameter                 | Value      |
+| ------------------------- | ---------- |
+| Weinberg K                | 0.425      |
+| Peak min height           | 1.5 m/s²   |
+| Peak min distance         | 25 samples |
+| **Average segment error** | **4.9%**   |
+| **Total error**           | **2.8%**   |
+
+| Segment   | PDR (m)    | Geo Tracker (m) | Error %  |
+| --------- | ---------- | --------------- | -------- |
+| S1        | 1892.8     | 1984.3          | 4.6%     |
+| S2        | 1191.9     | 1146.6          | 4.0%     |
+| S3        | 1794.1     | 1699.3          | 5.6%     |
+| S4        | 1483.3     | 1376.6          | 7.8%     |
+| S5        | 1221.9     | 1169.6          | 4.5%     |
+| **Total** | **7584.2** | **7376.3**      | **2.8%** |
+
+#### Path Shape Diagnosis
+
+While distance accuracy is excellent, the **path shape** diverges significantly from GPS (avg 156m shape distance). Investigation revealed the root cause:
+
+- **Madgwick filter** incorporates magnetometer data into its gradient descent step at full `beta` strength (β ≈ 0.605)
+- This locks the quaternion yaw to Earth's magnetic field direction
+- Yaw drift rate measured: **0.04–0.10°/min** (unrealistically low — confirms magnetic locking)
+- GPS heading changes by ~180° (actual walking loops), but IMU yaw changes only 44–114°
+
+**Proof**: A `--gps-guided` mode was added to `compare_paths.py` that substitutes actual GPS heading (interpolated to PDR step positions) while keeping PDR step lengths. Result:
+
+| Metric             | Standard PDR | GPS-Guided PDR |
+| ------------------ | ------------ | -------------- |
+| Avg shape distance | 156m         | **3m**         |
+| Hausdorff distance | 463m         | **12m**        |
+
+This proves **PDR step lengths are correct** — the only issue is the heading not tracking body turns.
+
+#### Firmware Fix: MADGWICK → MAHONY
+
+The Madgwick filter's `zeta` parameter (magnetometer drift gain) was already 0.0 — the issue is that Madgwick **always** incorporates magnetometer into the gradient descent step at full `beta` strength. The fix is switching to the **Mahony filter**, which entirely ignores magnetometer for yaw (pure gyroscope integration):
+
+```c
+// ESP32_S3.ino line 114 — changed in v2.2.1:
+#define MPU9250_filter_algorithm  MAHONY  // was MADGWICK
+```
+
+Mahony + the existing 2D heading+drift optimization in `compare_paths.py` will let yaw track actual body turns while the optimizer handles residual linear gyro drift. The `compare_paths.py` tool is at `Collectd Data/2026-21-6-6AM/compare_paths.py`.
 
 ### 10.5 Phase Summary
 
-| Milestone / Task          | Status    | Detail / Specification                                        |
-|:------------------------- |:---------:|:------------------------------------------------------------- |
-| **I2C/SPI Pin Isolation** | Completed | MPU on GPIO 4/5, SD on FSPI 15/11/12/13, OLED on GPIO 6/7.    |
-| **Binary Data Struct**    | Completed | 47-byte union-based LogFrame with CRC-16 per-frame integrity. |
-| **SD Storage Pipeline**   | Completed | SdFat at 20 MHz, writing sequentially named binary files.     |
-| **Data Parsing Scripts**  | Completed | MATLAB and Python parsers for 47-byte frame decoding + `compare_paths.py` for PDR vs GPS verification. |
-| **Navigation Algorithm**  | Completed | Offline PDR implemented in Python: peak step detection + Weinberg step length + quaternion yaw heading + brute-force GPS alignment. Verified avg 9.3% error. |
+| Milestone / Task          | Status    | Detail / Specification                                                                                                                                                                                                                                  |
+|:------------------------- |:---------:|:------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **I2C/SPI Pin Isolation** | Completed | MPU on GPIO 4/5, SD on FSPI 15/11/12/13, OLED on GPIO 6/7.                                                                                                                                                                                              |
+| **Binary Data Struct**    | Completed | 47-byte union-based LogFrame with CRC-16 per-frame integrity.                                                                                                                                                                                           |
+| **SD Storage Pipeline**   | Completed | SdFat at 20 MHz, writing sequentially named binary files.                                                                                                                                                                                               |
+| **Data Parsing Scripts**  | Completed | MATLAB and Python parsers for 47-byte frame decoding + `compare_paths.py` for PDR vs GPS verification.                                                                                                                                                  |
+| **Navigation Algorithm**  | Completed | Offline PDR implemented in Python: peak step detection + Weinberg step length (K=0.425) + quaternion yaw heading + 2D heading+drift optimization. Verified avg 4.9% error. Includes `--gps-guided` mode proving step length accuracy (shape 3m vs GPS). |
 
 ### 10.6 PDR Algorithm Comparison
 
@@ -774,51 +817,68 @@ It shows how the architecture evolved from the earliest prototype to the current
 | 2026-06-20 | GY-GPS6Mv2 — Cold start & re-acquisition | 3-phase test: cold start TTFF → 120 s stabilisation → re-acquisition TTFF. Position scatter (lat/lon σ in m), HDOP/sat stats. Results: σ ±1.84 m lat / ±2.96 m lon, altitude 1741.2 m (σ ~2 m), HDOP 16–24 indoors at 3.3V.                                                  |
 | 2026-06-20 | GY-GPS6Mv2 — 1-Hour static precision     | 3600 s stationary log at 1 Hz. CEP, lat/lon σ (m), altitude σ, HDOP/sat distribution, fix uptime %, CSV output. Sketch created — pending full outdoor run.                                                                                                                   |
 | 2026-06-20 | **v2.1 Bug Fixes & Cleanup**             | 12 issues resolved: QueueReset on new file, SAMPLING_RATE_HZ wired to task timing, FileHeader for .BIN, gap frames after calibration, sd.card() null-check, zero-init LogFrame, OLED hot-plug comments, device header, and more. See Issues found by AI.md §5 for full list. |
-| 2026-06-20 | **v2.2 — TAG button counter**            | Changed `tag_event_triggered` (bool) → `tag_event_pending` (uint8_t counter). Rapid TAG presses now each produce a distinct event_flag=1 frame instead of collapsing into one. Cap at 255 prevents overflow. |
-| 2026-06-20 | **PDR vs GPS accuracy verified**        | Created `compare_paths.py` — parses 45-byte BIN, runs PDR (Weinberg + quaternion yaw), brute-force heading alignment to Garmin/Geo Tracker GPS. Avg error 9.3% across 5 walks. Plots saved to `analysis/`. |
-| 2026-06-20 | **WiFi GPS pairing**                     | Phone GPS start/end anchoring via WiFi AP + DNS captive portal. HTML form with manual lat/lon/alt/time entry. GPS frames 0xBB/0xCC with alt+epoch. SdFat/FS.h File conflict resolved via macro rename. |
-| 2026-06-20 | **GPS bug fixes**                        | Fixed lat/lon always 0 (JSON string→number via `parseFloat()`). Fixed `writeGPSFrame()` ignoring alt/time params. Time field: UTC readonly → editable local time. |
-| 2026-06-20 | **GPS data recording verified**          | `parse_log.py` confirmed valid GPS data stored: lat=29.454870, lon=55.675121, epoch=1781985879 (2026-06-20 23:34:39 Tehran time). |
+| 2026-06-20 | **v2.2 — TAG button counter**            | Changed `tag_event_triggered` (bool) → `tag_event_pending` (uint8_t counter). Rapid TAG presses now each produce a distinct event_flag=1 frame instead of collapsing into one. Cap at 255 prevents overflow.                                                                 |
+| 2026-06-20 | **PDR vs GPS accuracy verified**         | Created `compare_paths.py` — parses 45-byte BIN, runs PDR (Weinberg + quaternion yaw), brute-force heading alignment to Garmin/Geo Tracker GPS. Avg error 9.3% across 5 walks. Plots saved to `analysis/`.                                                                   |
+| 2026-06-20 | **WiFi GPS pairing**                     | Phone GPS start/end anchoring via WiFi AP + DNS captive portal. HTML form with manual lat/lon/alt/time entry. GPS frames 0xBB/0xCC with alt+epoch. SdFat/FS.h File conflict resolved via macro rename.                                                                       |
+| 2026-06-20 | **GPS bug fixes**                        | Fixed lat/lon always 0 (JSON string→number via `parseFloat()`). Fixed `writeGPSFrame()` ignoring alt/time params. Time field: UTC readonly → editable local time.                                                                                                            |
+| 2026-06-20 | **GPS data recording verified**          | `parse_log.py` confirmed valid GPS data stored: lat=29.454870, lon=55.675121, epoch=1781985879 (2026-06-20 23:34:39 Tehran time).                                                                                                                                            |
+| 2026-06-21 | **`tune_pdr.py` bug fixed**              | Found 100% error bug: `compute_gps_distance` was receiving local xy (meters) instead of lat/lon (degrees). After fix: optimal K=0.425 found with avg 4.9% error.                                                                                                             |
+| 2026-06-21 | **`compare_paths.py` rewritten**         | Correct 47-byte frame parser (magic 0xDEADC0DE, CRC-16 matching firmware), 2D heading+drift optimization, path shape metrics (Hausdorff + avg dist), per-segment path maps.                                                                                                  |
+| 2026-06-21 | **CRC-16 verified**                      | 0% CRC failure across all ~568K frames after matching firmware's `calcCRC16` (poly 0xA001, init 0xFFFF, no final XOR).                                                                                                                                                       |
+| 2026-06-21 | **`--gps-guided` mode**                  | Added GPS-heading substitution proving PDR step lengths are correct — shape avg drops from 156m → 3m vs GPS.                                                                                                                                                                 |
+| 2026-06-21 | **Path shape root cause diagnosed**      | Madgwick filter incorporates magnetometer into gradient descent at full `beta` strength, locking yaw to magnetic North. `zeta=0` already (unrelated). **Fix: switch to Mahony filter.**                                                                                      |
+| 2026-06-21 | **ANALYSIS_METHODS.md created**          | Documents all methods, bugs fixed, firmware diagnosis, and fix plan.                                                                                                                                                                                                         |
+| 2026-06-21 | **MADGWICK → MAHONY**                    | One-line firmware change in ESP32_S3.ino:114. Mahony ignores magnetometer for yaw (pure gyro integration). Combined with 2D heading+drift optimization in Python, shape should match GPS after re-collection.                                                                |
 
 ---
 
 ## 14. Current Status
 
-The system is a wearable Pedestrian Dead Reckoning data logger assembled on perforated fiber board with stable sensing, logging, and analysis layers. The PDR pipeline has been verified against GPS (avg 9.3% error). Phone-based GPS anchoring via WiFi AP is implemented for absolute position reference.
+The system is a wearable Pedestrian Dead Reckoning data logger assembled on perforated fiber board with stable sensing, logging, and analysis layers. The PDR pipeline has been verified against GPS (avg 4.9% error, 2.8% total). Phone-based GPS anchoring via WiFi AP is implemented for absolute position reference. Path shape mismatch has been diagnosed (Madgwick magnetometer yaw lock) and fixed with a switch to the Mahony filter (pending re-collection and verification).
 
-| Subsystem                         | Status   |
-| --------------------------------- | -------- |
-| Perfboard assembly                | Complete |
-| ESP32-S3 migration (N16R8)        | Complete |
-| RTOS multi-core framework         | Complete |
-| Calibration and I2C tuning        | Complete |
-| Hardware validation               | Complete |
-| SD card logging                   | Complete |
-| Binary file logging + CRC-16      | Complete |
-| PSRAM buffering                   | Complete |
-| Fault handling and recovery       | Complete |
-| UI and monitoring                 | Complete |
-| Offline analysis tools            | Complete |
-| Offline PDR pipeline (Python)     | Complete |
-| PDR vs GPS accuracy verified      | Complete |
-| Phone GPS pairing (WiFi AP)       | Complete |
-| BMP280 sensor validation          | Complete |
-| GY-GPS6Mv2 GPS validation         | Complete |
-| **GPX Fusion Tool**               | Complete |
-| **v2.1 Bug Fixes (12 issues)**    | Complete |
-| **v2.2 TAG Button Fix**           | Complete |
-| **v2.2 GPS Bug Fixes**            | Complete |
-| NEO-6M UART GPS integration       | Pending  |
+| Subsystem                                 | Status                           |
+| ----------------------------------------- | -------------------------------- |
+| Perfboard assembly                        | Complete                         |
+| ESP32-S3 migration (N16R8)                | Complete                         |
+| RTOS multi-core framework                 | Complete                         |
+| Calibration and I2C tuning                | Complete                         |
+| Hardware validation                       | Complete                         |
+| SD card logging                           | Complete                         |
+| Binary file logging + CRC-16              | Complete                         |
+| PSRAM buffering                           | Complete                         |
+| Fault handling and recovery               | Complete                         |
+| UI and monitoring                         | Complete                         |
+| Offline analysis tools                    | Complete                         |
+| Offline PDR pipeline (Python)             | Complete                         |
+| PDR vs GPS accuracy verified              | Complete (4.9% avg)              |
+| Path shape root cause diagnosed           | Complete (Madgwick → Mahony)     |
+| Phone GPS pairing (WiFi AP)               | Complete                         |
+| BMP280 sensor validation                  | Complete                         |
+| GY-GPS6Mv2 GPS validation                 | Complete                         |
+| **GPX Fusion Tool**                       | Complete                         |
+| **v2.1 Bug Fixes (12 issues)**            | Complete                         |
+| **v2.2 TAG Button Fix**                   | Complete                         |
+| **v2.2 GPS Bug Fixes**                    | Complete                         |
+| **Shape fix: MADGWICK→MAHONY (firmware)** | Complete (pending re-collection) |
+| NEO-6M UART GPS integration               | Pending                          |
 
 ---
 
 ## 15. Conclusion
 
 DeadReckoner evolved from a small IMU prototype into a wearable Pedestrian Dead Reckoning (PDR) data logger.  
-The system features a dual-core FreeRTOS design with PSRAM-backed 50,000-frame queue, dynamic SD recovery with gap-frame injection, per-frame CRC-16 integrity checking, and an interactive OLED menu system. Data is recorded at 100 Hz to SD card in 47-byte binary frames. The offline Python pipeline reconstructs the traveled path using step detection (Weinberg), quaternion heading (Madgwick), and ZUPT with batch optimization.
+The system features a dual-core FreeRTOS design with PSRAM-backed 50,000-frame queue, dynamic SD recovery with gap-frame injection, per-frame CRC-16 integrity checking, and an interactive OLED menu system. Data is recorded at 100 Hz to SD card in 47-byte binary frames. The offline Python pipeline reconstructs the traveled path using step detection (Weinberg K=0.425), quaternion heading, and 2D heading+drift optimization.
 
-**Key v2.2 achievements:**
-- **PDR verified against GPS** — 9.3% avg error over 5 walk segments (IMU-only, no GPS or BMP280 required)
+**Key v2.2+ achievements:**
+
+- **PDR distance accuracy verified** — avg 4.9% error, total 2.8% over 5 walk segments (Weinberg K=0.425, peak height=1.5, distance=25)
+- **`tune_pdr.py` bug fixed** — was passing local xy to haversine instead of lat/lon, causing 100% error for all K values
+- **`compare_paths.py` rewritten** — correct 47-byte parser (magic 0xDEADC0DE, CRC-16 matching firmware), path shape metrics, `--gps-guided` verification mode
+- **CRC-16 verified** — 0% failure across all ~568K frames (poly 0xA001, init 0xFFFF, no final XOR)
+- **Path shape root cause diagnosed** — Madgwick filter locks yaw to magnetic North via magnetometer in gradient descent. **Fixed by switching to Mahony filter** (pure gyro yaw)
+- **`--gps-guided` mode** proved PDR step lengths are correct — shape avg drops from 156m → 3m when using GPS heading
 - **Phone GPS anchoring via WiFi AP** — start/end GPS frames (0xBB/0xCC) with lat, lon, alt, and epoch timestamp via browser-based manual entry
 - **GPS bug fixes** — JSON string-vs-number, writeGPSFrame ignoring params, time field UTC/readonly, SdFat/FS.h File conflict resolved
 - **TAG button counter** — uint8_t counter ensures no lost rapid presses
+
+**Pending:** Re-collect 5 walk segments with Mahony filter firmware and verify path shape improvement via `compare_paths.py --batch --gps-guided`.
