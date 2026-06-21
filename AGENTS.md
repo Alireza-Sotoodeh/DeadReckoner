@@ -2,7 +2,7 @@
 
 ## Goal
 
-Fix consecutive TAG button presses lost, verify old-code PDR accuracy against GPS, and implement phone GPS pairing via WiFi AP.
+Fix consecutive TAG button presses lost, verify old-code PDR accuracy against GPS, implement phone GPS pairing via WiFi AP, and **fix PDR path shape** (Madgwick magnetometer yaw lock → switch to Mahony filter).
 
 ## Constraints & Preferences
 
@@ -17,28 +17,28 @@ Fix consecutive TAG button presses lost, verify old-code PDR accuracy against GP
 
 ## Progress
 
-### Done
+### Done (Python tools)
 
-- **TAG button fixed**: `tag_event_triggered` (bool) → `tag_event_pending` (uint8_t counter), capped at 255, decremented per frame in sensorTask
-- **Version bumped to 2.2.0** in Report.md, changelog entry added
-- **`compare_paths.py`** created — parses old 45-byte BIN, runs PDR (Weinberg step detection + quaternion yaw heading), aligns to Garmin+Geo Tracker GPS via brute-force heading search
-- **PDR accuracy verified**: tested all 5 walk segments, avg error 9.3% (max 14.3%), IMU-only PDR sufficient — GPS and BMP280 not needed
-- **Saved plots**: `analysis/summary_comparison.png`, `analysis/all_segments_overlay.png`
-- **WiFi GPS pairing code**: Added WiFi, WebServer, DNSServer includes; `PhoneGPSData` struct; GPS states in UI state machine (PROMPT_START, PROMPT_END, WAITING, CONFIRM_EXIT); `gps_start_needed`, `gps_end_needed`, `gps_pending_file_creation`, `gps_prompt_cursor`, `gps_data_received` globals; `startGPSAP()`, `stopGPSAP()`, `handleGPSRoot()`, `handleGPSPost()`, `handleGPSNotFound()`, `writeGPSFrame()` functions; GPS HTML page (embedded PROGMEM, manual lat/lon entry, auto-filled date/time from JS)
-- **GPS POST handler**: stores start/end GPS data, defers 0xBB write when `gps_pending_file_creation` is true (for Create New File / Format scenarios), writes 0xCC immediately during shutdown
-- **Boot GPS prompt**: one-shot trigger at top of `loggingTask()` loop, transitions through state machine
-- **Create New File → GPS prompt**: closes old file, sets counters, defers file creation via `gps_pending_file_creation`, transitions to `STATE_GPS_PROMPT_START`
-- **Format → GPS prompt**: deletes all files, resets IDs, resumes sensor task, defers file creation, transitions to `STATE_GPS_PROMPT_START`
-- **Shutdown GPS end prompt**: integrated as blocking loop inside shutdown handler (after queue drain, before file close) — YES/NO menu → WiFi AP → GPS receive → file close → SAFE TO POWER OFF
-- **GPS state machine handlers**: `STATE_GPS_PROMPT_START/END` (YES/NO), `STATE_GPS_WAITING` (polls HTTP/DNS, writes 0xBB + creates file if pending), `STATE_GPS_CONFIRM_EXIT` (YES: exit without data, creates file if pending)
-- **GPS exit point file creation**: all three exit paths (PROMPT NO, GPS received, CONFIRM_EXIT YES) open new file, write header, and optionally write 0xBB
-- **OLED UI rendering**: added draw calls for all 4 GPS states (PROMPT_START, PROMPT_END, WAITING with SSID+IP, CONFIRM_EXIT)
-- **Stale GPS data cleanup**: `phone_gps.has_start = false` set in PROMPT_START NO branch and CONFIRM_EXIT YES branch
+- **`compare_paths.py` rewritten** — 47-byte BIN parser (magic 0xDEADC0DE, CRC-16 matching firmware), PDR pipeline (Weinberg K=0.425, peak-based yaw), 2D heading+drift optimization, path shape metrics
+- **`tune_pdr.py` bug fixed** — was passing local xy to `compute_gps_distance` instead of lat/lon (causing 100% error for all K values). After fix: found optimal K=0.425, height=1.5, dist=25, avg error 4.9%
+- **CRC-16 verified**: 0% failure across ~568K frames (poly 0xA001, init 0xFFFF, no final XOR)
+- **`--gps-guided` mode** added — proves PDR step lengths are correct by substituting GPS heading; avg shape drops from 156m → **3m**
+- **`ANALYSIS_METHODS.md`** created — documents all methods, bugs fixed, and diagnosis
+- **Path shape root cause diagnosed**: Madgwick filter incorporates magnetometer into gradient descent at full `beta` strength, locking yaw to magnetic North. `zeta` is already 0.0 (unrelated). **Fix: switch to MAHONY filter** (ignores magnetometer for yaw, pure gyro integration).
+
+### Done (Firmware)
+
+- **TAG button fixed**: `tag_event_triggered` (bool) → `tag_event_pending` (uint8_t counter)
+- **Version bumped to 2.2.0**
+- **WiFi GPS pairing**: full AP mode with captive portal, manual lat/lon entry web page, GPS state machine (PROMPT_START/END/WAITING/CONFIRM_EXIT), 0xBB/0xCC frames
+- **GPS prompts**: at boot, Create New File, Format (each gets anchor); at shutdown for end GPS
 
 ### Remaining
 
-- Update Python parser (`compare_paths.py`) to handle 0xCC GPS-end frame (currently only handles 0xAA data frames)
-- Verify compilation with ESP32 toolchain
+- **FIRMWARE FIX**: Change `#define MPU9250_filter_algorithm MADGWICK` → `MAHONY` in `ESP32_S3.ino:114`
+- Re-flash ESP32-S3, re-collect 5 walk segments
+- Re-run `compare_paths.py --batch --gps-guided` to verify shape improved
+- Verify ESP32 compilation
 
 ## Key Decisions
 
@@ -51,10 +51,13 @@ Fix consecutive TAG button presses lost, verify old-code PDR accuracy against GP
 - Shutdown GPS end prompt uses blocking while-loop (not state machine) because shutdown is sequential (drain → GPS → close → lock)
 - GPS start 0xBB write is deferred to GPS_WAITING exit (not written in POST handler) to handle both boot (file exists) and Create New File/Format (file created after GPS)
 - Format handler resumes sensorTask before GPS prompt (deletes are done, sensor can run during AP)
+- **Switch MADGWICK → MAHONY**: Mahony ignores magnetometer for yaw (pure gyro integration). 2D heading+drift optimization handles residual linear gyro drift.
 
 ## Relevant Files
 
-- `Code_deadreckoner/ESP32_S3/ESP32_S3.ino`: main firmware, WiFi GPS pairing code
-- `Collectd Data/2026-20-6/compare_paths.py`: PDR vs GPS comparison tool
+- `Code_deadreckoner/ESP32_S3/ESP32_S3.ino`: main firmware, WiFi GPS pairing, **line 114 needs MADGWICK→MAHONY change**
+- `Collectd Data/2026-21-6-6AM/compare_paths.py`: PDR vs GPS comparison tool
+- `Collectd Data/2026-21-6-6AM/tune_pdr.py`: brute-force K tuner (bug fixed)
+- `Collectd Data/2026-21-6-6AM/ANALYSIS_METHODS.md`: full methods, fixes, and diagnosis documentation
 - `Report/Report.md`: updated with v2.2 TAG button fix
 - `Report/Issues found by AI.md`: TAG button marked [x]
