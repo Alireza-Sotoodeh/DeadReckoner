@@ -111,7 +111,7 @@
   #define MPU9250_Gyroscope_DLPF_cutoff  DLPF_41HZ 				// Should be <= SAMPLING_RATE_HZ/2 (Nyquist). Options: 250, 184, 92, 41, 20, 10, 5, 3600 Hz
   #define MPU9250_Accelerometer_filter_choice  0x01				//select: 0x01 Enable, 0x00 bypass
   #define MPU9250_Accelerometer_DLPF_cutoff  DLPF_5HZ 		// Should be <= SAMPLING_RATE_HZ/2 (Nyquist). Options: 218, 99, 45, 21, 10, 5, 420 Hz
-  #define MPU9250_filter_algorithm	MADGWICK 							//select: MADGWICK, MAHONY, NONE
+  #define MPU9250_filter_algorithm	MAHONY 								//select: MADGWICK, MAHONY, NONE
   #define MPU9250_filter_iterations	10										//select: 1-50 higher better but may slow down
   #define attempt_recovery_MPU9250_MS 2000
   // OLED 
