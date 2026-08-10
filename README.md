@@ -1,6 +1,6 @@
 # DeadReckoner
 
-A real-time, offline dead-reckoning and data-logging system built around the **ESP32-S3 N16R3**, the **MPU9250 IMU**, and a **binary SD-card logging pipeline**.
+A real-time, offline dead-reckoning and data-logging system built around the **ESP32-S3 N16R8**, the **MPU9250 IMU**, and a **binary SD-card logging pipeline**.
 
 The project started as a small IMU prototype and evolved into a multi-core embedded platform for high-rate sensing, safe storage, fault handling, and offline analysis.
 
@@ -9,15 +9,14 @@ The project started as a small IMU prototype and evolved into a multi-core embed
 ## Overview
 
 DeadReckoner is designed to record high-frequency inertial data without relying on live GPS.  
-The final architecture separates sensing, logging, user feedback, and recovery logic so the system can keep operating reliably in field conditions.
+The core system is a pure indoor PDR (Pedestrian Dead Reckoning) data logger. GPS is an **auxiliary extension** used exclusively for outdoor MPU9250 and filter calibration testing — it is **not** part of the core navigation system.
 
 ### Core goals
 
 - High-rate IMU acquisition with minimal blocking
-- Binary logging to SD card with deterministic frame size
+- Binary logging to SD card with deterministic frame size (47 bytes)
 - Safe shutdown and recovery during hardware faults
 - Offline analysis of quaternion and acceleration data
-- GNSS-ready data structure for future integration
 
 ---
 
@@ -30,7 +29,13 @@ The final architecture separates sensing, logging, user feedback, and recovery l
 | **OLED 0.91-inch**             | Runtime display           | Used for status, menus, and fault messages  |
 | **SD Card (3.3V DIY adapter)** | Storage                   | Finalized for stable SPI logging            |
 | **EEPROM**                     | Calibration storage       | Stores sensor bias values                   |
-| **S6MV2 GNSS**                 | Future GPS module       | GY-GPS6Mv2 validated — hot start 4s, HDOP ~16 indoors. |
+
+### Optional Extension: GPS for Outdoor Calibration
+
+| Module                         | Role                      | Notes                                       |
+| ------------------------------ | ------------------------- | ------------------------------------------- |
+| **Phone GPS (WiFi Soft-AP)**   | Outdoor calibration only  | Browser-based lat/lon entry via captive portal. Used for outdoor walk ground-truth validation. |
+| **GY-GPS6Mv2 (NEO-6M)**       | Outdoor calibration only  | Validated indoors — hot start 4s, HDOP ~16–24. Protocol TBD. |
 
 ---
 
@@ -52,7 +57,7 @@ flowchart LR
 
 - **Core 0** is dedicated to sensor acquisition and real-time fusion.
 - **Core 1** handles blocking storage work and file management.
-- A fixed-size **48-byte `LogFrame`** is used to keep the logging format stable.
+- A fixed-size **47-byte `LogFrame`** with union payload and CRC-16 integrity is used to keep the logging format stable and corruption-resistant.
 - The system uses **binary writes** instead of `Serial.print()` to avoid CPU overhead.
 - Faults are handled explicitly so the log file is closed safely before shutdown.
 
@@ -62,30 +67,37 @@ flowchart LR
 
 - Dual-core FreeRTOS architecture
 - Queue-based producer-consumer data flow
-- EEPROM-backed calibration loading
+- PSRAM-backed 50,000-frame logging queue
+- EEPROM-backed calibration loading with CRC integrity
 - Separate I2C paths for IMU and OLED
 - SD card boot scan and sequential file naming
 - MPU disconnect detection and emergency shutdown
-- MATLAB binary reader for offline plotting and validation
-- **GPX Fusion Tool** — PyQt6 desktop app for fusing Garmin eTrex 30x and Geo Tracker GPS logs using a Kalman filter + RTS smoother, with both offline (matplotlib) and online (folium) map visualization
+- Per-frame CRC-16 corruption detection
+- Dynamic SD card recovery with gap-frame injection
+- MATLAB and Python binary readers for offline analysis
+- **PDR Pipeline** — offline step detection (Weinberg K=0.425), quaternion heading, and 2D heading+drift optimization (avg 4.9% error verified)
+- **GPX Fusion Tool** — PyQt6 desktop app for fusing GPS logs during outdoor calibration walks
 
 ---
 
 ## Development Status
 
-| Subsystem                  | Status      |
-| -------------------------- | ----------- |
-| ESP32-S3 migration         | Complete    |
-| RTOS task separation       | Complete    |
-| Calibration persistence    | Complete    |
-| I2C optimization           | Complete    |
-| SD card logging            | Complete    |
-| Binary file format         | Complete    |
-| Fault detection & recovery | Complete    |
-| OLED menu and diagnostics  | Complete    |
-| Offline analysis tools     | Complete    |
-| GPS integration            | In progress |
-| **GPX Fusion Tool**        | Complete    |
+| Subsystem                       | Status                    |
+| ------------------------------- | ------------------------- |
+| ESP32-S3 migration              | Complete                  |
+| RTOS task separation            | Complete                  |
+| Calibration persistence         | Complete                  |
+| I2C optimization                | Complete                  |
+| SD card logging                 | Complete                  |
+| Binary file format (47-byte)    | Complete                  |
+| PSRAM buffering                 | Complete                  |
+| Fault detection & recovery      | Complete                  |
+| OLED menu and diagnostics       | Complete                  |
+| Offline analysis tools          | Complete                  |
+| PDR pipeline (Python)           | Complete (4.9% avg error) |
+| GPX Fusion Tool (extension)     | Complete                  |
+| Phone GPS anchoring (extension) | Complete                  |
+| NEO-6M UART GPS (extension)     | Pending (protocol TBD)    |
 
 ---
 
@@ -102,8 +114,13 @@ flowchart LR
 | Phase 6  | Complete | Binary logging framework                      |
 | Phase 7  | Complete | Fault detection, recovery, and mission safety |
 | Phase 8  | Complete | User interface and operational monitoring     |
+| Phase 8.5| Complete | Memory optimization and PSRAM scalability     |
 | Phase 9  | Complete | Data analysis and validation toolchain        |
-| Phase 10 | Planned  | GPS integration and time synchronization      |
+| Phase 10 | Complete | Offline PDR pipeline (Python)                 |
+| Phase 11 | Complete | GPS module validation (extension)             |
+| Phase 12 | Complete | GPX Fusion Tool (extension)                   |
+| Phase 13 | Complete | WiFi GPS anchoring (extension)                |
+| Phase 15 | Complete | PDR refinement and path shape fix             |
 
 ---
 
@@ -114,10 +131,11 @@ The system was tested through several hardware and motion experiments:
 - Static drift measurement
 - Dynamic return-to-zero testing
 - Vibration rejection testing
-- SD card write-speed benchmarking
+- SD card write-speed benchmarking (797 KB/s at 20 MHz SPI)
 - Long-duration binary log validation
+- PDR accuracy verification (avg 4.9% error, 2.8% total over 5 walk segments)
 
-Offline inspection is performed through MATLAB scripts that decode the 48-byte binary frames and plot orientation and acceleration trends.
+Offline inspection is performed through MATLAB and Python scripts that decode the 47-byte binary frames and plot orientation, acceleration, and reconstructed trajectories.
 
 ---
 
@@ -145,9 +163,9 @@ Test- Sanity Check/
 
 ---
 
-## GPX Fusion Tool
+## GPX Fusion Tool (Extension)
 
-A PyQt6 desktop application at `Code_deadreckoner/Python/GPXFusion/fusion_ui.py` that fuses GPS logs from a **Garmin eTrex 30x** and the **Geo Tracker** Android app into a single high-accuracy path.
+A PyQt6 desktop application at `Code_deadreckoner/Python/GPXFusion/fusion_ui.py` that fuses GPS logs from a **Garmin eTrex 30x** and the **Geo Tracker** Android app into a single high-accuracy path. This tool supports **outdoor calibration walks** — it is not part of the core indoor PDR system.
 
 **Fusion engine:** Constant-velocity Kalman filter in local meters (equirectangular projection) with per-device noise tuning and an optional Rauch–Tung–Striebel backward smoother.
 
@@ -166,9 +184,10 @@ python fusion_ui.py
 
 ## Related Files
 
-- `Report.md` — full architecture and progress report
-- `Progress.md` — engineering timeline extracted from commit history
-- MATLAB binary reader scripts for offline log visualization
+- `Report/Report.md` — full architecture and progress report
+- `Report/Progress.md` — engineering timeline extracted from commit history
+- `Collectd Data/` — recorded binary logs and GPS ground-truth data
+- MATLAB and Python binary readers for offline log visualization and PDR analysis
 
 ---
 
