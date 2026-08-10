@@ -2,12 +2,14 @@
 
 **Author:** Alireza Sotoodeh  
 **Project:** DeadReckoner  
-**Version:** 2.2.0  
-**Date:** June 21, 2026  
+**Version:** 2.3.0  
+**Date:** August 10, 2026  
 
 > **Board Revision:** ESP32-S3 N16R8 (16MB Flash + 8MB Octal PSRAM)
 
 > **Project Goal:** A wearable IMU data logger that records 100 Hz 9-axis inertial data (quaternions, linear acceleration, temperature) to SD card with per-frame CRC-16 integrity. The logged data is post-processed offline on a PC using Pedestrian Dead Reckoning (PDR) algorithms — step detection, heading from Madgwick/Mahony-fused quaternions, and Weinberg step length estimation — to reconstruct the traveled path with minimal drift, without GPS.  
+> 
+> **GPS Role:** GPS is an **auxiliary extension** used exclusively for outdoor MPU9250 and filter calibration testing. It is **not** part of the core indoor PDR system. The WiFi Soft-AP phone pairing and UART NEO-6M module are optional add-ons for outdoor ground-truth validation only.
 
 ---
 
@@ -47,7 +49,7 @@ The final architecture prioritizes real-time sensing, reliable logging, and offl
 | GY-25          | Tilt sensor       | Used for comparison and sensor-validation experiments. Typically incorporates an MPU6050 with onboard MCU for angle calculation.                              |
 | HW-123         | Generic module    | Included in early hardware exploration and verification.                                                                                                      |
 | BMP280         | Barometric sensor | Validated — diagnostic + 5-min drift test passed. σT = 0.07 °C, σP = 0.08 hPa, zero drift. Ready for ESP32-S3 integration.                                    |
-| S6MV2 (GPS)    | GNSS module       | GY-GPS6Mv2 validated indoors at 3.3V — hot start 4s, HDOP ~16–24, position σ ±2–3 m, altitude matches city reference. Integration planned after PDR baseline. |
+| S6MV2 (GPS)    | GNSS module (extension) | GY-GPS6Mv2 validated indoors at 3.3V — hot start 4s, HDOP ~16–24, position σ ±2–3 m. **Optional extension** for outdoor MPU9250/filter calibration testing only — not a core PDR component. |
 | OLED 0.91-inch | Status display    | Used for runtime feedback, menus, and error reporting. I2C monochrome 128x32 display, intentionally isolated on a secondary bus.                              |
 
 ---
@@ -67,7 +69,7 @@ Each major stage introduced one architectural layer: sensing, fusion, storage, v
 | Fault handling         | Safe shutdown and recovery on sensor failure.         |
 | Validation tools       | MATLAB-based analysis and result inspection.          |
 | PSRAM buffering        | Massive 50,000-frame queue for zero-loss acquisition. |
-| GPS preparation        | GNSS-ready data structure for future fusion.          |
+| GPS preparation        | GNSS-ready data structure for optional outdoor calibration extension. |
 
 ---
 
@@ -287,9 +289,9 @@ This phase added a massive PSRAM-backed queue to eliminate frame loss during SD 
 - [x] **64-bit Overflow Protection:** Safe arithmetic for SD cards larger than 32 GB.
 - [x] **openNext Directory Iteration:** Replace sequential exists() probing with high-speed SdFat directory iteration (10-100x faster file scanning).
 
-#### Phase 11: Phone GPS Pairing via WiFi AP [COMPLETED]
+#### Phase 11: Extension — WiFi GPS Anchoring for Outdoor Calibration [COMPLETED]
 
-Phone-based GPS start/end anchoring via a WiFi soft-AP and captive portal. Browser-based manual lat/lon entry (Geolocation API requires HTTPS, so manual entry is used instead).
+Phone-based GPS start/end anchoring via a WiFi soft-AP and captive portal. Browser-based manual lat/lon entry (Geolocation API requires HTTPS, so manual entry is used instead). This is an **auxiliary extension** for outdoor calibration walks — the core system is indoor PDR without GPS.
 
 - [x] **WiFi AP with Captive Portal:** ESP32 acts as WiFi access point (SSID: "DeadReckoner-S3", password: "deadreckoner") with DNS-based captive portal for automatic phone browser redirect.
 - [x] **Phone GPS Data Entry:** Embedded HTML form with manual lat/lon/alt/time fields. JavaScript sends JSON via POST.
@@ -299,11 +301,11 @@ Phone-based GPS start/end anchoring via a WiFi soft-AP and captive portal. Brows
 - [x] **SdFat/FS.h File Conflict Resolution:** `#define File SdFat_File_` macro rename before WebServer include avoids C++ name collision.
 - [x] **GPS Bug Fixes:** JSON `parseFloat()` added (JS was sending quoted strings → lat/lon always 0). `writeGPSFrame()` was ignoring alt/time params — fixed. Time field changed from UTC readonly to editable local time.
 
-**Remaining:** UART-based NEO-6M GPS module integration for autonomous GPS (without a phone).
+**Remaining:** UART-based NEO-6M GPS module integration for outdoor calibration walks (optional extension, without a phone).
 
-#### Phase 12: GPX Fusion Tool [COMPLETED]
+#### Phase 12: GPX Fusion Tool (Extension) [COMPLETED]
 
-A PyQt6 desktop application for fusing GPS logs from Garmin eTrex 30x and Geo Tracker Android app into a single accurate track using a Kalman filter with RTS smoothing.
+A PyQt6 desktop application for fusing GPS logs from Garmin eTrex 30x and Geo Tracker Android app into a single accurate track using a Kalman filter with RTS smoothing. This tool supports outdoor calibration walk analysis — it is **not** part of the core indoor PDR system.
 
 - [x] **GPX Parser:** Read standard GPX + Geo Tracker `geotracker:meta` extensions (accuracy `c`, speed `s`). Source detection by filename.
 - [x] **Kalman Filter Engine:** Constant-velocity motion model in local meters (equirectangular projection). Per-device noise (Geo Tracker uses reported `c` accuracy, Garmin defaults to 6 m).
@@ -531,7 +533,7 @@ Real-time double integration was rejected because MEMS bias would quickly explod
 6. **Batch optimization** — Apply ZUPT (Zero Velocity Update) with a Rauch–Tung–Striebel smoother over the entire recorded walk, using bidirectional smoothing to eliminate the quadratic drift of double integration.
 7. **Path reconstruction** — Integrate step vectors to produce a 2D trajectory plot.
 
-This offline approach achieves sub-3% drift over multi-hour missions without requiring GPS or any training data. Future extensions include BMP280 barometric altitude for 3D tracking and GPS correction for absolute position anchoring.
+This offline approach achieves sub-3% drift over multi-hour missions without requiring GPS or any training data. GPS serves only as an external ground-truth reference during outdoor calibration walks. Future extensions include BMP280 barometric altitude for 3D tracking.
 
 ### 10.8 PDR Accuracy Verification (v2.2+)
 
@@ -834,7 +836,7 @@ It shows how the architecture evolved from the earliest prototype to the current
 
 ## 14. Current Status
 
-The system is a wearable Pedestrian Dead Reckoning data logger assembled on perforated fiber board with stable sensing, logging, and analysis layers. The PDR pipeline has been verified against GPS (avg 4.9% error, 2.8% total). Phone-based GPS anchoring via WiFi AP is implemented for absolute position reference. Path shape mismatch has been diagnosed (Madgwick magnetometer yaw lock) and fixed with a switch to the Mahony filter (pending re-collection and verification).
+The system is a wearable Pedestrian Dead Reckoning data logger assembled on perforated fiber board with stable sensing, logging, and analysis layers. The PDR pipeline has been verified against GPS (avg 4.9% error, 2.8% total). GPS serves as an auxiliary extension for outdoor calibration walks only — it is not part of the core indoor PDR system. Path shape mismatch has been diagnosed (Madgwick magnetometer yaw lock) and fixed with a switch to the Mahony filter (pending re-collection and verification).
 
 | Subsystem                                 | Status                           |
 | ----------------------------------------- | -------------------------------- |
@@ -852,22 +854,22 @@ The system is a wearable Pedestrian Dead Reckoning data logger assembled on perf
 | Offline PDR pipeline (Python)             | Complete                         |
 | PDR vs GPS accuracy verified              | Complete (4.9% avg)              |
 | Path shape root cause diagnosed           | Complete (Madgwick → Mahony)     |
-| Phone GPS pairing (WiFi AP)               | Complete                         |
+| Phone GPS anchoring (WiFi AP)               | Complete (extension for outdoor calibration)         |
 | BMP280 sensor validation                  | Complete                         |
-| GY-GPS6Mv2 GPS validation                 | Complete                         |
-| **GPX Fusion Tool**                       | Complete                         |
+| GY-GPS6Mv2 GPS validation                 | Complete (extension for outdoor calibration)         |
+| **GPX Fusion Tool**                       | Complete (extension for outdoor calibration)         |
 | **v2.1 Bug Fixes (12 issues)**            | Complete                         |
 | **v2.2 TAG Button Fix**                   | Complete                         |
-| **v2.2 GPS Bug Fixes**                    | Complete                         |
+| **v2.2 GPS Bug Fixes**                    | Complete (extension)                    |
 | **Shape fix: MADGWICK→MAHONY (firmware)** | Complete (pending re-collection) |
-| NEO-6M UART GPS integration               | Pending                          |
+| NEO-6M UART GPS integration               | Pending (extension for outdoor calibration) |
 
 ---
 
 ## 15. Conclusion
 
 DeadReckoner evolved from a small IMU prototype into a wearable Pedestrian Dead Reckoning (PDR) data logger.  
-The system features a dual-core FreeRTOS design with PSRAM-backed 50,000-frame queue, dynamic SD recovery with gap-frame injection, per-frame CRC-16 integrity checking, and an interactive OLED menu system. Data is recorded at 100 Hz to SD card in 47-byte binary frames. The offline Python pipeline reconstructs the traveled path using step detection (Weinberg K=0.425), quaternion heading, and 2D heading+drift optimization.
+The system features a dual-core FreeRTOS design with PSRAM-backed 50,000-frame queue, dynamic SD recovery with gap-frame injection, per-frame CRC-16 integrity checking, and an interactive OLED menu system. Data is recorded at 100 Hz to SD card in 47-byte binary frames. The offline Python pipeline reconstructs the traveled path using step detection (Weinberg K=0.425), quaternion heading, and 2D heading+drift optimization. GPS is an auxiliary extension used exclusively for outdoor MPU9250 and filter calibration testing.
 
 **Key v2.2+ achievements:**
 
@@ -877,8 +879,9 @@ The system features a dual-core FreeRTOS design with PSRAM-backed 50,000-frame q
 - **CRC-16 verified** — 0% failure across all ~568K frames (poly 0xA001, init 0xFFFF, no final XOR)
 - **Path shape root cause diagnosed** — Madgwick filter locks yaw to magnetic North via magnetometer in gradient descent. **Fixed by switching to Mahony filter** (pure gyro yaw)
 - **`--gps-guided` mode** proved PDR step lengths are correct — shape avg drops from 156m → 3m when using GPS heading
-- **Phone GPS anchoring via WiFi AP** — start/end GPS frames (0xBB/0xCC) with lat, lon, alt, and epoch timestamp via browser-based manual entry
-- **GPS bug fixes** — JSON string-vs-number, writeGPSFrame ignoring params, time field UTC/readonly, SdFat/FS.h File conflict resolved
+- **Phone GPS anchoring via WiFi AP** (extension) — start/end GPS frames (0xBB/0xCC) with lat, lon, alt, and epoch timestamp via browser-based manual entry. Used for outdoor calibration walks only.
+- **GPS bug fixes** (extension) — JSON string-vs-number, writeGPSFrame ignoring params, time field UTC/readonly, SdFat/FS.h File conflict resolved
 - **TAG button counter** — uint8_t counter ensures no lost rapid presses
 
-**Pending:** Re-collect 5 walk segments with Mahony filter firmware and verify path shape improvement via `compare_paths.py --batch --gps-guided`.
+**Pending:** Re-collect 5 walk segments with Mahony filter firmware and verify path shape improvement via `compare_paths.py --batch --gps-guided`.  
+**Pending (extension):** UART NEO-6M GPS module integration for outdoor calibration walks — exact protocol to be determined.

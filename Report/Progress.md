@@ -251,7 +251,7 @@ This phase focused on improving memory efficiency, scalability, and long-duratio
 - [x] Packed Binary Structures: Reduce memory footprint and storage bandwidth requirements.
 - [x] PSRAM Buffer Integration: Utilize external PSRAM for large-scale telemetry buffering.
 - [x] Concurrent Data Protection: Introduce synchronization mechanisms for shared counters and event tagging.
-- [x] Scalable Logging Foundation: Prepare the logging framework for future GPS integration.
+- [x] Scalable Logging Foundation: Prepare the logging framework for optional GPS extension (outdoor calibration only).
 
 ---
 
@@ -281,12 +281,12 @@ Tools were developed to analyze recorded datasets and verify system performance.
 
 ---
 
-#### Phase 10: Offline PDR Pipeline & GPS-Aided Verification [COMPLETED]
+#### Phase 10: Offline PDR Pipeline & Verification [COMPLETED]
 
-The Python-based Pedestrian Dead Reckoning pipeline was implemented in `compare_paths.py` and verified against ground-truth GPS (Garmin eTrex 30x + Geo Tracker Android app).
+The Python-based Pedestrian Dead Reckoning pipeline was implemented in `compare_paths.py` and verified against ground-truth GPS (Garmin eTrex 30x + Geo Tracker Android app). GPS serves only as an external ground-truth reference for offline accuracy validation — it is **not** part of the core dead-reckoning system.
 
-- [x] **GPS Fields Reserved in LogFrame:** Prepare the logging structure for GNSS data.
-- [x] **GPS Payload Reservation:** Reserve binary payload space for future GNSS records through a shared LogFrame union architecture.
+- [x] **GPS Fields Reserved in LogFrame:** Prepare the logging structure for auxiliary GNSS data (outdoor calibration extension only).
+- [x] **GPS Payload Reservation:** Reserve binary payload space for auxiliary GNSS records through a shared LogFrame union architecture.
 - [x] **Future-Proof Log Structure:** Design the logging format to support mixed IMU and GPS event packets without breaking compatibility.
 - [x] **Binary Parser & Verification:** Parse 45-byte/47-byte BIN files, validate CRC-16, extract timestamps + quaternions + acceleration.
 - [x] **World-Frame Acceleration Rotation:** Transform body-frame acceleration using stored quaternions (for step detection analysis).
@@ -301,13 +301,13 @@ The Python-based Pedestrian Dead Reckoning pipeline was implemented in `compare_
 - [x] **`--gps-guided` mode:** Substitutes GPS heading for PDR heading to prove step length accuracy (shape 156m → 3m).
 - [x] **Path shape diagnosis:** Madgwick filter magnetometer yaw lock → Mahony filter fix.
 
-**Verification Results:** 5 walk segments tested, avg error **4.9%** (best 4.0%, worst 7.8%, total 2.8%) after tune_pdr.py bug fix and K=0.425 calibration. IMU-only PDR is sufficient — GPS and BMP280 are not required for dead reckoning.
+**Verification Results:** 5 walk segments tested, avg error **4.9%** (best 4.0%, worst 7.8%, total 2.8%) after tune_pdr.py bug fix and K=0.425 calibration. IMU-only PDR is sufficient — GPS and BMP280 are not required for dead reckoning. GPS is used exclusively as external ground truth for accuracy validation, not as a navigation input.
 
 ---
 
-#### Phase 11: GPS Module Validation (GY-GPS6Mv2 / NEO-6M) [COMPLETED]
+#### Phase 11: GPS Module Validation — Outdoor Calibration Extension [COMPLETED]
 
-Hardware diagnostic and validation tool set for the GY-GPS6Mv2 (NEO-6M) GPS module on Arduino Uno. Three sketches developed and tested at `Test- Sanity Check/GY-GPS6Mv2/`.
+Hardware diagnostic and validation tool set for the GY-GPS6Mv2 (NEO-6M) GPS module on Arduino Uno. This module is an **optional extension** for outdoor MPU9250 and filter calibration testing — not a core component of the indoor PDR system. Three sketches developed and tested at `Test- Sanity Check/GY-GPS6Mv2/`.
 
 - [x] **GY-GPS6Mv2.ino — Live Diagnostic Monitor:** Real-time display of fix quality (2D/3D), satellite count, HDOP, position, altitude, speed, UTC time. Includes: time-to-first-fix measurement, 10-second heartbeat when no fix, 5-minute summary statistics (min/avg/max HDOP and satellites, fix uptime %). Non-blocking error detection — prints wiring error once then continues reading. All `F()` macros for Uno SRAM.
   *Results: cold start TTFF 778 s (indoor at 3.3V under roof — worst case). Hot start 4 s. HDOP 18–81, satellites avg 6.9, fix uptime 60–95%.*
@@ -328,9 +328,9 @@ Offline comparison tool that validates the PDR pipeline against ground-truth GPS
 
 ---
 
-#### Phase 13: WiFi GPS Pairing (Phone-Based) [COMPLETED]
+#### Phase 13: Extension — WiFi GPS Anchoring for Outdoor Calibration [COMPLETED]
 
-Phone-based GPS start/end anchoring via ESP32 WiFi soft-AP and captive portal. Enables absolute position reference for each log file.
+Phone-based GPS start/end anchoring via ESP32 WiFi soft-AP and captive portal. Enables absolute position reference for each log file during **outdoor calibration walks only**. This is an auxiliary extension — the core system is indoor PDR without GPS.
 
 - [x] **WiFi AP + DNS Captive Portal:** ESP32 creates "DeadReckoner-S3" AP with password "deadreckoner". DNS redirects browsing phones to embedded HTML form.
 - [x] **Phone GPS Data Entry:** Browser-based form with lat, lon, alt (optional), and date/time fields. JavaScript parses local time to Unix epoch, sends JSON via POST to `/gps`.
@@ -341,13 +341,13 @@ Phone-based GPS start/end anchoring via ESP32 WiFi soft-AP and captive portal. E
 - [x] **SdFat/FS.h Conflict Resolved:** `#define File SdFat_File_` macro rename before WebServer include prevents C++ name collision with ESP32 FS.h.
 - [x] **OLED Sleep Prevention:** Auto-sleep skipped during GPS WAITING, PROMPT_START, PROMPT_END, CONFIRM_EXIT states.
 - [x] **GPS Bug Fixes:** JSON string-vs-number fix (`parseFloat()` in JS), `writeGPSFrame()` now correctly stores alt and epoch, time field changed from UTC readonly to editable local time.
-- [ ] **UART NEO-6M GPS Module:** Direct GPS module integration (without phone) — pending extension.
+- [ ] **UART NEO-6M GPS Module:** Direct GPS module integration (without phone) for outdoor calibration walks — pending extension.
 
 ---
 
 #### Phase 15: PDR Refinement & Path Shape Fix [COMPLETED]
 
-Refined the Python analysis pipeline and diagnosed/fixed the path shape mismatch.
+Refined the Python analysis pipeline and diagnosed/fixed the path shape mismatch. GPS data (from outdoor calibration walks) served as external ground-truth reference only.
 
 - [x] **`tune_pdr.py` bug fixed:** `compute_gps_distance` was receiving local xy (meters) instead of lat/lon (degrees), causing 100% error for all K values.
 - [x] **Optimal Weinberg K found:** K=0.425, height=1.5, dist=25 — avg error 4.9%, total 2.8%.
